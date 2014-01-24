@@ -8,20 +8,21 @@ func NewNROM(romf *ROMFile) *NROM {
 	return &NROM{ROMFile: romf}
 }
 
-func (nrom *NROM) Mappings() []uint16 {
-	mappings := []uint16{}
+func (nrom *NROM) Mappings() (fetch, store []uint16) {
+	fetch = []uint16{}
+	store = []uint16{}
 
 	// PRG bank 1
 	for i := uint32(0x8000); i <= 0xbfff; i++ {
-		mappings = append(mappings, uint16(i))
+		fetch = append(fetch, uint16(i))
 	}
 
 	// PRG bank 2
 	for i := uint32(0xc000); i <= 0xffff; i++ {
-		mappings = append(mappings, uint16(i))
+		fetch = append(fetch, uint16(i))
 	}
 
-	return mappings
+	return
 }
 
 func (nrom *NROM) Reset() {

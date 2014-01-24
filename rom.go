@@ -39,6 +39,7 @@ type ROMFile struct {
 
 type ROM interface {
 	rp2ago3.MappableMemory
+	Region() Region
 }
 
 func NewROM(filename string) (rom ROM, err error) {
@@ -172,4 +173,8 @@ func NewROMFile(buf []byte) (romf *ROMFile, err error) {
 	}
 
 	return
+}
+
+func (romf *ROMFile) Region() Region {
+	return romf.region
 }
