@@ -1,9 +1,13 @@
 package nintengo
 
+import (
+// "fmt"
+)
+
 type Button uint8
 
 const (
-	A Button = iota
+	A = iota
 	B
 	Select
 	Start
@@ -11,16 +15,28 @@ const (
 	Down
 	Left
 	Right
+	One
 )
 
+type Controller struct {
+	strobe  Button
+	buttons uint8
+}
+
 type Controllers struct {
-	strobe      uint8
-	controller1 [8]uint8
-	controller2 [8]uint8
+	last        uint8
+	controllers [2]Controller
+}
+
+func NewControllers() *Controllers {
+	return &Controllers{}
 }
 
 func (ctrls *Controllers) Reset() {
-
+	for i := range ctrls.controllers {
+		ctrls.controllers[i].strobe = A
+		ctrls.controllers[i].buttons = 0
+	}
 }
 
 func (ctrls *Controllers) Mappings() (fetch, store []uint16) {
@@ -32,9 +48,19 @@ func (ctrls *Controllers) Mappings() (fetch, store []uint16) {
 func (ctrls *Controllers) Fetch(address uint16) (value uint8) {
 	switch address {
 	case 0x4016:
-		value = ctrls.controller1[ctrls.strobe]
+		fallthrough
 	case 0x4017:
-		value = ctrls.controller2[ctrls.strobe]
+		index := address - 0x4016
+		ctrl := &ctrls.controllers[index]
+
+		if ctrl.strobe == One {
+			value = 1
+		} else {
+			value = (ctrl.buttons >> ctrl.strobe) & 0x01
+			ctrl.strobe++
+		}
+
+		value |= 0x40
 	}
 
 	return
@@ -43,8 +69,14 @@ func (ctrls *Controllers) Fetch(address uint16) (value uint8) {
 func (ctrls *Controllers) Store(address uint16, value uint8) (oldValue uint8) {
 	switch address {
 	case 0x4016:
-		oldValue = ctrls.strobe
-		ctrls.strobe = value & 0x01
+		oldValue = ctrls.last
+		ctrls.last = value & 0x01
+
+		if oldValue == 1 && value == 0 {
+			for i := range ctrls.controllers {
+				ctrls.controllers[i].strobe = A
+			}
+		}
 	}
 
 	return
