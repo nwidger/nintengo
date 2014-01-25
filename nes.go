@@ -13,11 +13,12 @@ const NTSC_PPU_CLOCK_DIVISOR uint64 = 4
 const PAL_PPU_CLOCK_DIVISOR uint64 = 5
 
 type NES struct {
-	cpu    *rp2ago3.RP2A03
-	ppu    *rp2cgo2.RP2C02
-	memory *rp2ago3.MappedMemory
-	clock  m65go2.Clocker
-	rom    ROM
+	cpu         *rp2ago3.RP2A03
+	ppu         *rp2cgo2.RP2C02
+	memory      *rp2ago3.MappedMemory
+	controllers *Controllers
+	clock       m65go2.Clocker
+	rom         ROM
 }
 
 func NewNES(filename string) (nes *NES, err error) {
@@ -47,8 +48,11 @@ func NewNES(filename string) (nes *NES, err error) {
 	cpu := rp2ago3.NewRP2A03(mem, clock, cpuDivisor)
 	ppu := rp2cgo2.NewRP2C02(clock, ppuDivisor)
 
+	ctrls := NewControllers()
+
 	mem.AddMappings(ppu)
 	mem.AddMappings(rom)
+	mem.AddMappings(ctrls)
 
 	nes = &NES{cpu: cpu, ppu: ppu, memory: mem, clock: clock, rom: rom}
 	return
