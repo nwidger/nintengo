@@ -1,7 +1,7 @@
 package nintengo
 
 import (
-// "fmt"
+	"github.com/nwidger/rp2ago3"
 )
 
 type Button uint8
@@ -39,9 +39,13 @@ func (ctrls *Controllers) Reset() {
 	}
 }
 
-func (ctrls *Controllers) Mappings() (fetch, store []uint16) {
-	fetch = []uint16{0x4016, 0x4017}
-	store = []uint16{0x4016}
+func (ctrls *Controllers) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
+	switch which {
+	case rp2ago3.CPU:
+		fetch = []uint16{0x4016, 0x4017}
+		store = []uint16{0x4016}
+	}
+
 	return
 }
 

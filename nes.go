@@ -15,7 +15,6 @@ const PAL_PPU_CLOCK_DIVISOR uint64 = 5
 type NES struct {
 	cpu         *rp2ago3.RP2A03
 	ppu         *rp2cgo2.RP2C02
-	memory      *rp2ago3.MappedMemory
 	controllers *Controllers
 	clock       m65go2.Clocker
 	rom         ROM
@@ -44,24 +43,23 @@ func NewNES(filename string) (nes *NES, err error) {
 	}
 
 	clock := m65go2.NewClock(rate)
-	mem := rp2ago3.NewMappedMemory(m65go2.NewBasicMemory())
-	cpu := rp2ago3.NewRP2A03(mem, clock, cpuDivisor)
+	cpu := rp2ago3.NewRP2A03(clock, cpuDivisor)
 	ppu := rp2cgo2.NewRP2C02(clock, ppuDivisor)
-
 	ctrls := NewControllers()
 
-	mem.AddMappings(ppu)
-	mem.AddMappings(rom)
-	mem.AddMappings(ctrls)
+	cpu.Memory.AddMappings(ppu, rp2ago3.CPU)
+	cpu.Memory.AddMappings(rom, rp2ago3.CPU)
+	cpu.Memory.AddMappings(ctrls, rp2ago3.CPU)
 
-	nes = &NES{cpu: cpu, ppu: ppu, memory: mem, clock: clock, rom: rom}
+	ppu.Memory.AddMappings(rom, rp2ago3.PPU)
+
+	nes = &NES{cpu: cpu, ppu: ppu, clock: clock, rom: rom}
 	return
 }
 
 func (nes *NES) Reset() {
 	nes.cpu.Reset()
 	nes.ppu.Reset()
-	nes.memory.Reset()
 }
 
 func (nes *NES) Run() (err error) {

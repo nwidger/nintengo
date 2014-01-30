@@ -12,6 +12,7 @@ type Mirroring uint8
 const (
 	Horizontal Mirroring = iota
 	Vertical
+	FourScreen
 )
 
 type Region uint8
@@ -102,6 +103,7 @@ func NewROMFile(buf []byte) (romf *ROMFile, err error) {
 						romf.trainer = true
 					case 3:
 						romf.fourScreen = true
+						romf.mirroring = FourScreen
 					}
 				}
 			}
