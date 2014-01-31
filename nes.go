@@ -44,7 +44,7 @@ func NewNES(filename string) (nes *NES, err error) {
 
 	clock := m65go2.NewClock(rate)
 	cpu := rp2ago3.NewRP2A03(clock, cpuDivisor)
-	ppu := rp2cgo2.NewRP2C02(clock, ppuDivisor)
+	ppu := rp2cgo2.NewRP2C02(clock, ppuDivisor, rom.Mirroring())
 	ctrls := NewControllers()
 
 	cpu.Memory.AddMappings(ppu, rp2ago3.CPU)

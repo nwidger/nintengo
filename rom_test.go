@@ -1,6 +1,7 @@
 package nintengo
 
 import (
+	"github.com/nwidger/rp2cgo2"
 	"testing"
 )
 
@@ -241,7 +242,7 @@ func TestMirroring(t *testing.T) {
 		return
 	}
 
-	if rom.mirroring != Horizontal {
+	if rom.mirroring != rp2cgo2.Horizontal {
 		t.Error("Mirroring is not Horizontal")
 	}
 
@@ -259,7 +260,7 @@ func TestMirroring(t *testing.T) {
 		return
 	}
 
-	if rom.mirroring != Vertical {
+	if rom.mirroring != rp2cgo2.Vertical {
 		t.Error("Mirroring is not Vertical")
 	}
 

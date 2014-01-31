@@ -4,15 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nwidger/rp2ago3"
+	"github.com/nwidger/rp2cgo2"
 	"io/ioutil"
-)
-
-type Mirroring uint8
-
-const (
-	Horizontal Mirroring = iota
-	Vertical
-	FourScreen
 )
 
 type Region uint8
@@ -25,7 +18,7 @@ const (
 type ROMFile struct {
 	prgBanks    uint8
 	chrBanks    uint8
-	mirroring   Mirroring
+	mirroring   rp2cgo2.Mirroring
 	battery     bool
 	trainer     bool
 	fourScreen  bool
@@ -41,6 +34,7 @@ type ROMFile struct {
 type ROM interface {
 	rp2ago3.MappableMemory
 	Region() Region
+	Mirroring() rp2cgo2.Mirroring
 }
 
 func NewROM(filename string) (rom ROM, err error) {
@@ -96,14 +90,14 @@ func NewROMFile(buf []byte) (romf *ROMFile, err error) {
 				if byte&(0x01<<uint8(j)) != 0 {
 					switch j {
 					case 0:
-						romf.mirroring = Vertical
+						romf.mirroring = rp2cgo2.Vertical
 					case 1:
 						romf.battery = true
 					case 2:
 						romf.trainer = true
 					case 3:
 						romf.fourScreen = true
-						romf.mirroring = FourScreen
+						romf.mirroring = rp2cgo2.FourScreen
 					}
 				}
 			}
@@ -179,4 +173,8 @@ func NewROMFile(buf []byte) (romf *ROMFile, err error) {
 
 func (romf *ROMFile) Region() Region {
 	return romf.region
+}
+
+func (romf *ROMFile) Mirroring() rp2cgo2.Mirroring {
+	return romf.mirroring
 }
