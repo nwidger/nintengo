@@ -1,4 +1,4 @@
-package nintengo
+package nes
 
 import (
 	"errors"
@@ -27,7 +27,7 @@ func NewNES(filename string) (nes *NES, err error) {
 	rom, err := NewROM(filename)
 
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Error loading ROM: %v: %v", filename, err))
+		err = errors.New(fmt.Sprintf("Error loading ROM: %v", err))
 		return
 	}
 
@@ -44,7 +44,9 @@ func NewNES(filename string) (nes *NES, err error) {
 
 	clock := m65go2.NewClock(rate)
 	cpu := rp2ago3.NewRP2A03(clock, cpuDivisor)
-	ppu := rp2cgo2.NewRP2C02(clock, ppuDivisor, rom.Mirroring())
+	cpu.EnableDecode()
+
+	ppu := rp2cgo2.NewRP2C02(clock, ppuDivisor, cpu.InterruptLine(m65go2.Nmi), rom.Mirroring())
 	ctrls := NewControllers()
 
 	cpu.Memory.AddMappings(ppu, rp2ago3.CPU)
@@ -66,13 +68,11 @@ func (nes *NES) Run() (err error) {
 	nes.Reset()
 	nes.clock.Start()
 
-	for {
-		err = nes.cpu.Run()
+	go nes.cpu.Run()
+	go nes.ppu.Run()
 
-		if err != nil {
-			fmt.Printf("%v\n", err)
-			break
-		}
+	for {
+		time.Sleep(5 * time.Second)
 	}
 
 	return

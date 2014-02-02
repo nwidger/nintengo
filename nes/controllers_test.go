@@ -1,4 +1,4 @@
-package nintengo
+package nes
 
 import (
 	"testing"

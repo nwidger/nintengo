@@ -1,4 +1,4 @@
-package nintengo
+package nes
 
 import (
 	"testing"
@@ -16,5 +16,6 @@ func TestMario(t *testing.T) {
 	nes.cpu.EnableDecode()
 	nes.Reset()
 	nes.Run()
+
 	return
 }
