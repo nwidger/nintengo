@@ -61,7 +61,7 @@ func (nrom *NROM) Fetch(address uint16) (value uint8) {
 		// CHR bank 2
 		case address >= 0x1000 && address <= 0x1fff:
 			if nrom.ROMFile.chrBanks > 0 {
-				value = nrom.ROMFile.vromBanks[nrom.ROMFile.prgBanks-1][index]
+				value = nrom.ROMFile.vromBanks[nrom.ROMFile.chrBanks-1][index]
 			}
 		}
 	// CPU only
@@ -99,8 +99,8 @@ func (nrom *NROM) Store(address uint16, value uint8) (oldValue uint8) {
 	// CHR bank 2
 	case address >= 0x1000 && address <= 0x1fff:
 		if nrom.ROMFile.chrBanks > 0 {
-			oldValue = nrom.ROMFile.vromBanks[nrom.ROMFile.prgBanks-1][index]
-			nrom.ROMFile.vromBanks[nrom.ROMFile.prgBanks-1][index] = value
+			oldValue = nrom.ROMFile.vromBanks[nrom.ROMFile.chrBanks-1][index]
+			nrom.ROMFile.vromBanks[nrom.ROMFile.chrBanks-1][index] = value
 		}
 	}
 
