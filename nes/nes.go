@@ -9,9 +9,6 @@ import (
 	"time"
 )
 
-const NTSC_PPU_CLOCK_DIVISOR uint64 = 4
-const PAL_PPU_CLOCK_DIVISOR uint64 = 5
-
 type NES struct {
 	cpu         *rp2ago3.RP2A03
 	ppu         *rp2cgo2.RP2C02
@@ -22,7 +19,7 @@ type NES struct {
 
 func NewNES(filename string) (nes *NES, err error) {
 	var rate time.Duration
-	var cpuDivisor, ppuDivisor uint64
+	var cpuDivisor uint64
 
 	rom, err := NewROM(filename)
 
@@ -35,18 +32,14 @@ func NewNES(filename string) (nes *NES, err error) {
 	case NTSC:
 		rate = rp2ago3.NTSC_CLOCK_RATE
 		cpuDivisor = rp2ago3.NTSC_CPU_CLOCK_DIVISOR
-		ppuDivisor = NTSC_PPU_CLOCK_DIVISOR
 	case PAL:
 		rate = rp2ago3.PAL_CLOCK_RATE
 		cpuDivisor = rp2ago3.PAL_CPU_CLOCK_DIVISOR
-		ppuDivisor = PAL_PPU_CLOCK_DIVISOR
 	}
 
 	clock := m65go2.NewClock(rate)
 	cpu := rp2ago3.NewRP2A03(clock, cpuDivisor)
-	cpu.EnableDecode()
-
-	ppu := rp2cgo2.NewRP2C02(clock, ppuDivisor, cpu.InterruptLine(m65go2.Nmi), rom.Mirroring())
+	ppu := rp2cgo2.NewRP2C02(clock, cpu.InterruptLine(m65go2.Nmi), rom.Mirroring())
 	ctrls := NewControllers()
 
 	cpu.Memory.AddMappings(ppu, rp2ago3.CPU)
@@ -72,7 +65,7 @@ func (nes *NES) Run() (err error) {
 	go nes.ppu.Run()
 
 	for {
-		time.Sleep(5 * time.Second)
+		time.Sleep(9999 * time.Second)
 	}
 
 	return
