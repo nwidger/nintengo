@@ -2,20 +2,23 @@ package nes
 
 import (
 	"testing"
+	"time"
 )
 
 func TestMario(t *testing.T) {
 	t.Skip()
 
-	nes, err := NewNES("/Users/nwidger/Desktop/Super Mario Bros.nes")
+	nes, err := NewNES("Super Mario Bros.nes")
 
 	if err != nil {
 		t.Errorf("Error loading valid Rom: %v\n", err)
 	}
 
-	nes.cpu.EnableDecode()
+	// nes.cpu.EnableDecode()
 	nes.Reset()
-	nes.Run()
+	go nes.Run()
+
+	<-time.After(time.Second * 30)
 
 	return
 }

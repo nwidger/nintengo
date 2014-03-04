@@ -3,10 +3,11 @@ package nes
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/nwidger/m65go2"
 	"github.com/nwidger/rp2ago3"
 	"github.com/nwidger/rp2cgo2"
-	"time"
 )
 
 type NES struct {
