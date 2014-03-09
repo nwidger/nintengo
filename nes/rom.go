@@ -3,9 +3,10 @@ package nes
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+
 	"github.com/nwidger/rp2ago3"
 	"github.com/nwidger/rp2cgo2"
-	"io/ioutil"
 )
 
 type Region uint8

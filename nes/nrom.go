@@ -50,19 +50,8 @@ func (nrom *NROM) Fetch(address uint16) (value uint8) {
 	switch {
 	// PPU only
 	case address >= 0x0000 && address <= 0x1fff:
-		index := address & 0x0fff
-
-		switch {
-		// CHR bank 1
-		case address >= 0x0000 && address <= 0x0fff:
-			if nrom.ROMFile.chrBanks > 0 {
-				value = nrom.ROMFile.vromBanks[0][index]
-			}
-		// CHR bank 2
-		case address >= 0x1000 && address <= 0x1fff:
-			if nrom.ROMFile.chrBanks > 0 {
-				value = nrom.ROMFile.vromBanks[nrom.ROMFile.chrBanks-1][index]
-			}
+		if nrom.ROMFile.chrBanks > 0 {
+			value = nrom.ROMFile.vromBanks[0][address]
 		}
 	// CPU only
 	case address >= 0x8000 && address <= 0xffff:
@@ -86,21 +75,12 @@ func (nrom *NROM) Fetch(address uint16) (value uint8) {
 }
 
 func (nrom *NROM) Store(address uint16, value uint8) (oldValue uint8) {
-	index := address & 0x0fff
-
 	// PPU only
 	switch {
-	// CHR bank 1
-	case address >= 0x0000 && address <= 0x0fff:
+	// CHR banks 1 & 2
+	case address >= 0x0000 && address <= 0x1fff:
 		if nrom.ROMFile.chrBanks > 0 {
-			oldValue = nrom.ROMFile.vromBanks[0][index]
-			nrom.ROMFile.vromBanks[0][index] = value
-		}
-	// CHR bank 2
-	case address >= 0x1000 && address <= 0x1fff:
-		if nrom.ROMFile.chrBanks > 0 {
-			oldValue = nrom.ROMFile.vromBanks[nrom.ROMFile.chrBanks-1][index]
-			nrom.ROMFile.vromBanks[nrom.ROMFile.chrBanks-1][index] = value
+			nrom.ROMFile.vromBanks[0][address] = value
 		}
 	}
 
