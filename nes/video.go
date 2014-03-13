@@ -30,11 +30,13 @@ type SDLVideo struct {
 	width, height int
 	textureUni    gl.AttribLocation
 	palette       [64]uint32
+	controllers   chan ControllerEvent
 }
 
-func NewSDLVideo() (video *SDLVideo, err error) {
+func NewSDLVideo(controllers chan ControllerEvent) (video *SDLVideo, err error) {
 	video = &SDLVideo{
-		input: make(chan []uint8),
+		input:       make(chan []uint8),
+		controllers: controllers,
 		palette: [64]uint32{
 			0x666666, 0x002A88, 0x1412A7, 0x3B00A4, 0x5C007E,
 			0x6E0040, 0x6C0600, 0x561D00, 0x333500, 0x0B4800,
@@ -171,6 +173,11 @@ func (video *SDLVideo) initGL() {
 	texCoordAttr.AttribPointer(2, gl.FLOAT, false, 0, uintptr(0))
 }
 
+func (video *SDLVideo) ResizeEvent(width, height int) {
+	video.screen = sdl.SetVideoMode(width, height, 32, sdl.OPENGL|sdl.RESIZABLE)
+	video.Reshape(width, height)
+}
+
 func (video *SDLVideo) Reshape(width int, height int) {
 	x_offset := 0
 	y_offset := 0
@@ -198,11 +205,56 @@ func (video *SDLVideo) Input() chan []uint8 {
 }
 
 func (video *SDLVideo) Run() {
+	running := true
 	frame := make([]uint32, 0xf000)
 
-	for {
+	for running {
 		select {
-		case <-sdl.Events:
+		case ev := <-sdl.Events:
+			switch e := ev.(type) {
+			case sdl.ResizeEvent:
+				video.ResizeEvent(int(e.W), int(e.H))
+			case sdl.QuitEvent:
+				running = false
+			case sdl.KeyboardEvent:
+				switch e.Keysym.Sym {
+				case sdl.K_1:
+					if e.Type == sdl.KEYDOWN {
+						video.ResizeEvent(256, 240)
+					}
+				case sdl.K_2:
+					if e.Type == sdl.KEYDOWN {
+						video.ResizeEvent(512, 480)
+					}
+				case sdl.K_3:
+					if e.Type == sdl.KEYDOWN {
+						video.ResizeEvent(768, 720)
+					}
+				case sdl.K_4:
+					if e.Type == sdl.KEYDOWN {
+						video.ResizeEvent(1024, 960)
+					}
+				case sdl.K_5:
+					if e.Type == sdl.KEYDOWN {
+						video.ResizeEvent(2560, 1440)
+					}
+				}
+
+				switch e.Type {
+				case sdl.KEYDOWN:
+					video.controllers <- ControllerEvent{
+						controller: 0,
+						down:       true,
+						button:     button(e),
+					}
+				case sdl.KEYUP:
+					video.controllers <- ControllerEvent{
+						controller: 0,
+						down:       false,
+						button:     button(e),
+					}
+				}
+			}
 		case colors := <-video.input:
 			for i, c := range colors {
 				frame[i] = video.palette[c] << 8
@@ -228,6 +280,31 @@ func (video *SDLVideo) Run() {
 			video.input <- []uint8{}
 		}
 	}
+}
+
+func button(ev interface{}) Button {
+	if k, ok := ev.(sdl.KeyboardEvent); ok {
+		switch k.Keysym.Sym {
+		case sdl.K_z: // A
+			return A
+		case sdl.K_x: // B
+			return B
+		case sdl.K_RSHIFT: // Select
+			return Select
+		case sdl.K_RETURN: // Start
+			return Start
+		case sdl.K_UP: // Up
+			return Up
+		case sdl.K_DOWN: // Down
+			return Down
+		case sdl.K_LEFT: // Left
+			return Left
+		case sdl.K_RIGHT: // Right
+			return Right
+		}
+	}
+
+	return One
 }
 
 type JPEGVideo struct {

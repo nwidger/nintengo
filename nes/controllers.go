@@ -1,8 +1,6 @@
 package nes
 
-import (
-	"github.com/nwidger/rp2ago3"
-)
+import "github.com/nwidger/rp2ago3"
 
 type Button uint8
 
@@ -26,10 +24,19 @@ type Controller struct {
 type Controllers struct {
 	last        uint8
 	controllers [2]Controller
+	Input       chan ControllerEvent
+}
+
+type ControllerEvent struct {
+	controller int
+	down       bool
+	button     Button
 }
 
 func NewControllers() *Controllers {
-	return &Controllers{}
+	return &Controllers{
+		Input: make(chan ControllerEvent),
+	}
 }
 
 func (ctrls *Controllers) Reset() {
@@ -84,4 +91,25 @@ func (ctrls *Controllers) Store(address uint16, value uint8) (oldValue uint8) {
 	}
 
 	return
+}
+
+func (ctrls *Controllers) KeyDown(controller int, btn Button) {
+	ctrls.controllers[controller].buttons |= uint8(btn)
+}
+
+func (ctrls *Controllers) KeyUp(controller int, btn Button) {
+	ctrls.controllers[controller].buttons &^= uint8(btn)
+}
+
+func (ctrls *Controllers) Run() {
+	for {
+		select {
+		case e := <-ctrls.Input:
+			if e.down {
+				ctrls.KeyDown(e.controller, e.button)
+			} else {
+				ctrls.KeyUp(e.controller, e.button)
+			}
+		}
+	}
 }

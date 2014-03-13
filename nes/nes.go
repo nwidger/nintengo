@@ -31,13 +31,6 @@ func NewNES(filename string) (nes *NES, err error) {
 		return
 	}
 
-	video, err := NewSDLVideo()
-
-	if err != nil {
-		err = errors.New(fmt.Sprintf("Error creating video: %v", err))
-		return
-	}
-
 	switch rom.Region() {
 	case NTSC:
 		rate = rp2ago3.NTSC_CLOCK_RATE
@@ -49,8 +42,16 @@ func NewNES(filename string) (nes *NES, err error) {
 
 	clock := m65go2.NewClock(rate)
 	cpu := rp2ago3.NewRP2A03(clock, cpuDivisor)
-	ppu := rp2cgo2.NewRP2C02(clock, cpu.InterruptLine(m65go2.Nmi), rom.Mirroring(), video.Input())
 	ctrls := NewControllers()
+
+	video, err := NewSDLVideo(ctrls.Input)
+
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Error creating video: %v", err))
+		return
+	}
+
+	ppu := rp2cgo2.NewRP2C02(clock, cpu.InterruptLine(m65go2.Nmi), rom.Mirroring(), video.Input())
 
 	cpu.Memory.AddMappings(ppu, rp2ago3.CPU)
 	cpu.Memory.AddMappings(rom, rp2ago3.CPU)
@@ -58,7 +59,7 @@ func NewNES(filename string) (nes *NES, err error) {
 
 	ppu.Memory.AddMappings(rom, rp2ago3.PPU)
 
-	nes = &NES{cpu: cpu, ppu: ppu, clock: clock, rom: rom, video: video}
+	nes = &NES{cpu: cpu, ppu: ppu, clock: clock, rom: rom, video: video, controllers: ctrls}
 	return
 }
 
@@ -68,8 +69,10 @@ func (nes *NES) Reset() {
 }
 
 func (nes *NES) Run() (err error) {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	nes.Reset()
 
+	go nes.controllers.Run()
 	go nes.cpu.Run()
 	go nes.ppu.Run()
 
