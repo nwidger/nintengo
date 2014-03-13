@@ -3,6 +3,7 @@ package nes
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"time"
 
 	"github.com/nwidger/m65go2"
@@ -16,6 +17,7 @@ type NES struct {
 	controllers *Controllers
 	clock       m65go2.Clocker
 	rom         ROM
+	video       Video
 }
 
 func NewNES(filename string) (nes *NES, err error) {
@@ -26,6 +28,13 @@ func NewNES(filename string) (nes *NES, err error) {
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error loading ROM: %v", err))
+		return
+	}
+
+	video, err := NewSDLVideo()
+
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Error creating video: %v", err))
 		return
 	}
 
@@ -40,7 +49,7 @@ func NewNES(filename string) (nes *NES, err error) {
 
 	clock := m65go2.NewClock(rate)
 	cpu := rp2ago3.NewRP2A03(clock, cpuDivisor)
-	ppu := rp2cgo2.NewRP2C02(clock, cpu.InterruptLine(m65go2.Nmi), rom.Mirroring())
+	ppu := rp2cgo2.NewRP2C02(clock, cpu.InterruptLine(m65go2.Nmi), rom.Mirroring(), video.Input())
 	ctrls := NewControllers()
 
 	cpu.Memory.AddMappings(ppu, rp2ago3.CPU)
@@ -49,7 +58,7 @@ func NewNES(filename string) (nes *NES, err error) {
 
 	ppu.Memory.AddMappings(rom, rp2ago3.PPU)
 
-	nes = &NES{cpu: cpu, ppu: ppu, clock: clock, rom: rom}
+	nes = &NES{cpu: cpu, ppu: ppu, clock: clock, rom: rom, video: video}
 	return
 }
 
@@ -60,14 +69,12 @@ func (nes *NES) Reset() {
 
 func (nes *NES) Run() (err error) {
 	nes.Reset()
-	nes.clock.Start()
 
 	go nes.cpu.Run()
 	go nes.ppu.Run()
 
-	for {
-		time.Sleep(9999 * time.Second)
-	}
+	runtime.LockOSThread()
+	nes.video.Run()
 
 	return
 }
