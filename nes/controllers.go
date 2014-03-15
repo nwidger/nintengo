@@ -4,6 +4,52 @@ import "github.com/nwidger/rp2ago3"
 
 type Button uint8
 
+func (btn Button) String() string {
+	switch btn {
+	case A:
+		return "A"
+	case B:
+		return "B"
+	case Select:
+		return "Select"
+	case Start:
+		return "Start"
+	case Up:
+		return "Up"
+	case Down:
+		return "Down"
+	case Left:
+		return "Left"
+	case Right:
+		return "Right"
+	default:
+		return "Unknown"
+	}
+}
+
+func (btn Button) Valid() bool {
+	switch btn {
+	case A:
+		fallthrough
+	case B:
+		fallthrough
+	case Select:
+		fallthrough
+	case Start:
+		fallthrough
+	case Up:
+		fallthrough
+	case Down:
+		fallthrough
+	case Left:
+		fallthrough
+	case Right:
+		return true
+	}
+
+	return false
+}
+
 const (
 	A = iota
 	B
@@ -94,11 +140,15 @@ func (ctrls *Controllers) Store(address uint16, value uint8) (oldValue uint8) {
 }
 
 func (ctrls *Controllers) KeyDown(controller int, btn Button) {
-	ctrls.controllers[controller].buttons |= uint8(btn)
+	if btn.Valid() {
+		ctrls.controllers[controller].buttons |= (1 << uint8(btn))
+	}
 }
 
 func (ctrls *Controllers) KeyUp(controller int, btn Button) {
-	ctrls.controllers[controller].buttons &^= uint8(btn)
+	if btn.Valid() {
+		ctrls.controllers[controller].buttons &^= (1 << uint8(btn))
+	}
 }
 
 func (ctrls *Controllers) Run() {

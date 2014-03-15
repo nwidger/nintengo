@@ -11,6 +11,17 @@ import (
 
 type Region uint8
 
+func (r Region) String() string {
+	switch r {
+	case NTSC:
+		return "NTSC"
+	case PAL:
+		return "PAL"
+	}
+
+	return "Unknown"
+}
+
 const (
 	NTSC Region = iota
 	PAL
@@ -36,6 +47,7 @@ type ROM interface {
 	rp2ago3.MappableMemory
 	Region() Region
 	Mirroring() rp2cgo2.Mirroring
+	String() string
 }
 
 func NewROM(filename string) (rom ROM, err error) {
@@ -178,4 +190,16 @@ func (romf *ROMFile) Region() Region {
 
 func (romf *ROMFile) Mirroring() rp2cgo2.Mirroring {
 	return romf.mirroring
+}
+
+func (romf *ROMFile) String() string {
+	return fmt.Sprintf("PRG Banks: %v\n", romf.prgBanks) +
+		fmt.Sprintf("CHR Banks: %v\n", romf.chrBanks) +
+		fmt.Sprintf("Mirroring: %v\n", romf.mirroring) +
+		fmt.Sprintf("Battery: %v\n", romf.battery) +
+		fmt.Sprintf("Trainer: %v\n", romf.trainer) +
+		fmt.Sprintf("FourScreen: %v\n", romf.fourScreen) +
+		fmt.Sprintf("VS Cart: %v\n", romf.vsCart) +
+		fmt.Sprintf("RAM Banks: %v\n", romf.ramBanks) +
+		fmt.Sprintf("Region: %v\n", romf.region)
 }

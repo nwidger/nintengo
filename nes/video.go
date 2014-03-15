@@ -393,9 +393,6 @@ func (video *JPEGVideo) Input() chan []uint8 {
 func (video *JPEGVideo) Run() {
 	frame := image.NewRGBA(image.Rect(0, 0, 256, 240))
 
-	fo, _ := os.Create(fmt.Sprintf("frame.jpg"))
-	w := bufio.NewWriter(fo)
-
 	for {
 		select {
 		case colors := <-video.input:
@@ -413,6 +410,8 @@ func (video *JPEGVideo) Run() {
 				}
 			}
 
+			fo, _ := os.Create(fmt.Sprintf("frame.jpg"))
+			w := bufio.NewWriter(fo)
 			jpeg.Encode(w, frame, &jpeg.Options{Quality: 100})
 
 			video.input <- []uint8{}

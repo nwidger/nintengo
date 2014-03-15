@@ -1,6 +1,8 @@
 package nes
 
 import (
+	"fmt"
+
 	"github.com/nwidger/rp2ago3"
 )
 
@@ -10,6 +12,11 @@ type NROM struct {
 
 func NewNROM(romf *ROMFile) *NROM {
 	return &NROM{ROMFile: romf}
+}
+
+func (nrom *NROM) String() string {
+	return nrom.ROMFile.String() +
+		fmt.Sprintf("Mapper: 0 (NROM)")
 }
 
 func (nrom *NROM) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {

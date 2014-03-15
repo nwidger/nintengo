@@ -2,17 +2,26 @@ package main
 
 import (
 	"fmt"
-	"github.com/nwidger/nintengo/nes"
 	"os"
+
+	"flag"
+
+	"github.com/nwidger/nintengo/nes"
 )
 
 func main() {
-	if len(os.Args) < 2 {
+	options := &nes.Options{}
+
+	flag.BoolVar(&options.CPUDecode, "cpu-decode", false, "decode CPU instructions")
+	flag.StringVar(&options.Video, "video", "sdl", "video output to use: sdl | jpeg")
+	flag.Parse()
+
+	if len(flag.Args()) != 1 {
 		fmt.Fprintf(os.Stderr, "usage: <rom-file>\n")
 		return
 	}
 
-	nes, err := nes.NewNES(os.Args[1])
+	nes, err := nes.NewNES(flag.Arg(0), options)
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
