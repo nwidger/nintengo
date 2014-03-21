@@ -46,7 +46,7 @@ type ROMFile struct {
 type ROM interface {
 	rp2ago3.MappableMemory
 	Region() Region
-	Mirroring() rp2cgo2.Mirroring
+	Mirrors() (mirrors map[uint16]uint16)
 	String() string
 }
 
@@ -186,10 +186,6 @@ func NewROMFile(buf []byte) (romf *ROMFile, err error) {
 
 func (romf *ROMFile) Region() Region {
 	return romf.region
-}
-
-func (romf *ROMFile) Mirroring() rp2cgo2.Mirroring {
-	return romf.mirroring
 }
 
 func (romf *ROMFile) String() string {

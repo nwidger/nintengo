@@ -139,8 +139,29 @@ func (ctrls *Controllers) Store(address uint16, value uint8) (oldValue uint8) {
 	return
 }
 
+func (ctrls *Controllers) KeyIsDown(controller int, btn Button) bool {
+	return ctrls.controllers[controller].buttons&(1<<btn) != 0
+}
+
+func (ctrls *Controllers) ValidKeyDown(controller int, btn Button) (valid bool) {
+	valid = btn.Valid()
+
+	switch {
+	case btn == Up && ctrls.KeyIsDown(controller, Down):
+		fallthrough
+	case btn == Down && ctrls.KeyIsDown(controller, Up):
+		fallthrough
+	case btn == Left && ctrls.KeyIsDown(controller, Right):
+		fallthrough
+	case btn == Right && ctrls.KeyIsDown(controller, Left):
+		valid = false
+	}
+
+	return
+}
+
 func (ctrls *Controllers) KeyDown(controller int, btn Button) {
-	if btn.Valid() {
+	if ctrls.ValidKeyDown(controller, btn) {
 		ctrls.controllers[controller].buttons |= (1 << uint8(btn))
 	}
 }

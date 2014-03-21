@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nwidger/rp2ago3"
+	"github.com/nwidger/rp2cgo2"
 )
 
 type NROM struct {
@@ -92,4 +93,33 @@ func (nrom *NROM) Store(address uint16, value uint8) (oldValue uint8) {
 	}
 
 	return
+}
+
+func (nrom *NROM) Mirrors() (mirrors map[uint16]uint16) {
+	mirrors = make(map[uint16]uint16)
+
+	switch nrom.ROMFile.mirroring {
+	case rp2cgo2.Horizontal:
+		// Mirror nametable #1 to #0
+		for i := uint16(0x2400); i <= 0x27ff; i++ {
+			mirrors[i] = i - 0x0400
+		}
+
+		// Mirror nametable #3 to #2
+		for i := uint16(0x2c00); i <= 0x2fff; i++ {
+			mirrors[i] = i - 0x0400
+		}
+	case rp2cgo2.Vertical:
+		// Mirror nametable #2 to #0
+		for i := uint16(0x2800); i <= 0x2bff; i++ {
+			mirrors[i] = i - 0x0800
+		}
+
+		// Mirror nametable #3 to #1
+		for i := uint16(0x2c00); i <= 0x2fff; i++ {
+			mirrors[i] = i - 0x0800
+		}
+	}
+
+	return mirrors
 }

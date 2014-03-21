@@ -55,6 +55,8 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		video, err = NewSDLVideo(ctrls.Input)
 	case "jpeg":
 		video, err = NewJPEGVideo()
+	case "gif":
+		video, err = NewGIFVideo()
 	default:
 		err = errors.New(fmt.Sprintf("Error creating video: unknown video output %v", options.Video))
 		return
@@ -65,12 +67,13 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		return
 	}
 
-	ppu := rp2cgo2.NewRP2C02(cpu.InterruptLine(m65go2.Nmi), rom.Mirroring(), video.Input(), cycles)
+	ppu := rp2cgo2.NewRP2C02(cpu.InterruptLine(m65go2.Nmi), video.Input(), cycles)
 
 	cpu.Memory.AddMappings(ppu, rp2ago3.CPU)
 	cpu.Memory.AddMappings(rom, rp2ago3.CPU)
 	cpu.Memory.AddMappings(ctrls, rp2ago3.CPU)
 
+	ppu.Memory.AddMirrors(rom.Mirrors())
 	ppu.Memory.AddMappings(rom, rp2ago3.PPU)
 
 	nes = &NES{
@@ -92,7 +95,6 @@ func (nes *NES) Reset() {
 func (nes *NES) Run() (err error) {
 	fmt.Println(nes.rom)
 
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	nes.Reset()
 
 	go nes.controllers.Run()
