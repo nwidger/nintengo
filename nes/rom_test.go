@@ -1,8 +1,9 @@
 package nes
 
 import (
-	"github.com/nwidger/rp2cgo2"
 	"testing"
+
+	"github.com/nwidger/rp2cgo2"
 )
 
 func TestConstant(t *testing.T) {

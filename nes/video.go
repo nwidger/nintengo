@@ -19,6 +19,7 @@ import (
 
 type Video interface {
 	Input() chan []uint8
+	ButtonPresses() chan ButtonPress
 	Run()
 }
 
@@ -47,14 +48,14 @@ type SDLVideo struct {
 	width, height int
 	textureUni    gl.AttribLocation
 	palette       []uint32
-	controllers   chan ControllerEvent
+	buttonPresses chan ButtonPress
 }
 
-func NewSDLVideo(controllers chan ControllerEvent) (video *SDLVideo, err error) {
+func NewSDLVideo() (video *SDLVideo, err error) {
 	video = &SDLVideo{
-		input:       make(chan []uint8),
-		controllers: controllers,
-		palette:     SDLPalette,
+		input:         make(chan []uint8),
+		buttonPresses: make(chan ButtonPress),
+		palette:       SDLPalette,
 	}
 
 	if sdl.Init(sdl.INIT_VIDEO|sdl.INIT_JOYSTICK|sdl.INIT_AUDIO) != 0 {
@@ -79,6 +80,10 @@ func NewSDLVideo(controllers chan ControllerEvent) (video *SDLVideo, err error) 
 	video.fps.SetFramerate(60)
 
 	return
+}
+
+func (video *SDLVideo) ButtonPresses() chan ButtonPress {
+	return video.buttonPresses
 }
 
 const vertShaderSrcDef = `
@@ -245,13 +250,13 @@ func (video *SDLVideo) Run() {
 
 				switch e.Type {
 				case sdl.KEYDOWN:
-					video.controllers <- ControllerEvent{
+					video.buttonPresses <- ButtonPress{
 						controller: 0,
 						down:       true,
 						button:     button(e),
 					}
 				case sdl.KEYUP:
-					video.controllers <- ControllerEvent{
+					video.buttonPresses <- ButtonPress{
 						controller: 0,
 						down:       false,
 						button:     button(e),
@@ -395,6 +400,10 @@ func (video *JPEGVideo) Input() chan []uint8 {
 	return video.input
 }
 
+func (video *JPEGVideo) ButtonPresses() chan ButtonPress {
+	return nil
+}
+
 func (video *JPEGVideo) Run() {
 	frame := image.NewPaletted(image.Rect(0, 0, 256, 240), video.palette)
 
@@ -440,6 +449,10 @@ func NewGIFVideo() (video *GIFVideo, err error) {
 
 func (video *GIFVideo) Input() chan []uint8 {
 	return video.input
+}
+
+func (video *GIFVideo) ButtonPresses() chan ButtonPress {
+	return nil
 }
 
 func (video *GIFVideo) Run() {

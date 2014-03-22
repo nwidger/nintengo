@@ -70,10 +70,10 @@ type Controller struct {
 type Controllers struct {
 	last        uint8
 	controllers [2]Controller
-	Input       chan ControllerEvent
+	input       chan ButtonPress
 }
 
-type ControllerEvent struct {
+type ButtonPress struct {
 	controller int
 	down       bool
 	button     Button
@@ -81,7 +81,7 @@ type ControllerEvent struct {
 
 func NewControllers() *Controllers {
 	return &Controllers{
-		Input: make(chan ControllerEvent),
+		input: make(chan ButtonPress),
 	}
 }
 
@@ -90,6 +90,10 @@ func (ctrls *Controllers) Reset() {
 		ctrls.controllers[i].strobe = A
 		ctrls.controllers[i].buttons = 0
 	}
+}
+
+func (ctrls *Controllers) Input() chan ButtonPress {
+	return ctrls.input
 }
 
 func (ctrls *Controllers) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
@@ -175,7 +179,7 @@ func (ctrls *Controllers) KeyUp(controller int, btn Button) {
 func (ctrls *Controllers) Run() {
 	for {
 		select {
-		case e := <-ctrls.Input:
+		case e := <-ctrls.input:
 			if e.down {
 				ctrls.KeyDown(e.controller, e.button)
 			} else {

@@ -13,7 +13,7 @@ func main() {
 	options := &nes.Options{}
 
 	flag.BoolVar(&options.CPUDecode, "cpu-decode", false, "decode CPU instructions")
-	flag.StringVar(&options.Video, "video", "sdl", "video output to use: sdl | jpeg | gif")
+	flag.StringVar(&options.Recorder, "recorder", "", "recorder to use: none | jpeg | gif")
 	flag.Parse()
 
 	if len(flag.Args()) != 1 {

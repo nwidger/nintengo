@@ -188,6 +188,35 @@ func (romf *ROMFile) Region() Region {
 	return romf.region
 }
 
+func (romf *ROMFile) Mirrors() (mirrors map[uint16]uint16) {
+	mirrors = make(map[uint16]uint16)
+
+	switch romf.mirroring {
+	case rp2cgo2.Horizontal:
+		// Mirror nametable #1 to #0
+		for i := uint16(0x2400); i <= 0x27ff; i++ {
+			mirrors[i] = i - 0x0400
+		}
+
+		// Mirror nametable #3 to #2
+		for i := uint16(0x2c00); i <= 0x2fff; i++ {
+			mirrors[i] = i - 0x0400
+		}
+	case rp2cgo2.Vertical:
+		// Mirror nametable #2 to #0
+		for i := uint16(0x2800); i <= 0x2bff; i++ {
+			mirrors[i] = i - 0x0800
+		}
+
+		// Mirror nametable #3 to #1
+		for i := uint16(0x2c00); i <= 0x2fff; i++ {
+			mirrors[i] = i - 0x0800
+		}
+	}
+
+	return mirrors
+}
+
 func (romf *ROMFile) String() string {
 	return fmt.Sprintf("PRG Banks: %v\n", romf.prgBanks) +
 		fmt.Sprintf("CHR Banks: %v\n", romf.chrBanks) +

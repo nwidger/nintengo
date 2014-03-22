@@ -12,19 +12,22 @@ import (
 
 type NES struct {
 	cpu         *rp2ago3.RP2A03
+	cpuDivisor  uint16
 	ppu         *rp2cgo2.RP2C02
 	controllers *Controllers
 	rom         ROM
 	video       Video
+	recorder    Video
 }
 
 type Options struct {
-	Video     string
+	Recorder  string
 	CPUDecode bool
 }
 
 func NewNES(filename string, options *Options) (nes *NES, err error) {
 	var video Video
+	var recorder Video
 	var cpuDivisor uint16
 
 	rom, err := NewROM(filename)
@@ -41,8 +44,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		cpuDivisor = rp2ago3.PAL_CPU_CLOCK_DIVISOR
 	}
 
-	cycles := make(chan uint16)
-	cpu := rp2ago3.NewRP2A03(cpuDivisor, cycles)
+	cpu := rp2ago3.NewRP2A03()
 
 	if options.CPUDecode {
 		cpu.EnableDecode()
@@ -50,24 +52,28 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 
 	ctrls := NewControllers()
 
-	switch options.Video {
-	case "sdl":
-		video, err = NewSDLVideo(ctrls.Input)
-	case "jpeg":
-		video, err = NewJPEGVideo()
-	case "gif":
-		video, err = NewGIFVideo()
-	default:
-		err = errors.New(fmt.Sprintf("Error creating video: unknown video output %v", options.Video))
-		return
-	}
+	video, err = NewSDLVideo()
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error creating video: %v", err))
 		return
 	}
 
-	ppu := rp2cgo2.NewRP2C02(cpu.InterruptLine(m65go2.Nmi), video.Input(), cycles)
+	switch options.Recorder {
+	case "none":
+		// none
+	case "jpeg":
+		recorder, err = NewJPEGVideo()
+	case "gif":
+		recorder, err = NewGIFVideo()
+	}
+
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Error creating recorder: %v", err))
+		return
+	}
+
+	ppu := rp2cgo2.NewRP2C02(cpu.InterruptLine(m65go2.Nmi))
 
 	cpu.Memory.AddMappings(ppu, rp2ago3.CPU)
 	cpu.Memory.AddMappings(rom, rp2ago3.CPU)
@@ -78,9 +84,11 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 
 	nes = &NES{
 		cpu:         cpu,
+		cpuDivisor:  cpuDivisor,
 		ppu:         ppu,
 		rom:         rom,
 		video:       video,
+		recorder:    recorder,
 		controllers: ctrls,
 	}
 
@@ -92,6 +100,36 @@ func (nes *NES) Reset() {
 	nes.ppu.Reset()
 }
 
+func (nes *NES) route() {
+	for {
+		select {
+		case e := <-nes.video.ButtonPresses():
+			go func() {
+				nes.controllers.Input() <- e
+			}()
+		case e := <-nes.cpu.Cycles:
+			go func() {
+				nes.ppu.Cycles <- (e * nes.cpuDivisor)
+				ok := <-nes.ppu.Cycles
+				nes.cpu.Cycles <- ok
+			}()
+		case e := <-nes.ppu.Output:
+			go func() {
+				if nes.recorder != nil {
+					nes.recorder.Input() <- e
+					<-nes.recorder.Input()
+				}
+			}()
+
+			go func() {
+				nes.video.Input() <- e
+				ok := <-nes.video.Input()
+				nes.ppu.Output <- ok
+			}()
+		}
+	}
+}
+
 func (nes *NES) Run() (err error) {
 	fmt.Println(nes.rom)
 
@@ -100,6 +138,11 @@ func (nes *NES) Run() (err error) {
 	go nes.controllers.Run()
 	go nes.cpu.Run()
 	go nes.ppu.Run()
+	go nes.route()
+
+	if nes.recorder != nil {
+		go nes.recorder.Run()
+	}
 
 	runtime.LockOSThread()
 	nes.video.Run()
