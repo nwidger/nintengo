@@ -21,6 +21,11 @@ func TestVerticalMirroring(t *testing.T) {
 		}
 
 		ppu.Memory.Store(i-0x0800, 0x00)
+
+		if ppu.Memory.Fetch(i) != 0x00 {
+			t.Error("Memory is not 0x00")
+		}
+
 		ppu.Memory.Store(i, 0xff)
 
 		if ppu.Memory.Fetch(i-0x0800) != 0xff {
@@ -28,6 +33,10 @@ func TestVerticalMirroring(t *testing.T) {
 		}
 
 		ppu.Memory.Store(i, 0x00)
+
+		if ppu.Memory.Fetch(i) != 0x00 {
+			t.Error("Memory is not 0x00")
+		}
 	}
 
 	// Mirror nametable #3 to #1
@@ -39,6 +48,11 @@ func TestVerticalMirroring(t *testing.T) {
 		}
 
 		ppu.Memory.Store(i-0x0800, 0x00)
+
+		if ppu.Memory.Fetch(i) != 0x00 {
+			t.Error("Memory is not 0x00")
+		}
+
 		ppu.Memory.Store(i, 0xff)
 
 		if ppu.Memory.Fetch(i-0x0800) != 0xff {
@@ -46,6 +60,10 @@ func TestVerticalMirroring(t *testing.T) {
 		}
 
 		ppu.Memory.Store(i, 0x00)
+
+		if ppu.Memory.Fetch(i) != 0x00 {
+			t.Error("Memory is not 0x00")
+		}
 	}
 
 	// Mirror nametable #2 to #0
@@ -57,6 +75,11 @@ func TestVerticalMirroring(t *testing.T) {
 		}
 
 		ppu.Memory.Store(i-0x1000, 0x00)
+
+		if ppu.Memory.Fetch(i) != 0x00 {
+			t.Error("Memory is not 0x00")
+		}
+
 		ppu.Memory.Store(i, 0xff)
 
 		if ppu.Memory.Fetch(i-0x1000) != 0xff {
@@ -64,6 +87,10 @@ func TestVerticalMirroring(t *testing.T) {
 		}
 
 		ppu.Memory.Store(i, 0x00)
+
+		if ppu.Memory.Fetch(i) != 0x00 {
+			t.Error("Memory is not 0x00")
+		}
 	}
 
 	// Mirror nametable #3 to #1
@@ -75,6 +102,11 @@ func TestVerticalMirroring(t *testing.T) {
 		}
 
 		ppu.Memory.Store(i-0x1000, 0x00)
+
+		if ppu.Memory.Fetch(i) != 0x00 {
+			t.Error("Memory is not 0x00")
+		}
+
 		ppu.Memory.Store(i, 0xff)
 
 		if ppu.Memory.Fetch(i-0x1000) != 0xff {
@@ -82,6 +114,10 @@ func TestVerticalMirroring(t *testing.T) {
 		}
 
 		ppu.Memory.Store(i, 0x00)
+
+		if ppu.Memory.Fetch(i) != 0x00 {
+			t.Error("Memory is not 0x00")
+		}
 	}
 }
 

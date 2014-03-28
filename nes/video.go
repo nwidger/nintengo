@@ -19,7 +19,7 @@ import (
 
 type Video interface {
 	Input() chan []uint8
-	ButtonPresses() chan ButtonPress
+	ButtonPresses() chan interface{}
 	Run()
 }
 
@@ -48,14 +48,16 @@ type SDLVideo struct {
 	width, height int
 	textureUni    gl.AttribLocation
 	palette       []uint32
-	buttonPresses chan ButtonPress
+	buttonPresses chan interface{}
+	overscan      bool
 }
 
 func NewSDLVideo() (video *SDLVideo, err error) {
 	video = &SDLVideo{
 		input:         make(chan []uint8),
-		buttonPresses: make(chan ButtonPress),
+		buttonPresses: make(chan interface{}),
 		palette:       SDLPalette,
+		overscan:      true,
 	}
 
 	if sdl.Init(sdl.INIT_VIDEO|sdl.INIT_JOYSTICK|sdl.INIT_AUDIO) != 0 {
@@ -82,7 +84,7 @@ func NewSDLVideo() (video *SDLVideo, err error) {
 	return
 }
 
-func (video *SDLVideo) ButtonPresses() chan ButtonPress {
+func (video *SDLVideo) ButtonPresses() chan interface{} {
 	return video.buttonPresses
 }
 
@@ -212,6 +214,26 @@ func (video *SDLVideo) Input() chan []uint8 {
 	return video.input
 }
 
+func (video *SDLVideo) frameWidth() int {
+	width := 256
+
+	if video.overscan {
+		width -= 16
+	}
+
+	return width
+}
+
+func (video *SDLVideo) frameHeight() int {
+	height := 240
+
+	if video.overscan {
+		height -= 16
+	}
+
+	return height
+}
+
 func (video *SDLVideo) Run() {
 	running := true
 	frame := make([]uint32, 0xf000)
@@ -224,6 +246,7 @@ func (video *SDLVideo) Run() {
 				video.ResizeEvent(int(e.W), int(e.H))
 			case sdl.QuitEvent:
 				running = false
+				video.buttonPresses <- PressQuit(0)
 			case sdl.KeyboardEvent:
 				switch e.Keysym.Sym {
 				case sdl.K_1:
@@ -246,26 +269,51 @@ func (video *SDLVideo) Run() {
 					if e.Type == sdl.KEYDOWN {
 						video.ResizeEvent(2560, 1440)
 					}
+				case sdl.K_p:
+					if e.Type == sdl.KEYDOWN {
+						video.buttonPresses <- PressPause(0)
+					}
+				case sdl.K_q:
+					if e.Type == sdl.KEYDOWN {
+						running = false
+						video.buttonPresses <- PressQuit(0)
+					}
 				}
 
-				switch e.Type {
-				case sdl.KEYDOWN:
-					video.buttonPresses <- ButtonPress{
-						controller: 0,
-						down:       true,
-						button:     button(e),
-					}
-				case sdl.KEYUP:
-					video.buttonPresses <- ButtonPress{
-						controller: 0,
-						down:       false,
-						button:     button(e),
+				if running {
+					switch e.Type {
+					case sdl.KEYDOWN:
+						video.buttonPresses <- PressButton{
+							controller: 0,
+							down:       true,
+							button:     button(e),
+						}
+					case sdl.KEYUP:
+						video.buttonPresses <- PressButton{
+							controller: 0,
+							down:       false,
+							button:     button(e),
+						}
 					}
 				}
 			}
 		case colors := <-video.input:
-			for i, c := range colors {
-				frame[i] = video.palette[c] << 8
+			index := 0
+			x, y := 0, 0
+
+			for _, c := range colors {
+				if pixelInFrame(x, y, video.overscan) {
+					frame[index] = video.palette[c] << 8
+					index++
+				}
+
+				switch x {
+				case 255:
+					x = 0
+					y++
+				default:
+					x++
+				}
 			}
 
 			gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -275,7 +323,7 @@ func (video *SDLVideo) Run() {
 			gl.ActiveTexture(gl.TEXTURE0)
 			video.texture.Bind(gl.TEXTURE_2D)
 
-			gl.TexImage2D(gl.TEXTURE_2D, 0, 3, 256, 240, 0, gl.RGBA,
+			gl.TexImage2D(gl.TEXTURE_2D, 0, 3, video.frameWidth(), video.frameHeight(), 0, gl.RGBA,
 				gl.UNSIGNED_INT_8_8_8_8, frame)
 
 			gl.DrawArrays(gl.TRIANGLES, 0, 6)
@@ -382,32 +430,42 @@ var RGBAPalette []color.Color = []color.Color{
 	color.RGBA{0x00, 0x00, 0x00, 0xff},
 }
 
-type JPEGVideo struct {
-	palette []color.Color
-	input   chan []uint8
+type Recorder interface {
+	Input() chan []uint8
+	Stop()
+	Run()
 }
 
-func NewJPEGVideo() (video *JPEGVideo, err error) {
-	video = &JPEGVideo{
+type JPEGRecorder struct {
+	palette   []color.Color
+	input     chan []uint8
+	recording bool
+	stop      chan int
+}
+
+func NewJPEGRecorder() (video *JPEGRecorder, err error) {
+	video = &JPEGRecorder{
 		input:   make(chan []uint8),
 		palette: RGBAPalette,
+		stop:    make(chan int),
 	}
 
 	return
 }
 
-func (video *JPEGVideo) Input() chan []uint8 {
+func (video *JPEGRecorder) Input() chan []uint8 {
 	return video.input
 }
 
-func (video *JPEGVideo) ButtonPresses() chan ButtonPress {
-	return nil
+func (video *JPEGRecorder) Stop() {
+	video.stop <- 1
+	<-video.stop
 }
 
-func (video *JPEGVideo) Run() {
+func (video *JPEGRecorder) Run() {
 	frame := image.NewPaletted(image.Rect(0, 0, 256, 240), video.palette)
 
-	for {
+	for video.recording {
 		select {
 		case colors := <-video.input:
 			x, y := 0, 0
@@ -429,33 +487,38 @@ func (video *JPEGVideo) Run() {
 			jpeg.Encode(w, frame, &jpeg.Options{Quality: 100})
 
 			video.input <- []uint8{}
+		case <-video.stop:
+			break
 		}
 	}
 }
 
-type GIFVideo struct {
+type GIFRecorder struct {
 	palette []color.Color
 	input   chan []uint8
+	stop    chan int
 }
 
-func NewGIFVideo() (video *GIFVideo, err error) {
-	video = &GIFVideo{
+func NewGIFRecorder() (video *GIFRecorder, err error) {
+	video = &GIFRecorder{
 		input:   make(chan []uint8),
 		palette: RGBAPalette,
+		stop:    make(chan int),
 	}
 
 	return
 }
 
-func (video *GIFVideo) Input() chan []uint8 {
+func (video *GIFRecorder) Input() chan []uint8 {
 	return video.input
 }
 
-func (video *GIFVideo) ButtonPresses() chan ButtonPress {
-	return nil
+func (video *GIFRecorder) Stop() {
+	video.stop <- 1
+	<-video.stop
 }
 
-func (video *GIFVideo) Run() {
+func (video *GIFRecorder) Run() {
 	g := &gif.GIF{
 		Image:     []*image.Paletted{},
 		Delay:     []int{},
@@ -483,12 +546,22 @@ func (video *GIFVideo) Run() {
 
 			g.Image = append(g.Image, frame)
 			g.Delay = append(g.Delay, 3)
-
+		case <-video.stop:
 			fo, _ := os.Create(fmt.Sprintf("frame.gif"))
 			w := bufio.NewWriter(fo)
 			gif.EncodeAll(w, g)
 
-			video.input <- []uint8{}
+			video.stop <- 1
+			break
 		}
 	}
+}
+
+func pixelInFrame(x, y int, overscan bool) bool {
+	if !overscan ||
+		(y >= 8 && y <= 231 && x >= 8 && x <= 247) {
+		return true
+	}
+
+	return false
 }

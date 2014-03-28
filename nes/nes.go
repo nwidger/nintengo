@@ -11,13 +11,14 @@ import (
 )
 
 type NES struct {
+	running     bool
 	cpu         *rp2ago3.RP2A03
 	cpuDivisor  uint16
 	ppu         *rp2cgo2.RP2C02
 	controllers *Controllers
 	rom         ROM
 	video       Video
-	recorder    Video
+	recorder    Recorder
 }
 
 type Options struct {
@@ -27,7 +28,7 @@ type Options struct {
 
 func NewNES(filename string, options *Options) (nes *NES, err error) {
 	var video Video
-	var recorder Video
+	var recorder Recorder
 	var cpuDivisor uint16
 
 	rom, err := NewROM(filename)
@@ -63,9 +64,9 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	case "none":
 		// none
 	case "jpeg":
-		recorder, err = NewJPEGVideo()
+		recorder, err = NewJPEGRecorder()
 	case "gif":
-		recorder, err = NewGIFVideo()
+		recorder, err = NewGIFRecorder()
 	}
 
 	if err != nil {
@@ -100,13 +101,32 @@ func (nes *NES) Reset() {
 	nes.ppu.Reset()
 }
 
+type PressPause uint8
+type PressQuit uint8
+
+func (nes *NES) pause() {
+	for done := false; !done; {
+		switch (<-nes.video.ButtonPresses()).(type) {
+		case PressPause:
+			done = true
+		}
+	}
+}
+
 func (nes *NES) route() {
-	for {
+	for nes.running {
 		select {
 		case e := <-nes.video.ButtonPresses():
-			go func() {
-				nes.controllers.Input() <- e
-			}()
+			switch i := e.(type) {
+			case PressButton:
+				go func() {
+					nes.controllers.Input() <- i
+				}()
+			case PressPause:
+				nes.pause()
+			case PressQuit:
+				nes.running = false
+			}
 		case e := <-nes.cpu.Cycles:
 			go func() {
 				nes.ppu.Cycles <- (e * nes.cpuDivisor)
@@ -114,12 +134,9 @@ func (nes *NES) route() {
 				nes.cpu.Cycles <- ok
 			}()
 		case e := <-nes.ppu.Output:
-			go func() {
-				if nes.recorder != nil {
-					nes.recorder.Input() <- e
-					<-nes.recorder.Input()
-				}
-			}()
+			if nes.recorder != nil {
+				nes.recorder.Input() <- e
+			}
 
 			go func() {
 				nes.video.Input() <- e
@@ -135,6 +152,8 @@ func (nes *NES) Run() (err error) {
 
 	nes.Reset()
 
+	nes.running = true
+
 	go nes.controllers.Run()
 	go nes.cpu.Run()
 	go nes.ppu.Run()
@@ -146,6 +165,10 @@ func (nes *NES) Run() (err error) {
 
 	runtime.LockOSThread()
 	nes.video.Run()
+
+	if nes.recorder != nil {
+		nes.recorder.Stop()
+	}
 
 	return
 }

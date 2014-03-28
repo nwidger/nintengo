@@ -70,10 +70,10 @@ type Controller struct {
 type Controllers struct {
 	last        uint8
 	controllers [2]Controller
-	input       chan ButtonPress
+	input       chan PressButton
 }
 
-type ButtonPress struct {
+type PressButton struct {
 	controller int
 	down       bool
 	button     Button
@@ -81,7 +81,7 @@ type ButtonPress struct {
 
 func NewControllers() *Controllers {
 	return &Controllers{
-		input: make(chan ButtonPress),
+		input: make(chan PressButton),
 	}
 }
 
@@ -92,7 +92,7 @@ func (ctrls *Controllers) Reset() {
 	}
 }
 
-func (ctrls *Controllers) Input() chan ButtonPress {
+func (ctrls *Controllers) Input() chan PressButton {
 	return ctrls.input
 }
 
