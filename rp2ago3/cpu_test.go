@@ -3,7 +3,7 @@ package rp2ago3
 import "testing"
 
 func TestStore(t *testing.T) {
-	cpu := NewRP2A03(NTSC_CPU_CLOCK_DIVISOR, nil)
+	cpu := NewRP2A03()
 	cpu.Reset()
 
 	cpu.APU.Registers.Pulse1[0] = 0xde
@@ -55,7 +55,7 @@ func (ppu *FakePPU) Store(address uint16, value uint8) (oldValue uint8) {
 }
 
 func TestDMA(t *testing.T) {
-	cpu := NewRP2A03(NTSC_CPU_CLOCK_DIVISOR, nil)
+	cpu := NewRP2A03()
 	ppu := &FakePPU{}
 
 	cpu.Memory.AddMappings(ppu, CPU)

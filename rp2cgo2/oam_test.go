@@ -76,7 +76,7 @@ func TestClearOAMBuffer(t *testing.T) {
 	}
 
 	scanline := uint16(0)
-	cycle := uint64(0)
+	cycle := uint16(0)
 	size := uint16(8)
 
 	for cycle = 1; cycle <= 64; cycle++ {
@@ -99,7 +99,7 @@ func TestSpriteEvaluation1(t *testing.T) {
 	oam := NewOAM()
 
 	scanline := uint16(0)
-	cycle := uint64(0)
+	cycle := uint16(0)
 	size := uint16(8)
 
 	buf := []uint8{
@@ -161,7 +161,7 @@ func TestSpriteEvaluation2(t *testing.T) {
 	oam := NewOAM()
 
 	scanline := uint16(0)
-	cycle := uint64(0)
+	cycle := uint16(0)
 	size := uint16(8)
 
 	buf := []uint8{
@@ -223,7 +223,7 @@ func TestSpriteEvaluation3(t *testing.T) {
 	oam := NewOAM()
 
 	scanline := uint16(0)
-	cycle := uint64(0)
+	cycle := uint16(0)
 	size := uint16(8)
 
 	buf := []uint8{
@@ -285,7 +285,7 @@ func TestSpriteEvaluation4(t *testing.T) {
 	oam := NewOAM()
 
 	scanline := uint16(0)
-	cycle := uint64(0)
+	cycle := uint16(0)
 	size := uint16(8)
 
 	buf := []uint8{
@@ -367,7 +367,7 @@ func TestSpriteOverflowClear(t *testing.T) {
 	oam := NewOAM()
 
 	scanline := uint16(0)
-	cycle := uint64(0)
+	cycle := uint16(0)
 	size := uint16(8)
 
 	buf := []uint8{
@@ -420,7 +420,7 @@ func TestSpriteOverflowSet1(t *testing.T) {
 	oam := NewOAM()
 
 	scanline := uint16(0)
-	cycle := uint64(0)
+	cycle := uint16(0)
 	size := uint16(8)
 
 	buf := []uint8{
@@ -474,7 +474,7 @@ func TestSpriteOverflowSet2(t *testing.T) {
 	oam := NewOAM()
 
 	scanline := uint16(0)
-	cycle := uint64(0)
+	cycle := uint16(0)
 	size := uint16(8)
 
 	buf := []uint8{

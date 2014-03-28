@@ -3,7 +3,7 @@ package rp2ago3
 import (
 	"testing"
 
-	"github.com/nwidger/m65go2"
+	"github.com/nwidger/nintengo/m65go2"
 )
 
 var apu *APU

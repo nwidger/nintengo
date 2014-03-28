@@ -3,7 +3,7 @@ package nes
 import (
 	"testing"
 
-	"github.com/nwidger/rp2cgo2"
+	"github.com/nwidger/nintengo/rp2cgo2"
 )
 
 func TestVerticalMirroring(t *testing.T) {

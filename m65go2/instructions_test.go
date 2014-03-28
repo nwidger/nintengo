@@ -5,9 +5,10 @@ import "testing"
 var cpu *M6502
 
 func Setup() {
-	cpu = NewM6502(NewBasicMemory(DEFAULT_MEMORY_SIZE), nil)
+	cpu = NewM6502(NewBasicMemory(DEFAULT_MEMORY_SIZE))
 	cpu.Reset()
 	cpu.breakError = true
+	cpu.Cycles = nil
 }
 
 func Teardown() {
