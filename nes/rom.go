@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/nwidger/rp2ago3"
-	"github.com/nwidger/rp2cgo2"
+	"github.com/nwidger/nintengo/rp2ago3"
+	"github.com/nwidger/nintengo/rp2cgo2"
 )
 
 type Region uint8

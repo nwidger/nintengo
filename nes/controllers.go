@@ -1,6 +1,6 @@
 package nes
 
-import "github.com/nwidger/rp2ago3"
+import "github.com/nwidger/nintengo/rp2ago3"
 
 type Button uint8
 

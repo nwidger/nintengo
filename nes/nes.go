@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/nwidger/m65go2"
-	"github.com/nwidger/rp2ago3"
-	"github.com/nwidger/rp2cgo2"
+	"github.com/nwidger/nintengo/m65go2"
+	"github.com/nwidger/nintengo/rp2ago3"
+	"github.com/nwidger/nintengo/rp2cgo2"
 )
 
 type NES struct {
