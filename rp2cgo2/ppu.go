@@ -1227,7 +1227,7 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		bgIndex := uint16(0)
 
 		if ppu.mask(ShowBackground) && (ppu.mask(ShowBackgroundLeft) || ppu.cycle > 8) {
-			scroll := 8 + ppu.Registers.Scroll
+			scroll := 15 - ppu.Registers.Scroll
 			bgIndex = (((ppu.tilesHigh >> scroll) & 0x0001) << 1) | ((ppu.tilesLow >> scroll) & 0x0001)
 			bgAttribute = uint16((ppu.attributes)&0x0003) << 2
 			bgAddress = uint16(0x3f00 | bgAttribute | bgIndex)
