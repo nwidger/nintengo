@@ -46,7 +46,7 @@ func (reg *Registers) Reset() {
 	reg.A = 0
 	reg.X = 0
 	reg.Y = 0
-	reg.P = I
+	reg.P = I | U
 	reg.SP = 0xfd
 	reg.PC = 0xfffc
 }
@@ -98,7 +98,7 @@ type M6502 struct {
 	Instructions InstructionTable
 	decimalMode  bool
 	breakError   bool
-	Cycles       chan uint16
+	Cycles       chan float32
 }
 
 // Returns a pointer to a new CPU with the given Memory.
@@ -116,7 +116,7 @@ func NewM6502(mem Memory) *M6502 {
 		Nmi:          false,
 		Irq:          false,
 		Rst:          false,
-		Cycles:       make(chan uint16),
+		Cycles:       make(chan float32),
 	}
 }
 
@@ -274,7 +274,7 @@ func (cpu *M6502) Run() (err error) {
 		}
 
 		if cpu.Cycles != nil && cycles != 0 {
-			cpu.Cycles <- cycles
+			cpu.Cycles <- float32(cycles)
 			<-cpu.Cycles
 		}
 	}

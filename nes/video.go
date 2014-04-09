@@ -13,7 +13,6 @@ import (
 	"unsafe"
 
 	"github.com/go-gl/gl"
-	"github.com/scottferg/Go-SDL/gfx"
 	"github.com/scottferg/Go-SDL/sdl"
 )
 
@@ -42,7 +41,6 @@ var SDLPalette []uint32 = []uint32{
 type SDLVideo struct {
 	input         chan []uint8
 	screen        *sdl.Surface
-	fps           *gfx.FPSmanager
 	prog          gl.Program
 	texture       gl.Texture
 	width, height int
@@ -77,9 +75,6 @@ func NewSDLVideo() (video *SDLVideo, err error) {
 
 	video.initGL()
 	video.Reshape(int(video.screen.W), int(video.screen.H))
-
-	video.fps = gfx.NewFramerate()
-	video.fps.SetFramerate(60)
 
 	return
 }
@@ -278,6 +273,14 @@ func (video *SDLVideo) Run() {
 						running = false
 						video.buttonPresses <- PressQuit(0)
 					}
+				case sdl.K_9:
+					if e.Type == sdl.KEYDOWN {
+						video.buttonPresses <- PressShowBackground(0)
+					}
+				case sdl.K_0:
+					if e.Type == sdl.KEYDOWN {
+						video.buttonPresses <- PressShowSprites(0)
+					}
 				}
 
 				if running {
@@ -330,7 +333,6 @@ func (video *SDLVideo) Run() {
 
 			if video.screen != nil {
 				sdl.GL_SwapBuffers()
-				video.fps.FramerateDelay()
 			}
 
 			video.input <- []uint8{}
@@ -558,10 +560,5 @@ func (video *GIFRecorder) Run() {
 }
 
 func pixelInFrame(x, y int, overscan bool) bool {
-	if !overscan ||
-		(y >= 8 && y <= 231 && x >= 8 && x <= 247) {
-		return true
-	}
-
-	return false
+	return !overscan || (y >= 8 && y <= 231 && x >= 8 && x <= 247)
 }

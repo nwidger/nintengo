@@ -185,9 +185,11 @@ type RP2C02 struct {
 	tilesLatch     uint16
 	tilesLow       uint16
 	tilesHigh      uint16
-	Cycles         chan uint16
-	quota          uint16
+	Cycles         chan float32
+	quota          float32
 	sprites        [8]Sprite
+	ShowBackground bool
+	ShowSprites    bool
 }
 
 func NewRP2C02(interrupt func(bool)) *RP2C02 {
@@ -211,11 +213,13 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 	mem.AddMirrors(mirrors)
 
 	return &RP2C02{
-		Output:    make(chan []uint8),
-		Memory:    mem,
-		Interrupt: interrupt,
-		oam:       NewOAM(),
-		Cycles:    make(chan uint16),
+		Output:         make(chan []uint8),
+		Memory:         mem,
+		Interrupt:      interrupt,
+		oam:            NewOAM(),
+		Cycles:         make(chan float32),
+		ShowBackground: true,
+		ShowSprites:    true,
 	}
 }
 
@@ -376,6 +380,8 @@ func (ppu *RP2C02) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 }
 
 func (ppu *RP2C02) Fetch(address uint16) (value uint8) {
+	value = 0xff
+
 	switch address {
 	// Status
 	case 0x2002:
@@ -459,6 +465,8 @@ func (ppu *RP2C02) Store(address uint16, value uint8) (oldValue uint8) {
 		ppu.Memory.Store(ppu.Registers.Address&0x3fff, value)
 		ppu.incrementAddress()
 	}
+
+	oldValue = 0xff
 
 	return
 }
@@ -607,14 +615,14 @@ func (ppu *RP2C02) reloadBackgroundTiles() {
 }
 
 func (ppu *RP2C02) shiftBackgroundTiles() {
-	if (ppu.cycle >= 2 && ppu.cycle <= 257) || (ppu.cycle >= 322 && ppu.cycle <= 337) {
+	if ppu.rendering() && ((ppu.cycle >= 2 && ppu.cycle <= 257) || (ppu.cycle >= 322 && ppu.cycle <= 337)) {
 		ppu.tilesLow <<= 1
 		ppu.tilesHigh <<= 1
 		ppu.attributes = (ppu.attributes >> 2) | (uint16(ppu.attributeLatch) << 14)
 	}
 }
 
-func (ppu *RP2C02) loadSprites() {
+func (ppu *RP2C02) fetchSprites() {
 	index := uint8(0)
 
 	switch ppu.cycle {
@@ -648,22 +656,20 @@ func (ppu *RP2C02) loadSprites() {
 		ppu.sprites[index].TileLow = 0x00
 		ppu.sprites[index].TileHigh = 0x00
 
-		if sprite != 0xffffffff {
-			address := ppu.spriteAddress(sprite)
-			ppu.sprites[index].TileLow = ppu.Memory.Fetch(address)
-			ppu.sprites[index].TileHigh = ppu.Memory.Fetch(address | 0x0008)
+		address := ppu.spriteAddress(sprite)
+		ppu.sprites[index].TileLow = ppu.Memory.Fetch(address)
+		ppu.sprites[index].TileHigh = ppu.Memory.Fetch(address | 0x0008)
 
+		if ppu.sprite(sprite, FlipHorizontally) != 0 {
 			reverse := func(x uint8) uint8 {
-				x = (x&0x55)<<1 | (x&0xAA)>>1
-				x = (x&0x33)<<2 | (x&0xCC)>>2
-				x = (x&0x0F)<<4 | (x&0xF0)>>4
+				x = (x&0x55)<<1 | (x&0xaa)>>1
+				x = (x&0x33)<<2 | (x&0xcc)>>2
+				x = (x&0x0f)<<4 | (x&0xf0)>>4
 				return x
 			}
 
-			if ppu.sprite(sprite, FlipHorizontally) != 0 {
-				ppu.sprites[index].TileLow = reverse(ppu.sprites[index].TileLow)
-				ppu.sprites[index].TileHigh = reverse(ppu.sprites[index].TileHigh)
-			}
+			ppu.sprites[index].TileLow = reverse(ppu.sprites[index].TileLow)
+			ppu.sprites[index].TileHigh = reverse(ppu.sprites[index].TileHigh)
 		}
 	}
 }
@@ -736,11 +742,19 @@ func (ppu *RP2C02) priorityMultiplexer(bgAddress, spriteAddress uint16, spritePr
 	bgIndex := bgAddress & 0x0003
 	spriteIndex := spriteAddress & 0x0003
 
+	if !ppu.ShowBackground {
+		bgIndex = 0
+	}
+
+	if !ppu.ShowSprites {
+		spriteIndex = 0
+	}
+
 	switch bgIndex {
 	case 0:
 		switch spriteIndex {
 		case 0:
-			address = uint16(0x3f00)
+			address = 0x3f00
 		default:
 			address = spriteAddress
 		}
@@ -767,9 +781,6 @@ func (ppu *RP2C02) renderVisibleScanline() {
 	switch ppu.cycle {
 	// skipped on BG+odd
 	case 0:
-		if ppu.scanline == 0 && ppu.rendering() && ppu.frame&0x1 != 0 {
-			ppu.quota++
-		}
 
 	// NT byte
 	case 1:
@@ -1242,26 +1253,24 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		if ppu.mask(ShowSprites) && (ppu.mask(ShowSpritesLeft) || ppu.cycle > 8) {
 			ppu.decrementSprites()
 
-			for i := range ppu.sprites {
-				if ppu.sprites[i].XPosition > 0 {
+			for i, s := range ppu.sprites {
+				if s.XPosition > 0 {
 					continue
 				}
 
-				switch i {
-				case 0:
-					spriteZero = true
-				default:
-					spriteZero = false
-				}
+				sprite := s.Sprite
+				index := uint16((((s.TileHigh >> 7) & 0x0001) << 1) | ((s.TileLow >> 7) & 0x0001))
 
-				sprite := ppu.sprites[i].Sprite
+				if index != 0 {
+					spriteIndex = index
+					spriteAttribute = uint16(ppu.sprite(sprite, SpritePalette)) << 2
+					spriteAddress = uint16(0x3f10 | spriteAttribute | spriteIndex)
+					spritePriority = ppu.sprite(sprite, Priority)
 
-				spriteIndex = uint16((((ppu.sprites[i].TileHigh >> 7) & 0x0001) << 1) | ((ppu.sprites[i].TileLow >> 7) & 0x0001))
-				spriteAttribute = uint16(ppu.sprite(sprite, SpritePalette)) << 2
-				spriteAddress = uint16(0x3f10 | spriteAttribute | spriteIndex)
-				spritePriority = ppu.sprite(sprite, Priority)
+					if i == 0 {
+						spriteZero = true
+					}
 
-				if spriteIndex != 0 {
 					break
 				}
 			}
@@ -1272,14 +1281,14 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		address = ppu.priorityMultiplexer(bgAddress, spriteAddress, spritePriority)
 
 		if ppu.cycle != 255 && ppu.mask(ShowBackground) && ppu.mask(ShowSprites) &&
-			bgAddress != 0x3f00 && spriteAddress != 0x3f10 && address == spriteAddress && spriteZero {
+			bgIndex != 0 && spriteIndex != 0 && spriteZero {
 			ppu.Registers.Status |= uint8(Sprite0Hit)
 		}
 
 		color := ppu.Memory.Fetch(address)
 
 		if ppu.rendering() && ppu.scanline >= 0 && ppu.scanline <= 239 {
-			ppu.colors = append(ppu.colors, color)
+			ppu.colors[(ppu.scanline*256)+(ppu.cycle-1)] = color
 		}
 
 		if ppu.oam.SpriteEvaluation(ppu.scanline, ppu.cycle, ppu.controller(SpriteSize)) {
@@ -1288,14 +1297,14 @@ func (ppu *RP2C02) renderVisibleScanline() {
 	}
 
 	ppu.shiftBackgroundTiles()
-	ppu.loadSprites()
+	ppu.fetchSprites()
 
 	return
 }
 
 func (ppu *RP2C02) Execute() {
-	if ppu.quota == 0 {
-		ppu.quota = <-ppu.Cycles
+	if ppu.quota < 1.0 {
+		ppu.quota += <-ppu.Cycles
 	}
 
 	switch {
@@ -1308,16 +1317,15 @@ func (ppu *RP2C02) Execute() {
 			ppu.Registers.Status |= uint8(VBlankStarted)
 
 			if ppu.Registers.Status&uint8(VBlankStarted) != 0 &&
-				ppu.Registers.Controller&uint8(NMIOnVBlank) != 0 {
-				if ppu.Interrupt != nil {
-					ppu.Interrupt(true)
-				}
+				ppu.Registers.Controller&uint8(NMIOnVBlank) != 0 &&
+				ppu.Interrupt != nil {
+				ppu.Interrupt(true)
 			}
 		}
 	}
 
 	ppu.quota--
-	if ppu.quota == 0 {
+	if ppu.quota < 1.0 {
 		ppu.Cycles <- 1
 	}
 }
@@ -1376,13 +1384,17 @@ func (ppu *RP2C02) dumpPatternTables() (left, right *image.RGBA) {
 
 func (ppu *RP2C02) Run() {
 	// ppu.dumpPatternTables()
+	ppu.colors = make([]uint8, 0xf000)
 
 	for {
-		ppu.colors = []uint8{}
-
 		for ; ppu.scanline < NUM_SCANLINES; ppu.scanline++ {
 			for ppu.cycle = 0; ppu.cycle < CYCLES_PER_SCANLINE; ppu.cycle++ {
 				ppu.Execute()
+
+				if ppu.rendering() && ppu.frame&0x1 != 0 &&
+					ppu.scanline == 261 && ppu.cycle == 339 {
+					break
+				}
 			}
 		}
 

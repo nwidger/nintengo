@@ -3,7 +3,11 @@ package nes
 import (
 	"errors"
 	"fmt"
+	"log"
 	"runtime"
+
+	"os"
+	"runtime/pprof"
 
 	"github.com/nwidger/nintengo/m65go2"
 	"github.com/nwidger/nintengo/rp2ago3"
@@ -13,23 +17,27 @@ import (
 type NES struct {
 	running     bool
 	cpu         *rp2ago3.RP2A03
-	cpuDivisor  uint16
+	cpuDivisor  float32
 	ppu         *rp2cgo2.RP2C02
 	controllers *Controllers
 	rom         ROM
 	video       Video
+	fps         *FPS
 	recorder    Recorder
+	options     *Options
 }
 
 type Options struct {
-	Recorder  string
-	CPUDecode bool
+	Recorder   string
+	CPUDecode  bool
+	CPUProfile string
+	MemProfile string
 }
 
 func NewNES(filename string, options *Options) (nes *NES, err error) {
 	var video Video
 	var recorder Recorder
-	var cpuDivisor uint16
+	var cpuDivisor float32
 
 	rom, err := NewROM(filename)
 
@@ -89,8 +97,10 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		ppu:         ppu,
 		rom:         rom,
 		video:       video,
+		fps:         NewFPS(60.0988),
 		recorder:    recorder,
 		controllers: ctrls,
+		options:     options,
 	}
 
 	return
@@ -103,6 +113,8 @@ func (nes *NES) Reset() {
 
 type PressPause uint8
 type PressQuit uint8
+type PressShowBackground uint8
+type PressShowSprites uint8
 
 func (nes *NES) pause() {
 	for done := false; !done; {
@@ -126,6 +138,10 @@ func (nes *NES) route() {
 				nes.pause()
 			case PressQuit:
 				nes.running = false
+			case PressShowBackground:
+				nes.ppu.ShowBackground = !nes.ppu.ShowBackground
+			case PressShowSprites:
+				nes.ppu.ShowSprites = !nes.ppu.ShowSprites
 			}
 		case e := <-nes.cpu.Cycles:
 			go func() {
@@ -141,6 +157,7 @@ func (nes *NES) route() {
 			go func() {
 				nes.video.Input() <- e
 				ok := <-nes.video.Input()
+				nes.fps.Delay()
 				nes.ppu.Output <- ok
 			}()
 		}
@@ -164,10 +181,33 @@ func (nes *NES) Run() (err error) {
 	}
 
 	runtime.LockOSThread()
+
+	if nes.options.CPUProfile != "" {
+		f, err := os.Create(nes.options.CPUProfile)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
 	nes.video.Run()
 
 	if nes.recorder != nil {
 		nes.recorder.Stop()
+	}
+
+	if nes.options.MemProfile != "" {
+		f, err := os.Create(nes.options.MemProfile)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		pprof.WriteHeapProfile(f)
+		f.Close()
 	}
 
 	return

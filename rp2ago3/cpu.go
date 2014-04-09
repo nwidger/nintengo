@@ -1,16 +1,9 @@
 package rp2ago3
 
-import (
-	"time"
+import "github.com/nwidger/nintengo/m65go2"
 
-	"github.com/nwidger/nintengo/m65go2"
-)
-
-const NTSC_CLOCK_RATE time.Duration = 187 * time.Nanosecond // 21.477272MHz / 4 = 5.369318MHz
-const PAL_CLOCK_RATE time.Duration = 187 * time.Nanosecond  // 26.601712MHz / 5 = 5.3203424MHz
-
-const NTSC_CPU_CLOCK_DIVISOR uint16 = 3
-const PAL_CPU_CLOCK_DIVISOR uint16 = 4
+const NTSC_CPU_CLOCK_DIVISOR float32 = 3
+const PAL_CPU_CLOCK_DIVISOR float32 = 3.2
 
 type RP2A03 struct {
 	*m65go2.M6502
@@ -70,14 +63,14 @@ func (cpu *RP2A03) Run() (err error) {
 		}
 
 		if cpu.Cycles != nil && cycles != 0 {
-			cpu.Cycles <- cycles
+			cpu.Cycles <- float32(cycles)
 			<-cpu.Cycles
 		}
 
 		cycles = cpu.dma.PerformDMA()
 
 		if cpu.Cycles != nil && cycles != 0 {
-			cpu.Cycles <- cycles
+			cpu.Cycles <- float32(cycles)
 			<-cpu.Cycles
 		}
 	}

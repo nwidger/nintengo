@@ -14,6 +14,8 @@ func main() {
 
 	flag.BoolVar(&options.CPUDecode, "cpu-decode", false, "decode CPU instructions")
 	flag.StringVar(&options.Recorder, "recorder", "", "recorder to use: none | jpeg | gif")
+	flag.StringVar(&options.CPUProfile, "cpu-profile", "", "write CPU profile to file")
+	flag.StringVar(&options.MemProfile, "mem-profile", "", "write memory profile to file")
 	flag.Parse()
 
 	if len(flag.Args()) != 1 {
