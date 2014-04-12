@@ -234,7 +234,7 @@ func (cpu *M6502) Execute() (cycles uint16, error error) {
 
 	// fetch
 	opcode := OpCode(cpu.Memory.Fetch(cpu.Registers.PC))
-	inst, ok := cpu.Instructions[opcode]
+	inst, ok := cpu.Instructions.opcodes[opcode]
 
 	if !ok {
 		return 0, BadOpCodeError(opcode)
@@ -251,7 +251,17 @@ func (cpu *M6502) Execute() (cycles uint16, error error) {
 	}
 
 	cpu.Registers.PC++
-	cycles = inst.Exec(cpu)
+	status := inst.Exec(cpu)
+
+	if status&PageCross == 0 {
+		cycles = cpu.Instructions.cycles[opcode]
+	} else {
+		cycles = cpu.Instructions.cyclesPageCross[opcode]
+	}
+
+	if status&Branched != 0 {
+		cycles++
+	}
 
 	if cpu.decode.enabled {
 		fmt.Println(cpu.decode.String())
@@ -311,108 +321,86 @@ func (cpu *M6502) setVFlagAddition(term1 uint16, term2 uint16, result uint16) ui
 	return result
 }
 
-func (cpu *M6502) controlAddress(opcode OpCode, cycles *uint16) (address uint16) {
+func (cpu *M6502) controlAddress(opcode OpCode, status *InstructionStatus) (address uint16) {
 	// control opcodes end with 00
 
 	if opcode&0x10 == 0 {
 		switch (opcode >> 2) & 0x03 {
 		case 0x00:
-			*cycles = 2
 			address = cpu.immediateAddress()
 		case 0x01:
-			*cycles = 3
 			address = cpu.zeroPageAddress()
 		case 0x02:
-			*cycles = 4
 			address = 0 // not used
 		case 0x03:
-			*cycles = 4
 			address = cpu.absoluteAddress()
 		}
 	} else {
 		switch (opcode >> 2) & 0x03 {
 		case 0x00:
-			*cycles = 2
 			address = cpu.relativeAddress()
 		case 0x01:
-			*cycles = 4
 			address = cpu.zeroPageIndexedAddress(X)
 		case 0x02:
-			*cycles = 2
 			address = 0 // not used
 		case 0x03:
-			*cycles = 4
-			address = cpu.absoluteIndexedAddress(X, cycles)
+			address = cpu.absoluteIndexedAddress(X, status)
 		}
 	}
 
 	return
 }
 
-func (cpu *M6502) aluAddress(opcode OpCode, cycles *uint16) (address uint16) {
+func (cpu *M6502) aluAddress(opcode OpCode, status *InstructionStatus) (address uint16) {
 	// alu opcodes end with 01
 
 	if opcode&0x10 == 0 {
 		switch (opcode >> 2) & 0x03 {
 		case 0x00:
-			*cycles = 6
 			address = cpu.indexedIndirectAddress()
 		case 0x01:
-			*cycles = 3
 			address = cpu.zeroPageAddress()
 		case 0x02:
-			*cycles = 2
 			address = cpu.immediateAddress()
 		case 0x03:
-			*cycles = 4
 			address = cpu.absoluteAddress()
 		}
 	} else {
 		switch (opcode >> 2) & 0x03 {
 		case 0x00:
-			*cycles = 5
-			address = cpu.indirectIndexedAddress(cycles)
+			address = cpu.indirectIndexedAddress(status)
 		case 0x01:
-			*cycles = 4
 			address = cpu.zeroPageIndexedAddress(X)
 		case 0x02:
-			*cycles = 4
-			address = cpu.absoluteIndexedAddress(Y, cycles)
+			address = cpu.absoluteIndexedAddress(Y, status)
 		case 0x03:
-			*cycles = 4
-			address = cpu.absoluteIndexedAddress(X, cycles)
+			address = cpu.absoluteIndexedAddress(X, status)
 		}
 	}
 
 	return
 }
 
-func (cpu *M6502) rmwAddress(opcode OpCode, cycles *uint16) (address uint16) {
+func (cpu *M6502) rmwAddress(opcode OpCode, status *InstructionStatus) (address uint16) {
 	// rmw opcodes end with 10
 	var index Index
 
 	if opcode&0x10 == 0 {
 		switch (opcode >> 2) & 0x03 {
 		case 0x00:
-			*cycles = 2
 			address = cpu.immediateAddress()
 		case 0x01:
-			*cycles = 3
 			address = cpu.zeroPageAddress()
 		case 0x02:
-			*cycles = 2
 			address = 0 // not used
 		case 0x03:
-			*cycles = 4
 			address = cpu.absoluteAddress()
 		}
 	} else {
 		switch (opcode >> 2) & 0x03 {
 		case 0x00:
-			*cycles = 2
 			address = 0 // not used
 		case 0x01:
-			*cycles = 4
 
 			switch opcode & 0xf0 {
 			case 0x90:
@@ -425,10 +413,8 @@ func (cpu *M6502) rmwAddress(opcode OpCode, cycles *uint16) (address uint16) {
 
 			address = cpu.zeroPageIndexedAddress(index)
 		case 0x02:
-			*cycles = 2
 			address = 0 // not used
 		case 0x03:
-			*cycles = 4
 
 			switch opcode & 0xf0 {
 			case 0x90:
@@ -439,39 +425,33 @@ func (cpu *M6502) rmwAddress(opcode OpCode, cycles *uint16) (address uint16) {
 				index = X
 			}
 
-			address = cpu.absoluteIndexedAddress(index, cycles)
+			address = cpu.absoluteIndexedAddress(index, status)
 		}
 	}
 
 	return
 }
 
-func (cpu *M6502) unofficialAddress(opcode OpCode, cycles *uint16) (address uint16) {
+func (cpu *M6502) unofficialAddress(opcode OpCode, status *InstructionStatus) (address uint16) {
 	// alu opcodes end with 11
 	var index Index
 
 	if opcode&0x10 == 0 {
 		switch (opcode >> 2) & 0x03 {
 		case 0x00:
-			*cycles = 8
 			address = cpu.indexedIndirectAddress()
 		case 0x01:
-			*cycles = 5
 			address = cpu.zeroPageAddress()
 		case 0x02:
-			*cycles = 2
 			address = cpu.immediateAddress()
 		case 0x03:
-			*cycles = 6
 			address = cpu.absoluteAddress()
 		}
 	} else {
 		switch (opcode >> 2) & 0x03 {
 		case 0x00:
-			*cycles = 8
-			address = cpu.indirectIndexedAddress(cycles)
+			address = cpu.indirectIndexedAddress(status)
 		case 0x01:
-			*cycles = 6
 
 			switch opcode & 0xf0 {
 			case 0x90:
@@ -484,10 +464,8 @@ func (cpu *M6502) unofficialAddress(opcode OpCode, cycles *uint16) (address uint
 
 			address = cpu.zeroPageIndexedAddress(index)
 		case 0x02:
-			*cycles = 7
-			address = cpu.absoluteIndexedAddress(Y, cycles)
+			address = cpu.absoluteIndexedAddress(Y, status)
 		case 0x03:
-			*cycles = 7
 
 			switch opcode & 0xf0 {
 			case 0x90:
@@ -498,7 +476,7 @@ func (cpu *M6502) unofficialAddress(opcode OpCode, cycles *uint16) (address uint
 				index = X
 			}
 
-			address = cpu.absoluteIndexedAddress(index, cycles)
+			address = cpu.absoluteIndexedAddress(index, status)
 		}
 	}
 
@@ -637,7 +615,7 @@ func (cpu *M6502) indirectAddress() (result uint16) {
 	return
 }
 
-func (cpu *M6502) absoluteIndexedAddress(index Index, cycles *uint16) (result uint16) {
+func (cpu *M6502) absoluteIndexedAddress(index Index, status *InstructionStatus) (result uint16) {
 	low := cpu.Memory.Fetch(cpu.Registers.PC)
 	high := cpu.Memory.Fetch(cpu.Registers.PC + 1)
 	cpu.Registers.PC += 2
@@ -645,8 +623,8 @@ func (cpu *M6502) absoluteIndexedAddress(index Index, cycles *uint16) (result ui
 	address := (uint16(high) << 8) | uint16(low)
 	result = address + uint16(cpu.IndexToRegister(index))
 
-	if cycles != nil && !SamePage(address, result) {
-		*cycles++
+	if status != nil && !SamePage(address, result) {
+		*status |= PageCross
 	}
 
 	if cpu.decode.enabled {
@@ -675,7 +653,7 @@ func (cpu *M6502) indexedIndirectAddress() (result uint16) {
 	return
 }
 
-func (cpu *M6502) indirectIndexedAddress(cycles *uint16) (result uint16) {
+func (cpu *M6502) indirectIndexedAddress(status *InstructionStatus) (result uint16) {
 	value := cpu.Memory.Fetch(cpu.Registers.PC)
 	address := uint16(value)
 	cpu.Registers.PC++
@@ -687,8 +665,8 @@ func (cpu *M6502) indirectIndexedAddress(cycles *uint16) (result uint16) {
 
 	result = address + uint16(cpu.Registers.Y)
 
-	if cycles != nil && !SamePage(address, result) {
-		*cycles++
+	if status != nil && !SamePage(address, result) {
+		*status |= PageCross
 	}
 
 	if cpu.decode.enabled {
@@ -1099,7 +1077,7 @@ func (cpu *M6502) Bit(address uint16) {
 	}
 
 	cpu.setZFlag(value & cpu.Registers.A)
-	cpu.Registers.P = (cpu.Registers.P & ^N & ^V) | Status(value&uint8(V|N))
+	cpu.Registers.P = (cpu.Registers.P & ^(N | V)) | Status(value&uint8(N|V))
 }
 
 func (cpu *M6502) addition(value uint16) {
@@ -1739,12 +1717,12 @@ func (cpu *M6502) Rts() {
 	cpu.Registers.PC = cpu.pull16() + 1
 }
 
-func (cpu *M6502) branch(address uint16, condition func() bool, cycles *uint16) {
+func (cpu *M6502) branch(address uint16, condition func() bool, status *InstructionStatus) {
 	if condition() {
-		*cycles++
+		*status |= Branched
 
-		if !SamePage(cpu.Registers.PC, address) {
-			*cycles++
+		if status != nil && !SamePage(cpu.Registers.PC, address) {
+			*status |= PageCross
 		}
 
 		cpu.Registers.PC = address
@@ -1761,8 +1739,8 @@ func (cpu *M6502) branch(address uint16, condition func() bool, cycles *uint16) 
 //         B 	Break Command 	  Not affected
 //         V 	Overflow Flag 	  Not affected
 //         N 	Negative Flag 	  Not affected
-func (cpu *M6502) Bcc(address uint16, cycles *uint16) {
-	cpu.branch(address, func() bool { return cpu.Registers.P&C == 0 }, cycles)
+func (cpu *M6502) Bcc(address uint16, status *InstructionStatus) {
+	cpu.branch(address, func() bool { return cpu.Registers.P&C == 0 }, status)
 }
 
 // If the carry flag is set then add the relative displacement to the
@@ -1775,8 +1753,8 @@ func (cpu *M6502) Bcc(address uint16, cycles *uint16) {
 //         B 	Break Command 	  Not affected
 //         V 	Overflow Flag 	  Not affected
 //         N 	Negative Flag 	  Not affected
-func (cpu *M6502) Bcs(address uint16, cycles *uint16) {
-	cpu.branch(address, func() bool { return cpu.Registers.P&C != 0 }, cycles)
+func (cpu *M6502) Bcs(address uint16, status *InstructionStatus) {
+	cpu.branch(address, func() bool { return cpu.Registers.P&C != 0 }, status)
 }
 
 // If the zero flag is set then add the relative displacement to the
@@ -1789,8 +1767,8 @@ func (cpu *M6502) Bcs(address uint16, cycles *uint16) {
 //         B 	Break Command 	  Not affected
 //         V 	Overflow Flag 	  Not affected
 //         N 	Negative Flag 	  Not affected
-func (cpu *M6502) Beq(address uint16, cycles *uint16) {
-	cpu.branch(address, func() bool { return cpu.Registers.P&Z != 0 }, cycles)
+func (cpu *M6502) Beq(address uint16, status *InstructionStatus) {
+	cpu.branch(address, func() bool { return cpu.Registers.P&Z != 0 }, status)
 }
 
 // If the negative flag is set then add the relative displacement to
@@ -1803,8 +1781,8 @@ func (cpu *M6502) Beq(address uint16, cycles *uint16) {
 //         B 	Break Command 	  Not affected
 //         V 	Overflow Flag 	  Not affected
 //         N 	Negative Flag 	  Not affected
-func (cpu *M6502) Bmi(address uint16, cycles *uint16) {
-	cpu.branch(address, func() bool { return cpu.Registers.P&N != 0 }, cycles)
+func (cpu *M6502) Bmi(address uint16, status *InstructionStatus) {
+	cpu.branch(address, func() bool { return cpu.Registers.P&N != 0 }, status)
 }
 
 // If the zero flag is clear then add the relative displacement to the
@@ -1817,8 +1795,8 @@ func (cpu *M6502) Bmi(address uint16, cycles *uint16) {
 //         B 	Break Command 	  Not affected
 //         V 	Overflow Flag 	  Not affected
 //         N 	Negative Flag 	  Not affected
-func (cpu *M6502) Bne(address uint16, cycles *uint16) {
-	cpu.branch(address, func() bool { return cpu.Registers.P&Z == 0 }, cycles)
+func (cpu *M6502) Bne(address uint16, status *InstructionStatus) {
+	cpu.branch(address, func() bool { return cpu.Registers.P&Z == 0 }, status)
 }
 
 // If the negative flag is clear then add the relative displacement to
@@ -1831,8 +1809,8 @@ func (cpu *M6502) Bne(address uint16, cycles *uint16) {
 //         B 	Break Command 	  Not affected
 //         V 	Overflow Flag 	  Not affected
 //         N 	Negative Flag 	  Not affected
-func (cpu *M6502) Bpl(address uint16, cycles *uint16) {
-	cpu.branch(address, func() bool { return cpu.Registers.P&N == 0 }, cycles)
+func (cpu *M6502) Bpl(address uint16, status *InstructionStatus) {
+	cpu.branch(address, func() bool { return cpu.Registers.P&N == 0 }, status)
 }
 
 // If the overflow flag is clear then add the relative displacement to
@@ -1845,8 +1823,8 @@ func (cpu *M6502) Bpl(address uint16, cycles *uint16) {
 //         B 	Break Command 	  Not affected
 //         V 	Overflow Flag 	  Not affected
 //         N 	Negative Flag 	  Not affected
-func (cpu *M6502) Bvc(address uint16, cycles *uint16) {
-	cpu.branch(address, func() bool { return cpu.Registers.P&V == 0 }, cycles)
+func (cpu *M6502) Bvc(address uint16, status *InstructionStatus) {
+	cpu.branch(address, func() bool { return cpu.Registers.P&V == 0 }, status)
 }
 
 // If the overflow flag is set then add the relative displacement to
@@ -1859,8 +1837,8 @@ func (cpu *M6502) Bvc(address uint16, cycles *uint16) {
 //         B 	Break Command 	  Not affected
 //         V 	Overflow Flag 	  Not affected
 //         N 	Negative Flag 	  Not affected
-func (cpu *M6502) Bvs(address uint16, cycles *uint16) {
-	cpu.branch(address, func() bool { return cpu.Registers.P&V != 0 }, cycles)
+func (cpu *M6502) Bvs(address uint16, status *InstructionStatus) {
+	cpu.branch(address, func() bool { return cpu.Registers.P&V != 0 }, status)
 }
 
 // Set the carry flag to zero.

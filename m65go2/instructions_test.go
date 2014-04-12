@@ -144,7 +144,7 @@ func TestLdaAbsoluteX(t *testing.T) {
 	cycles, _ = cpu.Execute()
 
 	if cycles != 5 {
-		t.Error("Cycles is not 5")
+		t.Errorf("Cycles is %v not 5", cycles)
 	}
 
 	Teardown()
@@ -5059,7 +5059,7 @@ func TestBcc(t *testing.T) {
 	cycles, _ := cpu.Execute()
 
 	if cycles != 2 {
-		t.Error("Cycles is not 2")
+		t.Errorf("Cycles is %v not 2", cycles)
 	}
 
 	if cpu.Registers.PC != 0x0102 {
@@ -5075,7 +5075,7 @@ func TestBcc(t *testing.T) {
 	cycles, _ = cpu.Execute()
 
 	if cycles != 3 {
-		t.Error("Cycles is not 3")
+		t.Errorf("Cycles is %v not 3", cycles)
 	}
 
 	if cpu.Registers.PC != 0x0104 {
@@ -5091,7 +5091,7 @@ func TestBcc(t *testing.T) {
 	cycles, _ = cpu.Execute()
 
 	if cycles != 4 {
-		t.Error("Cycles is not 4")
+		t.Errorf("Cycles is %v not 4", cycles)
 	}
 
 	if cpu.Registers.PC != 0x00ff {
