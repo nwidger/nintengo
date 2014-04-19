@@ -52,7 +52,7 @@ func (mem *BasicMemory) EnableWrites() {
 // Resets all memory locations to zero
 func (mem *BasicMemory) Reset() {
 	for i := range mem.m {
-		mem.m[i] = 0x00
+		mem.m[i] = 0xff
 	}
 }
 

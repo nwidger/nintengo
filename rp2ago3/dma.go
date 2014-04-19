@@ -1,8 +1,6 @@
 package rp2ago3
 
-import (
-	"github.com/nwidger/nintengo/m65go2"
-)
+import "github.com/nwidger/nintengo/m65go2"
 
 type DMA struct {
 	Memory  m65go2.Memory

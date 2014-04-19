@@ -1285,7 +1285,7 @@ func (ppu *RP2C02) renderVisibleScanline() {
 			ppu.Registers.Status |= uint8(Sprite0Hit)
 		}
 
-		color := ppu.Memory.Fetch(address)
+		color := ppu.Memory.Fetch(address) & 0x3f
 
 		if ppu.rendering() && ppu.scanline >= 0 && ppu.scanline <= 239 {
 			ppu.colors[(ppu.scanline*256)+(ppu.cycle-1)] = color

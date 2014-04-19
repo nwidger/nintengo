@@ -71,6 +71,30 @@ func NewInstructionTable() InstructionTable {
 	return instructions
 }
 
+// Executes an instruction in the InstructionTable, returns number of
+// cycles taken to execute
+func (instructions InstructionTable) Execute(cpu *M6502, opcode OpCode) (cycles uint16) {
+	inst, ok := instructions.opcodes[opcode]
+
+	if !ok {
+		return
+	}
+
+	status := inst.Exec(cpu)
+
+	if status&PageCross == 0 {
+		cycles = cpu.Instructions.cycles[opcode]
+	} else {
+		cycles = cpu.Instructions.cyclesPageCross[opcode]
+	}
+
+	if status&Branched != 0 {
+		cycles++
+	}
+
+	return
+}
+
 // Adds an instruction to the InstructionTable
 func (instructions InstructionTable) AddInstruction(inst Instruction) {
 	instructions.opcodes[inst.OpCode] = inst
@@ -1045,7 +1069,7 @@ func (instructions InstructionTable) InitInstructions() {
 			}})
 	}
 
-	for _, o := range []OpCode{0x04, 0x14, 0x34, 0x44, 0x54, 0x64, 0x74, 0xd4, 0xf4, 0x80} {
+	for _, o := range []OpCode{0x04, 0x14, 0x34, 0x44, 0x54, 0x64, 0x74, 0xd4, 0xf4, 0x80, 0x82, 0x89, 0xc2, 0xe2} {
 		opcode := o
 
 		instructions.AddInstruction(Instruction{
@@ -1056,6 +1080,14 @@ func (instructions InstructionTable) InitInstructions() {
 
 				switch {
 				case opcode == 0x80:
+					fallthrough
+				case opcode == 0x82:
+					fallthrough
+				case opcode == 0x89:
+					fallthrough
+				case opcode == 0xc2:
+					fallthrough
+				case opcode == 0xe2:
 					address = cpu.immediateAddress()
 				case (opcode>>4)&0x01 == 0:
 					address = cpu.zeroPageAddress()
@@ -1092,7 +1124,7 @@ func (instructions InstructionTable) InitInstructions() {
 
 	//     Unofficial
 
-	for _, o := range []OpCode{0xa3, 0xa7, 0xaf, 0xb3, 0xb7, 0xbf} {
+	for _, o := range []OpCode{0xa3, 0xa7, 0xaf, 0xb3, 0xb7, 0xbf, 0xab} {
 		opcode := o
 
 		instructions.AddInstruction(Instruction{
@@ -1116,6 +1148,102 @@ func (instructions InstructionTable) InitInstructions() {
 			OpCode:    opcode,
 			Exec: func(cpu *M6502) (status InstructionStatus) {
 				cpu.Sax(cpu.unofficialAddress(opcode, &status))
+				return
+			}})
+	}
+
+	// ANC
+
+	//     Unofficial
+
+	for _, o := range []OpCode{0x0b, 0x2b} {
+		opcode := o
+
+		instructions.AddInstruction(Instruction{
+			Mneumonic: "*ANC",
+			OpCode:    opcode,
+			Exec: func(cpu *M6502) (status InstructionStatus) {
+				cpu.Anc(cpu.unofficialAddress(opcode, &status))
+				return
+			}})
+	}
+
+	// ALR
+
+	//     Unofficial
+
+	for _, o := range []OpCode{0x4b} {
+		opcode := o
+
+		instructions.AddInstruction(Instruction{
+			Mneumonic: "*ALR",
+			OpCode:    opcode,
+			Exec: func(cpu *M6502) (status InstructionStatus) {
+				cpu.Alr(cpu.unofficialAddress(opcode, &status))
+				return
+			}})
+	}
+
+	// ARR
+
+	//     Unofficial
+
+	for _, o := range []OpCode{0x6b} {
+		opcode := o
+
+		instructions.AddInstruction(Instruction{
+			Mneumonic: "*ARR",
+			OpCode:    opcode,
+			Exec: func(cpu *M6502) (status InstructionStatus) {
+				cpu.Arr(cpu.unofficialAddress(opcode, &status))
+				return
+			}})
+	}
+
+	// AXS
+
+	//     Unofficial
+
+	for _, o := range []OpCode{0xcb} {
+		opcode := o
+
+		instructions.AddInstruction(Instruction{
+			Mneumonic: "*AXS",
+			OpCode:    opcode,
+			Exec: func(cpu *M6502) (status InstructionStatus) {
+				cpu.Axs(cpu.unofficialAddress(opcode, &status))
+				return
+			}})
+	}
+
+	// SHY
+
+	//     Unofficial
+
+	for _, o := range []OpCode{0x9c} {
+		opcode := o
+
+		instructions.AddInstruction(Instruction{
+			Mneumonic: "*SHY",
+			OpCode:    opcode,
+			Exec: func(cpu *M6502) (status InstructionStatus) {
+				cpu.Shy(cpu.unofficialAddress(opcode, &status))
+				return
+			}})
+	}
+
+	// SHX
+
+	//     Unofficial
+
+	for _, o := range []OpCode{0x9e} {
+		opcode := o
+
+		instructions.AddInstruction(Instruction{
+			Mneumonic: "*SHX",
+			OpCode:    opcode,
+			Exec: func(cpu *M6502) (status InstructionStatus) {
+				cpu.Shx(cpu.unofficialAddress(opcode, &status))
 				return
 			}})
 	}

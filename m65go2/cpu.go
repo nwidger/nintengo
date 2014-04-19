@@ -159,24 +159,31 @@ func (cpu *M6502) GetInterrupt(which Interrupt) (state bool) {
 	return
 }
 
-func (cpu *M6502) PerformInterrupts() {
+func (cpu *M6502) PerformInterrupts() (cycles uint16) {
 	// check interrupts
 	switch {
 	case cpu.Irq && cpu.Registers.P&I == 0:
 		cpu.PerformIrq()
 		cpu.Irq = false
+		cycles = 7
 	case cpu.Nmi:
 		cpu.PerformNmi()
 		cpu.Nmi = false
+		cycles = 7
 	case cpu.Rst:
 		cpu.PerformRst()
 		cpu.Rst = false
+		cycles = 7
 	}
+
+	return
 }
 
 func (cpu *M6502) PerformIrq() {
 	cpu.push16(cpu.Registers.PC)
-	cpu.push(uint8(cpu.Registers.P))
+	cpu.push(uint8((cpu.Registers.P | U) & ^B))
+
+	cpu.Registers.P |= I
 
 	low := cpu.Memory.Fetch(0xfffe)
 	high := cpu.Memory.Fetch(0xffff)
@@ -186,7 +193,9 @@ func (cpu *M6502) PerformIrq() {
 
 func (cpu *M6502) PerformNmi() {
 	cpu.push16(cpu.Registers.PC)
-	cpu.push(uint8(cpu.Registers.P))
+	cpu.push(uint8((cpu.Registers.P | U) & ^B))
+
+	cpu.Registers.P |= I
 
 	low := cpu.Memory.Fetch(0xfffa)
 	high := cpu.Memory.Fetch(0xfffb)
@@ -229,9 +238,6 @@ func (b BrkOpCodeError) Error() string {
 // Returns the number of cycles executed and any error (such as
 // BadOpCodeError).
 func (cpu *M6502) Execute() (cycles uint16, error error) {
-	// check interrupts
-	cpu.PerformInterrupts()
-
 	// fetch
 	opcode := OpCode(cpu.Memory.Fetch(cpu.Registers.PC))
 	inst, ok := cpu.Instructions.opcodes[opcode]
@@ -251,17 +257,7 @@ func (cpu *M6502) Execute() (cycles uint16, error error) {
 	}
 
 	cpu.Registers.PC++
-	status := inst.Exec(cpu)
-
-	if status&PageCross == 0 {
-		cycles = cpu.Instructions.cycles[opcode]
-	} else {
-		cycles = cpu.Instructions.cyclesPageCross[opcode]
-	}
-
-	if status&Branched != 0 {
-		cycles++
-	}
+	cycles = cpu.Instructions.Execute(cpu, opcode)
 
 	if cpu.decode.enabled {
 		fmt.Println(cpu.decode.String())
@@ -270,6 +266,17 @@ func (cpu *M6502) Execute() (cycles uint16, error error) {
 	if cpu.breakError && opcode == 0x00 {
 		return cycles, BrkOpCodeError(opcode)
 	}
+
+	// check interrupts
+	cycles += cpu.PerformInterrupts()
+
+	// a := uint16(0x6004)
+	// v := cpu.Memory.Fetch(a)
+
+	// for ; v >= 0 && v <= 128; a++ {
+	// 	fmt.Printf("%c", v)
+	// 	v = cpu.Memory.Fetch(a)
+	// }
 
 	return cycles, nil
 }
@@ -467,13 +474,17 @@ func (cpu *M6502) unofficialAddress(opcode OpCode, status *InstructionStatus) (a
 			address = cpu.absoluteIndexedAddress(Y, status)
 		case 0x03:
 
-			switch opcode & 0xf0 {
-			case 0x90:
-				fallthrough
-			case 0xb0:
-				index = Y
-			default:
+			if opcode == 0x9c {
 				index = X
+			} else {
+				switch opcode & 0xf0 {
+				case 0x90:
+					fallthrough
+				case 0xb0:
+					index = Y
+				default:
+					index = X
+				}
 			}
 
 			address = cpu.absoluteIndexedAddress(index, status)
@@ -971,9 +982,7 @@ func (cpu *M6502) Pla() {
 //         V 	Overflow Flag 	  Set from stack
 //         N 	Negative Flag 	  Set from stack
 func (cpu *M6502) Plp() {
-	cpu.Registers.P = Status(cpu.pull())
-	cpu.Registers.P &^= B
-	cpu.Registers.P |= U
+	cpu.Registers.P = Status(cpu.pull()) & ^(B | U)
 }
 
 // A logical AND is performed, bit by bit, on the accumulator contents
@@ -1155,7 +1164,7 @@ func (cpu *M6502) Sbc(address uint16) {
 		cpu.decode.decodedArgs += fmt.Sprintf("%02X", value)
 	}
 
-	if cpu.Registers.P&D == 0 {
+	if !cpu.decimalMode || cpu.Registers.P&D == 0 {
 		value ^= 0xff
 	} else {
 		value = 0x99 - value
@@ -1950,7 +1959,7 @@ func (cpu *M6502) Brk() {
 	cpu.Registers.PC++
 
 	cpu.push16(cpu.Registers.PC)
-	cpu.push(uint8(cpu.Registers.P | B))
+	cpu.push(uint8(cpu.Registers.P | B | U))
 
 	cpu.Registers.P |= I
 
@@ -2000,6 +2009,42 @@ func (cpu *M6502) NopAddress(address uint16) {
 	}
 }
 
+// Unofficial
+func (cpu *M6502) Anc(address uint16) {
+	cpu.And(address)
+	cpu.Registers.P = (cpu.Registers.P & ^C) | cpu.Registers.P>>7
+}
+
+// Unofficial
+func (cpu *M6502) Alr(address uint16) {
+	cpu.And(address)
+	cpu.LsrA()
+}
+
+// Unofficial
+func (cpu *M6502) Arr(address uint16) {
+	cpu.And(address)
+	cpu.RorA()
+}
+
+// Unofficial
+func (cpu *M6502) Axs(address uint16) {
+	value := cpu.Memory.Fetch(address)
+	cpu.Registers.X &= cpu.Registers.A
+	cpu.compare(uint16(value), cpu.Registers.X)
+	cpu.Registers.X -= value
+}
+
+// Unofficial
+func (cpu *M6502) Shy(address uint16) {
+	cpu.Memory.Fetch(address)
+}
+
+// Unofficial
+func (cpu *M6502) Shx(address uint16) {
+	cpu.Memory.Fetch(address)
+}
+
 // The RTI instruction is used at the end of an interrupt processing
 // routine. It pulls the processor flags from the stack followed by
 // the program counter.
@@ -2012,6 +2057,6 @@ func (cpu *M6502) NopAddress(address uint16) {
 //         V 	Overflow Flag 	  Set from stack
 //         N 	Negative Flag 	  Set from stack
 func (cpu *M6502) Rti() {
-	cpu.Registers.P = Status(cpu.pull()) | U
+	cpu.Registers.P = Status(cpu.pull()) & ^(B | U)
 	cpu.Registers.PC = cpu.pull16()
 }

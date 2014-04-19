@@ -55,7 +55,7 @@ func NewSDLVideo() (video *SDLVideo, err error) {
 		input:         make(chan []uint8),
 		buttonPresses: make(chan interface{}),
 		palette:       SDLPalette,
-		overscan:      true,
+		overscan:      false,
 	}
 
 	if sdl.Init(sdl.INIT_VIDEO|sdl.INIT_JOYSTICK|sdl.INIT_AUDIO) != 0 {
