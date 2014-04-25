@@ -25,24 +25,28 @@ func (nrom *NROM) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 
 	switch which {
 	case rp2ago3.PPU:
-		// CHR bank 1
-		for i := uint32(0x0000); i <= 0x0fff; i++ {
-			fetch = append(fetch, uint16(i))
-		}
+		if nrom.ROMFile.chrBanks > 0 {
+			// CHR bank 1
+			for i := uint32(0x0000); i <= 0x0fff; i++ {
+				fetch = append(fetch, uint16(i))
+			}
 
-		// CHR bank 2
-		for i := uint32(0x1000); i <= 0x1fff; i++ {
-			fetch = append(fetch, uint16(i))
+			// CHR bank 2
+			for i := uint32(0x1000); i <= 0x1fff; i++ {
+				fetch = append(fetch, uint16(i))
+			}
 		}
 	case rp2ago3.CPU:
-		// PRG bank 1
-		for i := uint32(0x8000); i <= 0xbfff; i++ {
-			fetch = append(fetch, uint16(i))
-		}
+		if nrom.ROMFile.prgBanks > 0 {
+			// PRG bank 1
+			for i := uint32(0x8000); i <= 0xbfff; i++ {
+				fetch = append(fetch, uint16(i))
+			}
 
-		// PRG bank 2
-		for i := uint32(0xc000); i <= 0xffff; i++ {
-			fetch = append(fetch, uint16(i))
+			// PRG bank 2
+			for i := uint32(0xc000); i <= 0xffff; i++ {
+				fetch = append(fetch, uint16(i))
+			}
 		}
 	}
 

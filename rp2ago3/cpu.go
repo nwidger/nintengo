@@ -62,12 +62,7 @@ func (cpu *RP2A03) Run() (err error) {
 			break
 		}
 
-		if cpu.Cycles != nil && cycles != 0 {
-			cpu.Cycles <- float32(cycles)
-			<-cpu.Cycles
-		}
-
-		cycles = cpu.dma.PerformDMA()
+		cycles += cpu.dma.PerformDMA()
 
 		if cpu.Cycles != nil && cycles != 0 {
 			cpu.Cycles <- float32(cycles)

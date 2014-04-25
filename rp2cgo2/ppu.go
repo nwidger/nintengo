@@ -170,6 +170,7 @@ type Sprite struct {
 type RP2C02 struct {
 	latch          bool
 	latchAddress   uint16
+	latchValue     uint8
 	Output         chan []uint8
 	colors         []uint8
 	Registers      Registers
@@ -357,6 +358,7 @@ func (ppu *RP2C02) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 			case 0x2000:
 				store = append(store, i)
 			case 0x2001:
+				fetch = append(fetch, i)
 				store = append(store, i)
 			case 0x2002:
 				fetch = append(fetch, i)
@@ -380,13 +382,13 @@ func (ppu *RP2C02) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 }
 
 func (ppu *RP2C02) Fetch(address uint16) (value uint8) {
-	value = 0xff
-
 	switch address {
+	// Mask
+	case 0x2001:
+		value = ppu.latchValue
 	// Status
 	case 0x2002:
-		value = ppu.Registers.Status
-
+		value = (ppu.Registers.Status & 0xe0) | (ppu.latchValue & 0x1f)
 		ppu.Registers.Status &^= uint8(VBlankStarted)
 		ppu.latch = false
 	// OAMData
@@ -410,6 +412,8 @@ func (ppu *RP2C02) Fetch(address uint16) (value uint8) {
 }
 
 func (ppu *RP2C02) Store(address uint16, value uint8) (oldValue uint8) {
+	ppu.latchValue = value
+
 	switch address {
 	// Controller
 	case 0x2000:
@@ -466,8 +470,6 @@ func (ppu *RP2C02) Store(address uint16, value uint8) (oldValue uint8) {
 		ppu.incrementAddress()
 	}
 
-	oldValue = 0xff
-
 	return
 }
 
@@ -512,11 +514,11 @@ func (ppu *RP2C02) incrementY() {
 	} else {
 		v &= 0x0fff
 
-		switch v & 0x03e0 {
+		switch v & 0x3e0 {
 		case 0x03a0: // coarse Y = 29
-			v ^= 0x0800 // switch vertical nametable
+			v ^= 0x0ba0 // switch vertical nametable
 		case 0x03e0: // coarse Y = 31
-			v &= 0x7c1f // coarse Y = 0, nametable not switched
+			v ^= 0x03e0 // coarse Y = 0, nametable not switched
 		default:
 			v += 0x0020 // increment coarse Y
 		}
@@ -1309,15 +1311,15 @@ func (ppu *RP2C02) Execute() {
 
 	switch {
 	// visible scanlines (0-239), post-render scanline (240), pre-render scanline (261)
-	case ppu.scanline < 241 || ppu.scanline > 260:
+	case (ppu.scanline >= 0 && ppu.scanline <= 240) || ppu.scanline == 261:
 		ppu.renderVisibleScanline()
 	// vertical blanking scanlines (241-260)
 	default:
 		if ppu.scanline == 241 && ppu.cycle == 1 {
 			ppu.Registers.Status |= uint8(VBlankStarted)
 
-			if ppu.Registers.Status&uint8(VBlankStarted) != 0 &&
-				ppu.Registers.Controller&uint8(NMIOnVBlank) != 0 &&
+			if ppu.status(VBlankStarted) &&
+				ppu.controller(NMIOnVBlank) != 0 &&
 				ppu.Interrupt != nil {
 				ppu.Interrupt(true)
 			}

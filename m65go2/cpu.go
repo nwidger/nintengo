@@ -161,19 +161,20 @@ func (cpu *M6502) GetInterrupt(which Interrupt) (state bool) {
 
 func (cpu *M6502) PerformInterrupts() (cycles uint16) {
 	// check interrupts
+	cycles = 7
+
 	switch {
 	case cpu.Irq && cpu.Registers.P&I == 0:
 		cpu.PerformIrq()
 		cpu.Irq = false
-		cycles = 7
 	case cpu.Nmi:
 		cpu.PerformNmi()
 		cpu.Nmi = false
-		cycles = 7
 	case cpu.Rst:
 		cpu.PerformRst()
 		cpu.Rst = false
-		cycles = 7
+	default:
+		cycles = 0
 	}
 
 	return
@@ -238,6 +239,9 @@ func (b BrkOpCodeError) Error() string {
 // Returns the number of cycles executed and any error (such as
 // BadOpCodeError).
 func (cpu *M6502) Execute() (cycles uint16, error error) {
+	// check interrupts
+	cycles += cpu.PerformInterrupts()
+
 	// fetch
 	opcode := OpCode(cpu.Memory.Fetch(cpu.Registers.PC))
 	inst, ok := cpu.Instructions.opcodes[opcode]
@@ -257,7 +261,7 @@ func (cpu *M6502) Execute() (cycles uint16, error error) {
 	}
 
 	cpu.Registers.PC++
-	cycles = cpu.Instructions.Execute(cpu, opcode)
+	cycles += cpu.Instructions.Execute(cpu, opcode)
 
 	if cpu.decode.enabled {
 		fmt.Println(cpu.decode.String())
@@ -266,17 +270,6 @@ func (cpu *M6502) Execute() (cycles uint16, error error) {
 	if cpu.breakError && opcode == 0x00 {
 		return cycles, BrkOpCodeError(opcode)
 	}
-
-	// check interrupts
-	cycles += cpu.PerformInterrupts()
-
-	// a := uint16(0x6004)
-	// v := cpu.Memory.Fetch(a)
-
-	// for ; v >= 0 && v <= 128; a++ {
-	// 	fmt.Printf("%c", v)
-	// 	v = cpu.Memory.Fetch(a)
-	// }
 
 	return cycles, nil
 }
