@@ -431,11 +431,9 @@ func (ppu *RP2C02) Store(address uint16, value uint8) (oldValue uint8) {
 		ppu.Registers.OAMAddress = value
 	// OAMData
 	case 0x2004:
-		if !ppu.rendering() || ppu.scanline == 240 {
-			oldValue = ppu.oam.Fetch(uint16(ppu.Registers.OAMAddress))
-			ppu.oam.Store(uint16(ppu.Registers.OAMAddress), value)
-			ppu.Registers.OAMAddress++
-		}
+		oldValue = ppu.oam.Fetch(uint16(ppu.Registers.OAMAddress))
+		ppu.oam.Store(uint16(ppu.Registers.OAMAddress), value)
+		ppu.Registers.OAMAddress++
 	// Scroll
 	case 0x2005:
 		if !ppu.latch {
