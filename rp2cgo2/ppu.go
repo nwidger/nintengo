@@ -168,19 +168,22 @@ type Sprite struct {
 }
 
 type RP2C02 struct {
-	latch          bool
-	latchAddress   uint16
-	latchValue     uint8
-	Output         chan []uint8
-	colors         []uint8
-	Registers      Registers
-	Memory         *rp2ago3.MappedMemory
-	Interrupt      func(state bool)
-	oam            *OAM
-	frame          uint16
-	scanline       uint16
-	cycle          uint16
+	latch        bool
+	latchAddress uint16
+	latchValue   uint8
+	Output       chan []uint8
+	colors       []uint8
+	Registers    Registers
+	Memory       *rp2ago3.MappedMemory
+	Interrupt    func(state bool)
+	oam          *OAM
+	frame        uint16
+	scanline     uint16
+	cycle        uint16
+
+	addressLine    uint16
 	patternAddress uint16
+
 	attributeLatch uint8
 	attributes     uint16
 	tilesLatch     uint16
@@ -616,7 +619,7 @@ func (ppu *RP2C02) shiftBackgroundTiles() {
 	if (ppu.cycle >= 2 && ppu.cycle <= 257) || (ppu.cycle >= 322 && ppu.cycle <= 337) {
 		ppu.tilesLow <<= 1
 		ppu.tilesHigh <<= 1
-		ppu.attributes = (ppu.attributes >> 2) | (uint16(ppu.attributeLatch) << 14)
+		ppu.attributes = (ppu.attributes << 2) | uint16(ppu.attributeLatch)
 	}
 }
 
@@ -693,25 +696,44 @@ func (ppu *RP2C02) rendering() bool {
 	return ppu.mask(ShowBackground) || ppu.mask(ShowSprites)
 }
 
-func (ppu *RP2C02) fetchName(address uint16) (value uint8) {
+func (ppu *RP2C02) openName(address uint16) uint16 {
 	//               NNii iiii iiii
 	// 0x2000 = 0010 0000 0000 0000
 	// 0x2400 = 0010 0100 0000 0000
 	// 0x2800 = 0010 1000 0000 0000
 	// 0x2c00 = 0010 1100 0000 0000
-	value = ppu.Memory.Fetch(0x2000 | address&0x0fff)
-
-	return
+	return 0x2000 | address&0x0fff
 }
 
-func (ppu *RP2C02) fetchAttribute(address uint16) (value uint8) {
+func (ppu *RP2C02) fetchName(address uint16) uint16 {
+	// 000p NNNN NNNN vvvv
+	return ppu.controller(BackgroundPatternAddress) |
+		uint16(ppu.Memory.Fetch(address))<<4 | ppu.address(FineYScroll)
+}
+
+func (ppu *RP2C02) openAttribute(address uint16) uint16 {
 	// 0x23c0 = 0010 0011 1100 0000
 	//               NN = 0x0c00
 	//                      ii i = 0x0038
 	//                          jjj = 0x0007
-	value = ppu.Memory.Fetch(0x23c0 | (address & 0x0c00) | (address >> 4 & 0x0038) | (address >> 2 & 0x0007))
+	return 0x23c0 | (address & 0x0c00) | (address >> 4 & 0x0038) | (address >> 2 & 0x0007)
+}
 
-	return
+func (ppu *RP2C02) fetchAttribute(address uint16) uint8 {
+	// combine 2nd X- and Y-bit of loopy_v to
+	// determine which 2-bits of AT byte to use:
+	//
+	// value = (topleft << 0) | (topright << 2) | (bottomleft << 4) | (bottomright << 6)
+	//
+	// v: .yyy NNYY YYYX XXXX|
+	//    .... .... .... ..X.|
+	// v >> 4: .... .>>> >Y..|....
+	//         .X. = 000 = 0
+	//         Y..   010 = 2
+	//               100 = 4
+	//               110 = 6
+	return (ppu.Memory.Fetch(address) >>
+		((ppu.Registers.Address & 0x2) | (ppu.Registers.Address >> 4 & 0x4))) & 0x03
 }
 
 func (ppu *RP2C02) spriteAddress(sprite uint32) (address uint16) {
@@ -780,7 +802,7 @@ func (ppu *RP2C02) renderVisibleScanline() {
 	// skipped on BG+odd
 	case 0:
 
-	// NT byte
+	// open NT byte
 	case 1:
 		if ppu.scanline == 261 {
 			ppu.Registers.Status &^= uint8(VBlankStarted | Sprite0Hit | SpriteOverflow)
@@ -852,12 +874,87 @@ func (ppu *RP2C02) renderVisibleScanline() {
 	case 321:
 		fallthrough
 	case 329:
-		// 000p NNNN NNNN vvvv
-		ppu.patternAddress = ppu.controller(BackgroundPatternAddress) |
-			uint16(ppu.fetchName(ppu.Registers.Address))<<4 |
-			ppu.address(FineYScroll)
+		fallthrough
+	case 337:
+		fallthrough
+	case 339:
+		ppu.addressLine = ppu.openName(ppu.Registers.Address)
 
-	// AT byte
+	// fetch NT byte
+	case 2:
+		fallthrough
+	case 10:
+		fallthrough
+	case 18:
+		fallthrough
+	case 26:
+		fallthrough
+	case 34:
+		fallthrough
+	case 42:
+		fallthrough
+	case 50:
+		fallthrough
+	case 58:
+		fallthrough
+	case 66:
+		fallthrough
+	case 74:
+		fallthrough
+	case 82:
+		fallthrough
+	case 90:
+		fallthrough
+	case 98:
+		fallthrough
+	case 106:
+		fallthrough
+	case 114:
+		fallthrough
+	case 122:
+		fallthrough
+	case 130:
+		fallthrough
+	case 138:
+		fallthrough
+	case 146:
+		fallthrough
+	case 154:
+		fallthrough
+	case 162:
+		fallthrough
+	case 170:
+		fallthrough
+	case 178:
+		fallthrough
+	case 186:
+		fallthrough
+	case 194:
+		fallthrough
+	case 202:
+		fallthrough
+	case 210:
+		fallthrough
+	case 218:
+		fallthrough
+	case 226:
+		fallthrough
+	case 234:
+		fallthrough
+	case 242:
+		fallthrough
+	case 250:
+		fallthrough
+	case 322:
+		fallthrough
+	case 330:
+		fallthrough
+	case 338:
+		fallthrough
+	case 340:
+		ppu.patternAddress = ppu.fetchName(ppu.addressLine)
+
+	// open AT byte
 	case 3:
 		fallthrough
 	case 11:
@@ -925,22 +1022,79 @@ func (ppu *RP2C02) renderVisibleScanline() {
 	case 323:
 		fallthrough
 	case 331:
-		// combine 2nd X- and Y-bit of loopy_v to
-		// determine which 2-bits of AT byte to use:
-		//
-		// value = (topleft << 0) | (topright << 2) | (bottomleft << 4) | (bottomright << 6)
-		//
-		// v: .yyy NNYY YYYX XXXX|
-		//    .... .... .... ..X.|
-		// v >> 4: .... .>>> >Y..|....
-		//         .X. = 000 = 0
-		//         Y..   010 = 2
-		//               100 = 4
-		//               110 = 6
-		ppu.attributeLatch = (ppu.fetchAttribute(ppu.Registers.Address) >>
-			((ppu.Registers.Address & 0x2) | (ppu.Registers.Address >> 4 & 0x4))) & 0x03
+		ppu.addressLine = ppu.openAttribute(ppu.Registers.Address)
 
-	// Low BG tile byte (color bit 0)
+	// fetch AT byte
+	case 4:
+		fallthrough
+	case 12:
+		fallthrough
+	case 20:
+		fallthrough
+	case 28:
+		fallthrough
+	case 36:
+		fallthrough
+	case 44:
+		fallthrough
+	case 52:
+		fallthrough
+	case 60:
+		fallthrough
+	case 68:
+		fallthrough
+	case 76:
+		fallthrough
+	case 84:
+		fallthrough
+	case 92:
+		fallthrough
+	case 100:
+		fallthrough
+	case 108:
+		fallthrough
+	case 116:
+		fallthrough
+	case 124:
+		fallthrough
+	case 132:
+		fallthrough
+	case 140:
+		fallthrough
+	case 148:
+		fallthrough
+	case 156:
+		fallthrough
+	case 164:
+		fallthrough
+	case 172:
+		fallthrough
+	case 180:
+		fallthrough
+	case 188:
+		fallthrough
+	case 196:
+		fallthrough
+	case 204:
+		fallthrough
+	case 212:
+		fallthrough
+	case 220:
+		fallthrough
+	case 228:
+		fallthrough
+	case 236:
+		fallthrough
+	case 244:
+		fallthrough
+	case 252:
+		fallthrough
+	case 324:
+		fallthrough
+	case 332:
+		ppu.attributeLatch = ppu.fetchAttribute(ppu.addressLine)
+
+	// open low BG tile byte (color bit 0)
 	case 5:
 		fallthrough
 	case 13:
@@ -1009,9 +1163,80 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		fallthrough
 	case 333:
 		// Fetch color bit 0 for next 8 dots
-		ppu.tilesLatch = (ppu.tilesLatch & 0xff00) | uint16(ppu.Memory.Fetch(ppu.patternAddress))
+		ppu.addressLine = ppu.patternAddress
 
-	// High BG tile byte (color bit 1)
+	// fetch BG tile byte (color bit 0)
+	case 6:
+		fallthrough
+	case 14:
+		fallthrough
+	case 22:
+		fallthrough
+	case 30:
+		fallthrough
+	case 38:
+		fallthrough
+	case 46:
+		fallthrough
+	case 54:
+		fallthrough
+	case 62:
+		fallthrough
+	case 70:
+		fallthrough
+	case 78:
+		fallthrough
+	case 86:
+		fallthrough
+	case 94:
+		fallthrough
+	case 102:
+		fallthrough
+	case 110:
+		fallthrough
+	case 118:
+		fallthrough
+	case 126:
+		fallthrough
+	case 134:
+		fallthrough
+	case 142:
+		fallthrough
+	case 150:
+		fallthrough
+	case 158:
+		fallthrough
+	case 166:
+		fallthrough
+	case 174:
+		fallthrough
+	case 182:
+		fallthrough
+	case 190:
+		fallthrough
+	case 198:
+		fallthrough
+	case 206:
+		fallthrough
+	case 214:
+		fallthrough
+	case 222:
+		fallthrough
+	case 230:
+		fallthrough
+	case 238:
+		fallthrough
+	case 246:
+		fallthrough
+	case 254:
+		fallthrough
+	case 326:
+		fallthrough
+	case 334:
+		// Fetch color bit 0 for next 8 dots
+		ppu.tilesLatch = (ppu.tilesLatch & 0xff00) | uint16(ppu.Memory.Fetch(ppu.addressLine))
+
+	// open high BG tile byte (color bit 1)
 	case 7:
 		fallthrough
 	case 15:
@@ -1080,9 +1305,9 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		fallthrough
 	case 335:
 		// Fetch color bit 1 for next 8 dots
-		ppu.tilesLatch = (ppu.tilesLatch & 0x00ff) | uint16(ppu.Memory.Fetch(ppu.patternAddress|0x0008))<<8
+		ppu.addressLine = ppu.patternAddress | 0x0008
 
-	// inc hori(v)
+	// fetch high BG tile byte (color bit 1)
 	case 8:
 		fallthrough
 	case 16:
@@ -1145,15 +1370,22 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		fallthrough
 	case 248:
 		fallthrough
+	case 256:
+		fallthrough
 	case 328:
 		fallthrough
 	case 336:
+
+		// Fetch color bit 1 for next 8 dots
+		ppu.tilesLatch = (ppu.tilesLatch & 0x00ff) | uint16(ppu.Memory.Fetch(ppu.addressLine))<<8
+
+		// inc hori(v)
 		ppu.incrementX()
 
-	// inc vert(v)
-	case 256:
-		ppu.incrementX()
-		ppu.incrementY()
+		// inc vert(v)
+		if ppu.cycle == 256 {
+			ppu.incrementY()
+		}
 
 	// hori(v) = hori(t)
 	case 257:
@@ -1224,7 +1456,7 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		if ppu.mask(ShowBackground) && (ppu.mask(ShowBackgroundLeft) || ppu.cycle > 8) {
 			scroll := 15 - ppu.Registers.Scroll
 			bgIndex = (((ppu.tilesHigh >> scroll) & 0x0001) << 1) | ((ppu.tilesLow >> scroll) & 0x0001)
-			bgAttribute = uint16((ppu.attributes)&0x0003) << 2
+			bgAttribute = uint16((ppu.attributes>>(14-(2*ppu.Registers.Scroll)))&0x0003) << 2
 			bgAddress = uint16(0x3f00 | bgAttribute | bgIndex)
 		}
 
@@ -1264,8 +1496,9 @@ func (ppu *RP2C02) renderVisibleScanline() {
 
 		address = ppu.priorityMultiplexer(bgAddress, spriteAddress, spritePriority)
 
-		if ppu.cycle != 255 && ppu.mask(ShowBackground) && ppu.mask(ShowSprites) &&
-			bgIndex != 0 && spriteIndex != 0 && spriteZero {
+		if spriteZero && bgIndex != 0 && spriteIndex != 0 &&
+			(ppu.cycle > 8 || (ppu.mask(ShowBackgroundLeft) && ppu.mask(ShowSpritesLeft))) &&
+			ppu.cycle < 255 && (ppu.mask(ShowBackground) && ppu.mask(ShowSprites)) {
 			ppu.Registers.Status |= uint8(Sprite0Hit)
 		}
 
@@ -1292,12 +1525,12 @@ func (ppu *RP2C02) Execute() {
 	}
 
 	switch {
-	// visible scanlines (0-239), post-render scanline (240), pre-render scanline (261)
-	case (ppu.scanline >= 0 && ppu.scanline <= 240) || ppu.scanline == 261:
+	// visible scanlines (0-239), pre-render scanline (261)
+	case (ppu.scanline >= 0 && ppu.scanline <= 239) || ppu.scanline == 261:
 		if ppu.rendering() {
 			ppu.renderVisibleScanline()
 		}
-	// vertical blanking scanlines (241-260)
+	// post-render scanline (240), vertical blanking scanlines (241-260)
 	default:
 		if ppu.scanline == 241 && ppu.cycle == 1 {
 			ppu.Registers.Status |= uint8(VBlankStarted)
