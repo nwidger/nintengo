@@ -168,29 +168,35 @@ type Sprite struct {
 }
 
 type RP2C02 struct {
+	frame    uint16
+	scanline uint16
+	cycle    uint16
+
+	Cycles chan float32
+	quota  float32
+
+	Output    chan []uint8
+	colors    []uint8
+	Registers Registers
+	Memory    *rp2ago3.MappedMemory
+	Interrupt func(state bool)
+	oam       *OAM
+
 	latch        bool
 	latchAddress uint16
 	latchValue   uint8
-	Output       chan []uint8
-	colors       []uint8
-	Registers    Registers
-	Memory       *rp2ago3.MappedMemory
-	Interrupt    func(state bool)
-	oam          *OAM
-	frame        uint16
-	scanline     uint16
-	cycle        uint16
 
 	addressLine    uint16
 	patternAddress uint16
 
+	attributeNext  uint8
 	attributeLatch uint8
 	attributes     uint16
-	tilesLatch     uint16
-	tilesLow       uint16
-	tilesHigh      uint16
-	Cycles         chan float32
-	quota          float32
+
+	tilesLatch uint16
+	tilesLow   uint16
+	tilesHigh  uint16
+
 	sprites        [8]Sprite
 	ShowBackground bool
 	ShowSprites    bool
@@ -612,6 +618,7 @@ func (ppu *RP2C02) reloadBackgroundTiles() {
 	case 337:
 		ppu.tilesLow = (ppu.tilesLow & 0xff00) | (ppu.tilesLatch & 0x00ff)
 		ppu.tilesHigh = (ppu.tilesHigh & 0xff00) | ((ppu.tilesLatch >> 8) & 0x00ff)
+		ppu.attributeLatch = ppu.attributeNext
 	}
 }
 
@@ -1092,7 +1099,7 @@ func (ppu *RP2C02) renderVisibleScanline() {
 	case 324:
 		fallthrough
 	case 332:
-		ppu.attributeLatch = ppu.fetchAttribute(ppu.addressLine)
+		ppu.attributeNext = ppu.fetchAttribute(ppu.addressLine)
 
 	// open low BG tile byte (color bit 0)
 	case 5:
