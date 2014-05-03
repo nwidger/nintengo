@@ -607,15 +607,13 @@ func (ppu *RP2C02) reloadBackgroundTiles() {
 	case 329:
 		fallthrough
 	case 337:
-		if ppu.rendering() {
-			ppu.tilesLow = (ppu.tilesLow & 0xff00) | (ppu.tilesLatch & 0x00ff)
-			ppu.tilesHigh = (ppu.tilesHigh & 0xff00) | ((ppu.tilesLatch >> 8) & 0x00ff)
-		}
+		ppu.tilesLow = (ppu.tilesLow & 0xff00) | (ppu.tilesLatch & 0x00ff)
+		ppu.tilesHigh = (ppu.tilesHigh & 0xff00) | ((ppu.tilesLatch >> 8) & 0x00ff)
 	}
 }
 
 func (ppu *RP2C02) shiftBackgroundTiles() {
-	if ppu.rendering() && ((ppu.cycle >= 2 && ppu.cycle <= 257) || (ppu.cycle >= 322 && ppu.cycle <= 337)) {
+	if (ppu.cycle >= 2 && ppu.cycle <= 257) || (ppu.cycle >= 322 && ppu.cycle <= 337) {
 		ppu.tilesLow <<= 1
 		ppu.tilesHigh <<= 1
 		ppu.attributes = (ppu.attributes >> 2) | (uint16(ppu.attributeLatch) << 14)
@@ -644,10 +642,10 @@ func (ppu *RP2C02) fetchSprites() {
 	case 279:
 		index++
 		fallthrough
-	case 272:
+	case 271:
 		index++
 		fallthrough
-	case 257:
+	case 263:
 		sprite := ppu.oam.Sprite(index)
 
 		ppu.sprites[index].Sprite = sprite
@@ -855,11 +853,9 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		fallthrough
 	case 329:
 		// 000p NNNN NNNN vvvv
-		if ppu.rendering() {
-			ppu.patternAddress = ppu.controller(BackgroundPatternAddress) |
-				uint16(ppu.fetchName(ppu.Registers.Address))<<4 |
-				ppu.address(FineYScroll)
-		}
+		ppu.patternAddress = ppu.controller(BackgroundPatternAddress) |
+			uint16(ppu.fetchName(ppu.Registers.Address))<<4 |
+			ppu.address(FineYScroll)
 
 	// AT byte
 	case 3:
@@ -941,10 +937,8 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		//         Y..   010 = 2
 		//               100 = 4
 		//               110 = 6
-		if ppu.rendering() {
-			ppu.attributeLatch = (ppu.fetchAttribute(ppu.Registers.Address) >>
-				((ppu.Registers.Address & 0x2) | (ppu.Registers.Address >> 4 & 0x4))) & 0x03
-		}
+		ppu.attributeLatch = (ppu.fetchAttribute(ppu.Registers.Address) >>
+			((ppu.Registers.Address & 0x2) | (ppu.Registers.Address >> 4 & 0x4))) & 0x03
 
 	// Low BG tile byte (color bit 0)
 	case 5:
@@ -1014,10 +1008,8 @@ func (ppu *RP2C02) renderVisibleScanline() {
 	case 325:
 		fallthrough
 	case 333:
-		if ppu.rendering() {
-			// Fetch color bit 0 for next 8 dots
-			ppu.tilesLatch = (ppu.tilesLatch & 0xff00) | uint16(ppu.Memory.Fetch(ppu.patternAddress))
-		}
+		// Fetch color bit 0 for next 8 dots
+		ppu.tilesLatch = (ppu.tilesLatch & 0xff00) | uint16(ppu.Memory.Fetch(ppu.patternAddress))
 
 	// High BG tile byte (color bit 1)
 	case 7:
@@ -1087,10 +1079,8 @@ func (ppu *RP2C02) renderVisibleScanline() {
 	case 327:
 		fallthrough
 	case 335:
-		if ppu.rendering() {
-			// Fetch color bit 1 for next 8 dots
-			ppu.tilesLatch = (ppu.tilesLatch & 0x00ff) | uint16(ppu.Memory.Fetch(ppu.patternAddress|0x0008))<<8
-		}
+		// Fetch color bit 1 for next 8 dots
+		ppu.tilesLatch = (ppu.tilesLatch & 0x00ff) | uint16(ppu.Memory.Fetch(ppu.patternAddress|0x0008))<<8
 
 	// inc hori(v)
 	case 8:
@@ -1158,22 +1148,16 @@ func (ppu *RP2C02) renderVisibleScanline() {
 	case 328:
 		fallthrough
 	case 336:
-		if ppu.rendering() {
-			ppu.incrementX()
-		}
+		ppu.incrementX()
 
 	// inc vert(v)
 	case 256:
-		if ppu.rendering() {
-			ppu.incrementX()
-			ppu.incrementY()
-		}
+		ppu.incrementX()
+		ppu.incrementY()
 
 	// hori(v) = hori(t)
 	case 257:
-		if ppu.rendering() {
-			ppu.transferX()
-		}
+		ppu.transferX()
 
 	// vert(v) = vert(t)
 	case 280:
@@ -1225,7 +1209,7 @@ func (ppu *RP2C02) renderVisibleScanline() {
 	case 303:
 		fallthrough
 	case 304:
-		if ppu.scanline == 261 && ppu.rendering() {
+		if ppu.scanline == 261 {
 			ppu.transferY()
 		}
 	}
@@ -1287,7 +1271,7 @@ func (ppu *RP2C02) renderVisibleScanline() {
 
 		color := ppu.Memory.Fetch(address) & 0x3f
 
-		if ppu.rendering() && ppu.scanline >= 0 && ppu.scanline <= 239 {
+		if ppu.scanline >= 0 && ppu.scanline <= 239 {
 			ppu.colors[(ppu.scanline*256)+(ppu.cycle-1)] = color
 		}
 
@@ -1310,7 +1294,9 @@ func (ppu *RP2C02) Execute() {
 	switch {
 	// visible scanlines (0-239), post-render scanline (240), pre-render scanline (261)
 	case (ppu.scanline >= 0 && ppu.scanline <= 240) || ppu.scanline == 261:
-		ppu.renderVisibleScanline()
+		if ppu.rendering() {
+			ppu.renderVisibleScanline()
+		}
 	// vertical blanking scanlines (241-260)
 	default:
 		if ppu.scanline == 241 && ppu.cycle == 1 {

@@ -273,6 +273,10 @@ func (video *SDLVideo) Run() {
 						running = false
 						video.buttonPresses <- PressQuit(0)
 					}
+				case sdl.K_r:
+					if e.Type == sdl.KEYDOWN {
+						video.buttonPresses <- PressReset(0)
+					}
 				case sdl.K_9:
 					if e.Type == sdl.KEYDOWN {
 						video.buttonPresses <- PressShowBackground(0)

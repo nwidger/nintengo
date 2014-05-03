@@ -109,9 +109,11 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 func (nes *NES) Reset() {
 	nes.cpu.Reset()
 	nes.ppu.Reset()
+	nes.controllers.Reset()
 }
 
 type PressPause uint8
+type PressReset uint8
 type PressQuit uint8
 type PressShowBackground uint8
 type PressShowSprites uint8
@@ -136,6 +138,8 @@ func (nes *NES) route() {
 				}()
 			case PressPause:
 				nes.pause()
+			case PressReset:
+				nes.Reset()
 			case PressQuit:
 				nes.running = false
 			case PressShowBackground:
