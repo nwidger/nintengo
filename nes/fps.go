@@ -11,11 +11,17 @@ type FPS struct {
 }
 
 func NewFPS(rate float64) *FPS {
-	return &FPS{
-		frames: 0,
-		rate:   (1000.0 / rate),
-		ticks:  uint64(time.Now().UnixNano()) / 1e6,
-	}
+	fps := &FPS{}
+
+	fps.SetRate(rate)
+
+	return fps
+}
+
+func (fps *FPS) SetRate(rate float64) {
+	fps.frames = 0
+	fps.rate = 1000.0 / rate
+	fps.ticks = uint64(time.Now().UnixNano()) / 1e6
 }
 
 func (fps *FPS) Delay() {

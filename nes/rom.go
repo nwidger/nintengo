@@ -3,7 +3,12 @@ package nes
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+
+	"archive/zip"
+
+	"strings"
 
 	"github.com/nwidger/nintengo/rp2ago3"
 	"github.com/nwidger/nintengo/rp2cgo2"
@@ -50,8 +55,55 @@ type ROM interface {
 	String() string
 }
 
+func getBuf(filename string) (buf []byte, err error) {
+	var r *zip.ReadCloser
+	var rc io.ReadCloser
+
+	if !strings.HasSuffix(filename, ".zip") {
+		buf, err = ioutil.ReadFile(filename)
+		return
+	}
+
+	// Open a zip archive for reading.
+	r, err = zip.OpenReader(filename)
+
+	if err != nil {
+		return
+	}
+
+	defer r.Close()
+
+	// Iterate through the files in the archive,
+	// printing some of their contents.
+	for _, f := range r.File {
+		if !strings.HasSuffix(f.Name, ".nes") {
+			continue
+		}
+
+		rc, err = f.Open()
+
+		if err != nil {
+			return
+		}
+
+		buf = make([]byte, f.UncompressedSize64)
+
+		_, err = rc.Read(buf)
+
+		if err != nil {
+			return
+		}
+
+		rc.Close()
+	}
+
+	return
+}
+
 func NewROM(filename string) (rom ROM, err error) {
-	buf, err := ioutil.ReadFile(filename)
+	var buf []byte
+
+	buf, err = getBuf(filename)
 
 	if err != nil {
 		return
