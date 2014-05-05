@@ -285,6 +285,22 @@ func (video *SDLVideo) Run() {
 					if e.Type == sdl.KEYDOWN {
 						video.buttonPresses <- PressShowSprites(0)
 					}
+				case sdl.K_F9:
+					if e.Type == sdl.KEYDOWN {
+						video.buttonPresses <- PressFPS100(0)
+					}
+				case sdl.K_F10:
+					if e.Type == sdl.KEYDOWN {
+						video.buttonPresses <- PressFPS75(0)
+					}
+				case sdl.K_F11:
+					if e.Type == sdl.KEYDOWN {
+						video.buttonPresses <- PressFPS50(0)
+					}
+				case sdl.K_F12:
+					if e.Type == sdl.KEYDOWN {
+						video.buttonPresses <- PressFPS25(0)
+					}
 				}
 
 				if running {

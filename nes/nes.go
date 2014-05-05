@@ -97,7 +97,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		ppu:         ppu,
 		rom:         rom,
 		video:       video,
-		fps:         NewFPS(60.0988),
+		fps:         NewFPS(DEFAULT_FPS),
 		recorder:    recorder,
 		controllers: ctrls,
 		options:     options,
@@ -117,6 +117,10 @@ type PressReset uint8
 type PressQuit uint8
 type PressShowBackground uint8
 type PressShowSprites uint8
+type PressFPS100 uint8
+type PressFPS75 uint8
+type PressFPS50 uint8
+type PressFPS25 uint8
 
 func (nes *NES) pause() {
 	for done := false; !done; {
@@ -146,6 +150,14 @@ func (nes *NES) route() {
 				nes.ppu.ShowBackground = !nes.ppu.ShowBackground
 			case PressShowSprites:
 				nes.ppu.ShowSprites = !nes.ppu.ShowSprites
+			case PressFPS100:
+				nes.fps.SetRate(DEFAULT_FPS * 1.00)
+			case PressFPS75:
+				nes.fps.SetRate(DEFAULT_FPS * 0.75)
+			case PressFPS50:
+				nes.fps.SetRate(DEFAULT_FPS * 0.50)
+			case PressFPS25:
+				nes.fps.SetRate(DEFAULT_FPS * 0.25)
 			}
 		case e := <-nes.cpu.Cycles:
 			go func() {

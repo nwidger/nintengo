@@ -4,6 +4,8 @@ package nes
 
 import "time"
 
+const DEFAULT_FPS float64 = 60.0988
+
 type FPS struct {
 	frames float64
 	rate   float64
