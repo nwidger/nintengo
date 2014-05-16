@@ -535,10 +535,10 @@ func (ppu *RP2C02) incrementY() {
 }
 
 func (ppu *RP2C02) incrementAddress() {
-	if !ppu.rendering() || ppu.scanline == 240 {
+	if (ppu.scanline > 239 && ppu.scanline != 261) || !ppu.rendering() {
 		ppu.Registers.Address =
 			(ppu.Registers.Address + ppu.controller(VRAMAddressIncrement)) & 0x7fff
-	} else {
+	} else { // (ppu.scanline <= 239 || ppu.scanline == 261) && ppu.rendering()
 		if ppu.controller(VRAMAddressIncrement) == 32 {
 			ppu.incrementY()
 		} else {
@@ -1473,8 +1473,9 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		spritePriority := uint8(0)
 		spriteZero := false
 
+		ppu.decrementSprites()
+
 		if ppu.mask(ShowSprites) && (ppu.mask(ShowSpritesLeft) || ppu.cycle > 8) {
-			ppu.decrementSprites()
 
 			for i, s := range ppu.sprites {
 				if s.XPosition > 0 {
@@ -1497,9 +1498,9 @@ func (ppu *RP2C02) renderVisibleScanline() {
 					break
 				}
 			}
-
-			ppu.shiftSprites()
 		}
+
+		ppu.shiftSprites()
 
 		address = ppu.priorityMultiplexer(bgAddress, spriteAddress, spritePriority)
 
