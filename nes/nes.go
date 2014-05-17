@@ -115,6 +115,8 @@ func (nes *NES) Reset() {
 type PressPause uint8
 type PressReset uint8
 type PressQuit uint8
+type PressRecord uint8
+type PressStop uint8
 type PressShowBackground uint8
 type PressShowSprites uint8
 type PressFPS100 uint8
@@ -144,6 +146,14 @@ func (nes *NES) route() {
 				nes.pause()
 			case PressReset:
 				nes.Reset()
+			case PressRecord:
+				if nes.recorder != nil {
+					nes.recorder.Record()
+				}
+			case PressStop:
+				if nes.recorder != nil {
+					nes.recorder.Stop()
+				}
 			case PressQuit:
 				nes.running = false
 			case PressShowBackground:
@@ -212,7 +222,7 @@ func (nes *NES) Run() (err error) {
 	nes.video.Run()
 
 	if nes.recorder != nil {
-		nes.recorder.Stop()
+		nes.recorder.Quit()
 	}
 
 	if nes.options.MemProfile != "" {

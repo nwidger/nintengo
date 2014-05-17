@@ -55,7 +55,7 @@ func NewSDLVideo() (video *SDLVideo, err error) {
 		input:         make(chan []uint8),
 		buttonPresses: make(chan interface{}),
 		palette:       SDLPalette,
-		overscan:      false,
+		overscan:      true,
 	}
 
 	if sdl.Init(sdl.INIT_VIDEO|sdl.INIT_JOYSTICK|sdl.INIT_AUDIO) != 0 {
@@ -277,6 +277,14 @@ func (video *SDLVideo) Run() {
 					if e.Type == sdl.KEYDOWN {
 						video.buttonPresses <- PressReset(0)
 					}
+				case sdl.K_s:
+					if e.Type == sdl.KEYDOWN {
+						video.buttonPresses <- PressRecord(0)
+					}
+				case sdl.K_d:
+					if e.Type == sdl.KEYDOWN {
+						video.buttonPresses <- PressStop(0)
+					}
 				case sdl.K_9:
 					if e.Type == sdl.KEYDOWN {
 						video.buttonPresses <- PressShowBackground(0)
@@ -454,22 +462,26 @@ var RGBAPalette []color.Color = []color.Color{
 
 type Recorder interface {
 	Input() chan []uint8
+	Record()
 	Stop()
+	Quit()
 	Run()
 }
 
 type JPEGRecorder struct {
+	frame     *image.Paletted
 	palette   []color.Color
 	input     chan []uint8
 	recording bool
-	stop      chan int
+	stop      chan uint8
 }
 
 func NewJPEGRecorder() (video *JPEGRecorder, err error) {
 	video = &JPEGRecorder{
+		frame:   nil,
 		input:   make(chan []uint8),
 		palette: RGBAPalette,
-		stop:    make(chan int),
+		stop:    make(chan uint8),
 	}
 
 	return
@@ -479,21 +491,40 @@ func (video *JPEGRecorder) Input() chan []uint8 {
 	return video.input
 }
 
+func (video *JPEGRecorder) Record() {
+	if video.frame != nil {
+		fo, _ := os.Create(fmt.Sprintf("frame.jpg"))
+		w := bufio.NewWriter(fo)
+		jpeg.Encode(w, video.frame, &jpeg.Options{Quality: 100})
+		fmt.Println("*** Screenshot saved")
+	}
+
+	video.frame = image.NewPaletted(image.Rect(0, 0, 256, 240), video.palette)
+}
+
 func (video *JPEGRecorder) Stop() {
+	video.frame = image.NewPaletted(image.Rect(0, 0, 256, 240), video.palette)
+}
+
+func (video *JPEGRecorder) Quit() {
 	video.stop <- 1
 	<-video.stop
 }
 
 func (video *JPEGRecorder) Run() {
-	frame := image.NewPaletted(image.Rect(0, 0, 256, 240), video.palette)
+	video.frame = image.NewPaletted(image.Rect(0, 0, 256, 240), video.palette)
 
-	for video.recording {
+	for {
 		select {
 		case colors := <-video.input:
+			if video.frame == nil {
+				continue
+			}
+
 			x, y := 0, 0
 
 			for _, c := range colors {
-				frame.Set(x, y, video.palette[c])
+				video.frame.Set(x, y, video.palette[c])
 
 				switch x {
 				case 255:
@@ -503,29 +534,26 @@ func (video *JPEGRecorder) Run() {
 					x++
 				}
 			}
-
-			fo, _ := os.Create(fmt.Sprintf("frame.jpg"))
-			w := bufio.NewWriter(fo)
-			jpeg.Encode(w, frame, &jpeg.Options{Quality: 100})
-
-			video.input <- []uint8{}
 		case <-video.stop:
+			video.stop <- 1
 			break
 		}
 	}
 }
 
 type GIFRecorder struct {
+	gif     *gif.GIF
 	palette []color.Color
 	input   chan []uint8
-	stop    chan int
+	stop    chan uint8
 }
 
 func NewGIFRecorder() (video *GIFRecorder, err error) {
 	video = &GIFRecorder{
+		gif:     nil,
 		input:   make(chan []uint8),
 		palette: RGBAPalette,
-		stop:    make(chan int),
+		stop:    make(chan uint8),
 	}
 
 	return
@@ -535,21 +563,39 @@ func (video *GIFRecorder) Input() chan []uint8 {
 	return video.input
 }
 
+func (video *GIFRecorder) Record() {
+	fmt.Println("*** Recording started")
+
+	video.gif = &gif.GIF{
+		Image:     []*image.Paletted{},
+		Delay:     []int{},
+		LoopCount: 0xfffffffffffffff,
+	}
+}
+
 func (video *GIFRecorder) Stop() {
+	if video.gif != nil {
+		fmt.Println("*** Recording stopped")
+		fo, _ := os.Create(fmt.Sprintf("frame.gif"))
+		w := bufio.NewWriter(fo)
+		gif.EncodeAll(w, video.gif)
+		video.gif = nil
+	}
+}
+
+func (video *GIFRecorder) Quit() {
 	video.stop <- 1
 	<-video.stop
 }
 
 func (video *GIFRecorder) Run() {
-	g := &gif.GIF{
-		Image:     []*image.Paletted{},
-		Delay:     []int{},
-		LoopCount: 0xfffffffffffffff,
-	}
-
 	for {
 		select {
 		case colors := <-video.input:
+			if video.gif == nil {
+				continue
+			}
+
 			frame := image.NewPaletted(image.Rect(0, 0, 256, 240), video.palette)
 
 			x, y := 0, 0
@@ -566,13 +612,9 @@ func (video *GIFRecorder) Run() {
 				}
 			}
 
-			g.Image = append(g.Image, frame)
-			g.Delay = append(g.Delay, 3)
+			video.gif.Image = append(video.gif.Image, frame)
+			video.gif.Delay = append(video.gif.Delay, 3)
 		case <-video.stop:
-			fo, _ := os.Create(fmt.Sprintf("frame.gif"))
-			w := bufio.NewWriter(fo)
-			gif.EncodeAll(w, g)
-
 			video.stop <- 1
 			break
 		}
