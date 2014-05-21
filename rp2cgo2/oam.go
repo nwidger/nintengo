@@ -4,21 +4,25 @@ import "github.com/nwidger/nintengo/m65go2"
 
 type OAM struct {
 	*m65go2.BasicMemory
-	address    uint16
-	latch      uint8
-	Buffer     *m65go2.BasicMemory
-	index      uint16
-	readCycle  func(oam *OAM, scanline uint16, cycle uint16, size uint16)
-	writeCycle func(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool)
+	address            uint16
+	latch              uint8
+	Buffer             *m65go2.BasicMemory
+	SpriteZeroInBuffer bool
+	index              uint16
+	readCycle          func(oam *OAM, scanline uint16, cycle uint16, size uint16)
+	writeCycle         func(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool)
 }
 
 func NewOAM() *OAM {
-	return &OAM{
-		BasicMemory: m65go2.NewBasicMemory(256),
-		Buffer:      m65go2.NewBasicMemory(32),
-		readCycle:   fetchAddress,
-		writeCycle:  failCopyYPosition,
+	oam := &OAM{
+		BasicMemory:        m65go2.NewBasicMemory(256),
+		Buffer:             m65go2.NewBasicMemory(32),
+		SpriteZeroInBuffer: false,
+		readCycle:          fetchAddress,
+		writeCycle:         failCopyYPosition,
 	}
+
+	return oam
 }
 
 func (oam *OAM) Sprite(index uint8) uint32 {
@@ -37,6 +41,7 @@ func (oam *OAM) SpriteEvaluation(scanline uint16, cycle uint16, size uint16) (sp
 			oam.address = 0
 			oam.latch = 0xff
 			oam.index = 0
+			oam.SpriteZeroInBuffer = false
 
 			oam.Buffer.EnableWrites()
 			oam.DisableReads()
@@ -110,6 +115,10 @@ func copyAttributes(oam *OAM, scanline uint16, cycle uint16, size uint16) (sprit
 
 func copyXPosition(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool) {
 	oam.Buffer.Store(oam.index+3, oam.latch)
+
+	if oam.index == 0 {
+		oam.SpriteZeroInBuffer = true
+	}
 
 	oam.index += 4
 	oam.address++

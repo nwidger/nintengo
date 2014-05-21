@@ -765,7 +765,7 @@ func (ppu *RP2C02) spriteAddress(sprite uint32) (address uint16) {
 	return
 }
 
-func (ppu *RP2C02) priorityMultiplexer(bgAddress, spriteAddress uint16, spritePriority uint8) (address uint16) {
+func (ppu *RP2C02) priorityMultiplexer(bgAddress, spriteAddress uint16, spritePriority uint8, spriteNum int) (address uint16) {
 	bgIndex := bgAddress & 0x0003
 	spriteIndex := spriteAddress & 0x0003
 
@@ -1471,12 +1471,11 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		spriteAttribute := uint16(0)
 		spriteIndex := uint16(0)
 		spritePriority := uint8(0)
-		spriteZero := false
+		spriteNum := 0
 
 		ppu.decrementSprites()
 
 		if ppu.mask(ShowSprites) && (ppu.mask(ShowSpritesLeft) || ppu.cycle > 8) {
-
 			for i, s := range ppu.sprites {
 				if s.XPosition > 0 {
 					continue
@@ -1490,10 +1489,7 @@ func (ppu *RP2C02) renderVisibleScanline() {
 					spriteAttribute = uint16(ppu.sprite(sprite, SpritePalette)) << 2
 					spriteAddress = uint16(0x3f10 | spriteAttribute | spriteIndex)
 					spritePriority = ppu.sprite(sprite, Priority)
-
-					if i == 0 {
-						spriteZero = true
-					}
+					spriteNum = i
 
 					break
 				}
@@ -1502,9 +1498,9 @@ func (ppu *RP2C02) renderVisibleScanline() {
 
 		ppu.shiftSprites()
 
-		address = ppu.priorityMultiplexer(bgAddress, spriteAddress, spritePriority)
+		address = ppu.priorityMultiplexer(bgAddress, spriteAddress, spritePriority, spriteNum)
 
-		if spriteZero && bgIndex != 0 && spriteIndex != 0 &&
+		if spriteNum == 0 && ppu.oam.SpriteZeroInBuffer && bgIndex != 0 && spriteIndex != 0 &&
 			(ppu.cycle > 8 || (ppu.mask(ShowBackgroundLeft) && ppu.mask(ShowSpritesLeft))) &&
 			ppu.cycle < 255 && (ppu.mask(ShowBackground) && ppu.mask(ShowSprites)) {
 			ppu.Registers.Status |= uint8(Sprite0Hit)

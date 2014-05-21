@@ -576,9 +576,11 @@ func (video *GIFRecorder) Record() {
 func (video *GIFRecorder) Stop() {
 	if video.gif != nil {
 		fmt.Println("*** Recording stopped")
+
 		fo, _ := os.Create(fmt.Sprintf("frame.gif"))
 		w := bufio.NewWriter(fo)
 		gif.EncodeAll(w, video.gif)
+
 		video.gif = nil
 	}
 }

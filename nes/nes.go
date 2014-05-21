@@ -158,16 +158,22 @@ func (nes *NES) route() {
 				nes.running = false
 			case PressShowBackground:
 				nes.ppu.ShowBackground = !nes.ppu.ShowBackground
+				fmt.Println("*** Toggling show background = ", nes.ppu.ShowBackground)
 			case PressShowSprites:
 				nes.ppu.ShowSprites = !nes.ppu.ShowSprites
+				fmt.Println("*** Toggling show sprites = ", nes.ppu.ShowSprites)
 			case PressFPS100:
 				nes.fps.SetRate(DEFAULT_FPS * 1.00)
+				fmt.Println("*** Setting fps to 100%")
 			case PressFPS75:
 				nes.fps.SetRate(DEFAULT_FPS * 0.75)
+				fmt.Println("*** Setting fps to 75%")
 			case PressFPS50:
 				nes.fps.SetRate(DEFAULT_FPS * 0.50)
+				fmt.Println("*** Setting fps to 50%")
 			case PressFPS25:
 				nes.fps.SetRate(DEFAULT_FPS * 0.25)
+				fmt.Println("*** Setting fps to 25%")
 			}
 		case e := <-nes.cpu.Cycles:
 			go func() {
