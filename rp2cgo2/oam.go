@@ -14,15 +14,13 @@ type OAM struct {
 }
 
 func NewOAM() *OAM {
-	oam := &OAM{
+	return &OAM{
 		BasicMemory:        m65go2.NewBasicMemory(256),
 		Buffer:             m65go2.NewBasicMemory(32),
 		SpriteZeroInBuffer: false,
 		readCycle:          fetchAddress,
 		writeCycle:         failCopyYPosition,
 	}
-
-	return oam
 }
 
 func (oam *OAM) Sprite(index uint8) uint32 {
