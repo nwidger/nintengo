@@ -98,7 +98,6 @@ type M6502 struct {
 	Instructions InstructionTable
 	decimalMode  bool
 	breakError   bool
-	Cycles       chan float32
 }
 
 // Returns a pointer to a new CPU with the given Memory.
@@ -116,7 +115,6 @@ func NewM6502(mem Memory) *M6502 {
 		Nmi:          false,
 		Irq:          false,
 		Rst:          false,
-		Cycles:       make(chan float32),
 	}
 }
 
@@ -276,16 +274,9 @@ func (cpu *M6502) Execute() (cycles uint16, error error) {
 
 // Executes instruction until Execute() returns an error.
 func (cpu *M6502) Run() (err error) {
-	var cycles uint16
-
 	for {
-		if cycles, err = cpu.Execute(); err != nil {
+		if _, err = cpu.Execute(); err != nil {
 			return
-		}
-
-		if cpu.Cycles != nil && cycles != 0 {
-			cpu.Cycles <- float32(cycles)
-			<-cpu.Cycles
 		}
 	}
 }

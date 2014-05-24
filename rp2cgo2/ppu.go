@@ -172,9 +172,6 @@ type RP2C02 struct {
 	scanline uint16
 	cycle    uint16
 
-	Cycles chan float32
-	quota  float32
-
 	Output    chan []uint8
 	colors    []uint8
 	Registers Registers
@@ -224,10 +221,10 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 
 	return &RP2C02{
 		Output:         make(chan []uint8),
+		colors:         make([]uint8, 0xf000),
 		Memory:         mem,
 		Interrupt:      interrupt,
 		oam:            NewOAM(),
-		Cycles:         make(chan float32),
 		ShowBackground: true,
 		ShowSprites:    true,
 	}
@@ -241,7 +238,6 @@ func (ppu *RP2C02) Reset() {
 	ppu.frame = 0
 	ppu.cycle = 0
 	ppu.scanline = POWERUP_SCANLINE
-	ppu.quota = 0
 }
 
 func (ppu *RP2C02) controller(flag ControllerFlag) (value uint16) {
@@ -1524,10 +1520,6 @@ func (ppu *RP2C02) renderVisibleScanline() {
 }
 
 func (ppu *RP2C02) Execute() {
-	if ppu.quota < 1.0 {
-		ppu.quota += <-ppu.Cycles
-	}
-
 	switch {
 	// visible scanlines (0-239), pre-render scanline (261)
 	case (ppu.scanline >= 0 && ppu.scanline <= 239) || ppu.scanline == 261:
@@ -1547,9 +1539,18 @@ func (ppu *RP2C02) Execute() {
 		}
 	}
 
-	ppu.quota--
-	if ppu.quota < 1.0 {
-		ppu.Cycles <- 1
+	if ppu.cycle++; ppu.cycle == CYCLES_PER_SCANLINE {
+		ppu.cycle = 0
+
+		if ppu.scanline++; ppu.scanline == NUM_SCANLINES {
+			if ppu.rendering() {
+				ppu.Output <- ppu.colors
+				<-ppu.Output
+			}
+
+			ppu.scanline = 0
+			ppu.frame++
+		}
 	}
 }
 
@@ -1607,26 +1608,8 @@ func (ppu *RP2C02) dumpPatternTables() (left, right *image.RGBA) {
 
 func (ppu *RP2C02) Run() {
 	// ppu.dumpPatternTables()
-	ppu.colors = make([]uint8, 0xf000)
 
 	for {
-		for ; ppu.scanline < NUM_SCANLINES; ppu.scanline++ {
-			for ppu.cycle = 0; ppu.cycle < CYCLES_PER_SCANLINE; ppu.cycle++ {
-				ppu.Execute()
-
-				if ppu.rendering() && ppu.frame&0x1 != 0 &&
-					ppu.scanline == 261 && ppu.cycle == 339 {
-					break
-				}
-			}
-		}
-
-		if ppu.rendering() {
-			ppu.Output <- ppu.colors
-			<-ppu.Output
-		}
-
-		ppu.scanline = 0
-		ppu.frame++
+		ppu.Execute()
 	}
 }

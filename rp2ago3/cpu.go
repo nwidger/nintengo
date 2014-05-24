@@ -54,19 +54,20 @@ func (cpu *RP2A03) Reset() {
 	cpu.Memory.Reset()
 }
 
+func (cpu *RP2A03) Execute() (cycles uint16, err error) {
+	if cycles, err = cpu.M6502.Execute(); err != nil {
+		return
+	}
+
+	cycles += cpu.dma.PerformDMA()
+
+	return
+}
+
 func (cpu *RP2A03) Run() (err error) {
-	var cycles uint16
-
 	for {
-		if cycles, err = cpu.Execute(); err != nil {
+		if _, err = cpu.Execute(); err != nil {
 			break
-		}
-
-		cycles += cpu.dma.PerformDMA()
-
-		if cpu.Cycles != nil && cycles != 0 {
-			cpu.Cycles <- float32(cycles)
-			<-cpu.Cycles
 		}
 	}
 

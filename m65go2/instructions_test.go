@@ -8,7 +8,6 @@ func Setup() {
 	cpu = NewM6502(NewBasicMemory(DEFAULT_MEMORY_SIZE))
 	cpu.Reset()
 	cpu.breakError = true
-	cpu.Cycles = nil
 }
 
 func Teardown() {
@@ -1218,8 +1217,8 @@ func TestPlp(t *testing.T) {
 
 	cpu.Execute()
 
-	if cpu.Registers.P != 0xef {
-		t.Error("Status is not 0xef")
+	if cpu.Registers.P != 0xcf {
+		t.Errorf("Status is %02x not 0xcf\n", cpu.Registers.P)
 	}
 
 	Teardown()
@@ -5577,52 +5576,12 @@ func TestRti(t *testing.T) {
 
 	cpu.Execute()
 
-	if cpu.Registers.P != 0x23 {
-		t.Error("Register P is not 0x23")
+	if cpu.Registers.P != 0x03 {
+		t.Errorf("Register P is %02x not 0x03\n", cpu.Registers.P)
 	}
 
 	if cpu.Registers.PC != 0x0102 {
 		t.Error("Register PC is not 0x0102")
-	}
-
-	Teardown()
-}
-
-// Rom
-
-func TestRom(t *testing.T) {
-	Setup()
-
-	cpu.DisableDecimalMode()
-
-	cpu.Registers.P = 0x24
-	cpu.Registers.SP = 0xfd
-	cpu.Registers.PC = 0xc000
-
-	cpu.Memory.(*BasicMemory).load("test-roms/nestest/nestest.nes")
-
-	cpu.Memory.Store(0x4004, 0xff)
-	cpu.Memory.Store(0x4005, 0xff)
-	cpu.Memory.Store(0x4006, 0xff)
-	cpu.Memory.Store(0x4007, 0xff)
-	cpu.Memory.Store(0x4015, 0xff)
-
-	err := cpu.Run()
-
-	if err != nil {
-		switch err.(type) {
-		case BrkOpCodeError:
-		default:
-			t.Error("Error during Run\n")
-		}
-	}
-
-	if cpu.Memory.Fetch(0x0002) != 0x00 {
-		t.Error("Memory 0x0002 is not 0x00")
-	}
-
-	if cpu.Memory.Fetch(0x0003) != 0x00 {
-		t.Error("Memory 0x0003 is not 0x00")
 	}
 
 	Teardown()
@@ -5642,12 +5601,16 @@ func TestIrq(t *testing.T) {
 
 	cpu.PerformInterrupts()
 
-	if cpu.pull() != 0xfb {
-		t.Error("Memory is not 0xfb")
+	value8 := cpu.pull()
+
+	if value8 != 0xeb {
+		t.Errorf("Memory is %02x not 0xeb\n", value8)
 	}
 
-	if cpu.pull16() != 0x0100 {
-		t.Error("Memory is not 0x0100")
+	value16 := cpu.pull16()
+
+	if value16 != 0x0100 {
+		t.Errorf("Memory is %04x not 0x0100\n", value16)
 	}
 
 	if cpu.Registers.PC != 0x0140 {
@@ -5675,8 +5638,10 @@ func TestNmi(t *testing.T) {
 
 	cpu.PerformInterrupts()
 
-	if cpu.pull() != 0xff {
-		t.Error("Memory is not 0xff")
+	value8 := cpu.pull()
+
+	if value8 != 0xef {
+		t.Errorf("Memory is %02x not 0xef\n", value8)
 	}
 
 	if cpu.pull16() != 0x0100 {

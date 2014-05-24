@@ -175,12 +175,6 @@ func (nes *NES) route() {
 				nes.fps.SetRate(DEFAULT_FPS * 0.25)
 				fmt.Println("*** Setting fps to 25%")
 			}
-		case e := <-nes.cpu.Cycles:
-			go func() {
-				nes.ppu.Cycles <- (e * nes.cpuDivisor)
-				ok := <-nes.ppu.Cycles
-				nes.cpu.Cycles <- ok
-			}()
 		case e := <-nes.ppu.Output:
 			if nes.recorder != nil {
 				nes.recorder.Input() <- e
@@ -196,6 +190,24 @@ func (nes *NES) route() {
 	}
 }
 
+func (nes *NES) RunProcessors() (err error) {
+	var cycles uint16
+
+	quota := float32(0)
+
+	for {
+		if cycles, err = nes.cpu.Execute(); err != nil {
+			break
+		}
+
+		for quota += float32(cycles) * nes.cpuDivisor; quota >= 1.0; quota-- {
+			nes.ppu.Execute()
+		}
+	}
+
+	return
+}
+
 func (nes *NES) Run() (err error) {
 	fmt.Println(nes.rom)
 
@@ -204,8 +216,7 @@ func (nes *NES) Run() (err error) {
 	nes.running = true
 
 	go nes.controllers.Run()
-	go nes.cpu.Run()
-	go nes.ppu.Run()
+	go nes.RunProcessors()
 	go nes.route()
 
 	if nes.recorder != nil {

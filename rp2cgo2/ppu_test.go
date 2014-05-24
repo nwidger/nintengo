@@ -129,19 +129,14 @@ func TestMask(t *testing.T) {
 func TestStatus(t *testing.T) {
 	ppu := NewRP2C02(nil)
 
-	ppu.Registers.Status = 0x00
-	value := uint8(0xff)
-	ppu.Registers.Status = value
-
-	if ppu.Fetch(0x2002) != value {
-		t.Errorf("Memory is %02X not %02X\n", ppu.Fetch(0x2002), value)
-	}
-
 	ppu.Registers.Status = 0xff
 	ppu.latch = true
+	ppu.latchValue = 0x00
 
-	if ppu.Fetch(0x2002) != 0xff {
-		t.Errorf("Memory is %02X not 0xff\n", ppu.Fetch(0x2002))
+	value := ppu.Fetch(0x2002)
+
+	if value != 0xe0 {
+		t.Errorf("Memory is %02X not 0xe0\n", value)
 	}
 
 	if ppu.Registers.Status != 0x7f {
@@ -637,15 +632,15 @@ func TestIncrementY(t *testing.T) {
 	ppu.Registers.Address = 0x7fa0
 	ppu.incrementY()
 
-	if ppu.Registers.Address != 0x07a0 {
-		t.Error("Register is not 0x07a0")
+	if ppu.Registers.Address != 0x0400 {
+		t.Errorf("Register is %04x not 0x0400\n", ppu.Registers.Address)
 	}
 
 	ppu.Registers.Address = 0x73a0
 	ppu.incrementY()
 
-	if ppu.Registers.Address != 0x0ba0 {
-		t.Error("Register is not 0x0ba0")
+	if ppu.Registers.Address != 0x0800 {
+		t.Errorf("Register is %04x not 0x0800\n", ppu.Registers.Address)
 	}
 
 	ppu.Registers.Address = 0x73e1
