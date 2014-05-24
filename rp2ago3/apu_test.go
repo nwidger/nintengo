@@ -18,6 +18,13 @@ func Teardown() {
 
 }
 
+type PulseTest struct {
+	flag     PulseFlag
+	index    int
+	value    uint8
+	expected uint8
+}
+
 func TestPulse1Channel(t *testing.T) {
 	Setup()
 
@@ -36,6 +43,52 @@ func TestPulse1Channel(t *testing.T) {
 
 		if value != 0x00 {
 			t.Error("Value is not 0x00")
+		}
+	}
+
+	pts := []PulseTest{}
+
+	pts = append(pts, PulseTest{Duty, 0, 0xc0, 0x03})
+	pts = append(pts, PulseTest{Duty, 0, 0x3f, 0x00})
+
+	pts = append(pts, PulseTest{PulseEnvelopeLoopLengthCounterHalt, 0, 0x20, 0x01})
+	pts = append(pts, PulseTest{PulseEnvelopeLoopLengthCounterHalt, 0, 0xdf, 0x00})
+
+	pts = append(pts, PulseTest{PulseConstantVolume, 0, 0x10, 0x01})
+	pts = append(pts, PulseTest{PulseConstantVolume, 0, 0xef, 0x00})
+
+	pts = append(pts, PulseTest{PulseVolumeEnvelope, 0, 0x0f, 0x0f})
+	pts = append(pts, PulseTest{PulseVolumeEnvelope, 0, 0xf0, 0x00})
+
+	pts = append(pts, PulseTest{SweepEnabled, 1, 0x80, 0x01})
+	pts = append(pts, PulseTest{SweepEnabled, 1, 0x7f, 0x00})
+
+	pts = append(pts, PulseTest{SweepPeriod, 1, 0x70, 0x07})
+	pts = append(pts, PulseTest{SweepPeriod, 1, 0x8f, 0x00})
+
+	pts = append(pts, PulseTest{SweepNegate, 1, 0x08, 0x01})
+	pts = append(pts, PulseTest{SweepNegate, 1, 0xf7, 0x00})
+
+	pts = append(pts, PulseTest{SweepShift, 1, 0x07, 0x07})
+	pts = append(pts, PulseTest{SweepShift, 1, 0xf8, 0x00})
+
+	pts = append(pts, PulseTest{PulseTimerLow, 2, 0xff, 0xff})
+	pts = append(pts, PulseTest{PulseTimerLow, 2, 0x00, 0x00})
+
+	pts = append(pts, PulseTest{PulseLengthCounterLoad, 3, 0xf8, 0x1f})
+	pts = append(pts, PulseTest{PulseLengthCounterLoad, 3, 0x07, 0x00})
+
+	pts = append(pts, PulseTest{PulseTimerHigh, 3, 0x07, 0x07})
+	pts = append(pts, PulseTest{PulseTimerHigh, 3, 0xf8, 0x00})
+
+	for _, pt := range pts {
+		apu.Registers.Pulse1[pt.index] = pt.value
+
+		actual := apu.pulse1(pt.flag)
+		expected := pt.expected
+
+		if actual != expected {
+			t.Errorf("Value is %02x not %02x\n", actual, expected)
 		}
 	}
 
@@ -64,6 +117,13 @@ func TestPulse2Channel(t *testing.T) {
 	}
 
 	Teardown()
+}
+
+type TriangleTest struct {
+	flag     TriangleFlag
+	index    int
+	value    uint8
+	expected uint8
 }
 
 func TestTriangleChannel(t *testing.T) {
@@ -96,7 +156,42 @@ func TestTriangleChannel(t *testing.T) {
 		}
 	}
 
+	pts := []TriangleTest{}
+
+	pts = append(pts, TriangleTest{LengthCounterHaltLinearCounterControl, 0, 0x80, 0x01})
+	pts = append(pts, TriangleTest{LengthCounterHaltLinearCounterControl, 0, 0x7f, 0x00})
+
+	pts = append(pts, TriangleTest{LinearCounterLoad, 0, 0x7f, 0x7f})
+	pts = append(pts, TriangleTest{LinearCounterLoad, 0, 0x80, 0x00})
+
+	pts = append(pts, TriangleTest{TriangleTimerLow, 1, 0xff, 0xff})
+	pts = append(pts, TriangleTest{TriangleTimerLow, 1, 0x00, 0x00})
+
+	pts = append(pts, TriangleTest{TriangleLengthCounterLoad, 2, 0xf8, 0x1f})
+	pts = append(pts, TriangleTest{TriangleLengthCounterLoad, 2, 0x07, 0x00})
+
+	pts = append(pts, TriangleTest{TriangleTimerHigh, 2, 0x07, 0x07})
+	pts = append(pts, TriangleTest{TriangleTimerHigh, 2, 0xf8, 0x00})
+
+	for _, pt := range pts {
+		apu.Registers.Triangle[pt.index] = pt.value
+
+		actual := apu.triangle(pt.flag)
+		expected := pt.expected
+
+		if actual != expected {
+			t.Errorf("Value is %02x not %02x\n", actual, expected)
+		}
+	}
+
 	Teardown()
+}
+
+type NoiseTest struct {
+	flag     NoiseFlag
+	index    int
+	value    uint8
+	expected uint8
 }
 
 func TestNoiseChannel(t *testing.T) {
@@ -129,27 +224,96 @@ func TestNoiseChannel(t *testing.T) {
 		}
 	}
 
+	pts := []NoiseTest{}
+
+	pts = append(pts, NoiseTest{NoiseEnvelopeLoopLengthCounterHalt, 0, 0x20, 0x01})
+	pts = append(pts, NoiseTest{NoiseEnvelopeLoopLengthCounterHalt, 0, 0xdf, 0x00})
+
+	pts = append(pts, NoiseTest{NoiseConstantVolume, 0, 0x10, 0x01})
+	pts = append(pts, NoiseTest{NoiseConstantVolume, 0, 0xef, 0x00})
+
+	pts = append(pts, NoiseTest{NoiseVolumeEnvelope, 0, 0x0f, 0x0f})
+	pts = append(pts, NoiseTest{NoiseVolumeEnvelope, 0, 0xf0, 0x00})
+
+	pts = append(pts, NoiseTest{LoopNoise, 1, 0x80, 0x01})
+	pts = append(pts, NoiseTest{LoopNoise, 1, 0x7f, 0x00})
+
+	pts = append(pts, NoiseTest{NoisePeriod, 1, 0x0f, 0x0f})
+	pts = append(pts, NoiseTest{NoisePeriod, 1, 0xf0, 0x00})
+
+	pts = append(pts, NoiseTest{NoiseLengthCounterLoad, 2, 0xf8, 0x1f})
+	pts = append(pts, NoiseTest{NoiseLengthCounterLoad, 2, 0x07, 0x00})
+
+	for _, pt := range pts {
+		apu.Registers.Noise[pt.index] = pt.value
+
+		actual := apu.noise(pt.flag)
+		expected := pt.expected
+
+		if actual != expected {
+			t.Errorf("Value is %02x not %02x\n", actual, expected)
+		}
+	}
+
 	Teardown()
 }
 
-func TestDmcChannel(t *testing.T) {
+type DMCTest struct {
+	flag     DMCFlag
+	index    int
+	value    uint8
+	expected uint8
+}
+
+func TestDMCChannel(t *testing.T) {
 	Setup()
 
 	address := uint16(0x4010)
 
-	for i := range apu.Registers.Dmc {
-		apu.Registers.Dmc[i] = 0x00
+	for i := range apu.Registers.DMC {
+		apu.Registers.DMC[i] = 0x00
 		apu.Store(address+uint16(i), 0xff)
 
-		if apu.Registers.Dmc[i] != 0xff {
+		if apu.Registers.DMC[i] != 0xff {
 			t.Error("Register is not 0xff")
 		}
 
-		apu.Registers.Dmc[i] = 0xff
+		apu.Registers.DMC[i] = 0xff
 		value := apu.Fetch(address + uint16(i))
 
 		if value != 0x00 {
 			t.Error("Value is not 0x00")
+		}
+	}
+
+	pts := []DMCTest{}
+
+	pts = append(pts, DMCTest{IRQEnable, 0, 0x80, 0x01})
+	pts = append(pts, DMCTest{IRQEnable, 0, 0x7f, 0x00})
+
+	pts = append(pts, DMCTest{Loop, 0, 0x40, 0x01})
+	pts = append(pts, DMCTest{Loop, 0, 0xbf, 0x00})
+
+	pts = append(pts, DMCTest{Frequency, 0, 0x0f, 0x0f})
+	pts = append(pts, DMCTest{Frequency, 0, 0xf0, 0x00})
+
+	pts = append(pts, DMCTest{LoadCounter, 1, 0x7f, 0x7f})
+	pts = append(pts, DMCTest{LoadCounter, 1, 0x80, 0x00})
+
+	pts = append(pts, DMCTest{SampleAddress, 2, 0xff, 0xff})
+	pts = append(pts, DMCTest{SampleAddress, 2, 0x00, 0x00})
+
+	pts = append(pts, DMCTest{SampleLength, 3, 0xff, 0xff})
+	pts = append(pts, DMCTest{SampleLength, 3, 0x00, 0x00})
+
+	for _, pt := range pts {
+		apu.Registers.DMC[pt.index] = pt.value
+
+		actual := apu.dmc(pt.flag)
+		expected := pt.expected
+
+		if actual != expected {
+			t.Errorf("Value is %02x not %02x\n", actual, expected)
 		}
 	}
 
