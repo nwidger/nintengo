@@ -11,6 +11,26 @@ An NES emulator written in Go
 
 ![Excitebike](http://i.imgur.com/NTYlltB.gif "Excitebike")
 
+## Build
+
+Requires Go 1.1.
+
+- Linux
+
+    ```
+    $ sudo apt-get install libsdl1.2-dev libsdl-gfx1.2-dev libsdl-image1.2-dev libglew1.6-dev libxrandr-dev
+    $ go get github.com/nwidger/nintengo
+    ```
+
+- Mac OS X
+
+    ```
+    $ brew install sdl --with-x11-driver
+    $ brew install sdl_gfx sdl_image glew
+    $ brew edit sdl
+    $ go get github.com/nwidger/nintengo
+    ```
+
 ## Usage
 
 ```
