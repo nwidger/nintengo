@@ -320,6 +320,12 @@ func TestDMCChannel(t *testing.T) {
 	Teardown()
 }
 
+type ControlTest struct {
+	flag     ControlFlag
+	value    uint8
+	expected bool
+}
+
 func TestControl(t *testing.T) {
 	Setup()
 
@@ -341,7 +347,41 @@ func TestControl(t *testing.T) {
 		t.Error("Value is not 0xff")
 	}
 
+	pts := []ControlTest{}
+
+	pts = append(pts, ControlTest{EnableDMC, 0x10, true})
+	pts = append(pts, ControlTest{EnableDMC, 0xef, false})
+
+	pts = append(pts, ControlTest{EnableNoise, 0x08, true})
+	pts = append(pts, ControlTest{EnableNoise, 0xf7, false})
+
+	pts = append(pts, ControlTest{EnableTriangle, 0x04, true})
+	pts = append(pts, ControlTest{EnableTriangle, 0xfb, false})
+
+	pts = append(pts, ControlTest{EnablePulseChannel2, 0x02, true})
+	pts = append(pts, ControlTest{EnablePulseChannel2, 0xfd, false})
+
+	pts = append(pts, ControlTest{EnablePulseChannel1, 0x01, true})
+	pts = append(pts, ControlTest{EnablePulseChannel1, 0xfe, false})
+
+	for _, pt := range pts {
+		apu.Registers.Control = Control(pt.value)
+
+		actual := apu.control(pt.flag)
+		expected := pt.expected
+
+		if actual != expected {
+			t.Errorf("Value is %v not %v\n", actual, expected)
+		}
+	}
+
 	Teardown()
+}
+
+type StatusTest struct {
+	flag     StatusFlag
+	value    uint8
+	expected bool
 }
 
 func TestStatus(t *testing.T) {
@@ -359,8 +399,82 @@ func TestStatus(t *testing.T) {
 	apu.Registers.Status = 0xff
 	apu.Store(address, 0x00)
 
-	if apu.Registers.Status != 0xff {
-		t.Error("Register is not 0xff")
+	if apu.Registers.Status != 0x7f {
+		t.Error("Register is not 0x7f")
+	}
+
+	pts := []StatusTest{}
+
+	pts = append(pts, StatusTest{DMCInterrupt, 0x80, true})
+	pts = append(pts, StatusTest{DMCInterrupt, 0x7f, false})
+
+	pts = append(pts, StatusTest{FrameInterrupt, 0x40, true})
+	pts = append(pts, StatusTest{FrameInterrupt, 0xbf, false})
+
+	pts = append(pts, StatusTest{DMCActive, 0x10, true})
+	pts = append(pts, StatusTest{DMCActive, 0xef, false})
+
+	pts = append(pts, StatusTest{NoiseLengthCounterNotZero, 0x08, true})
+	pts = append(pts, StatusTest{NoiseLengthCounterNotZero, 0xf7, false})
+
+	pts = append(pts, StatusTest{TriangleLengthCounterNotZero, 0x04, true})
+	pts = append(pts, StatusTest{TriangleLengthCounterNotZero, 0xfb, false})
+
+	pts = append(pts, StatusTest{Pulse2LengthCounterNotZero, 0x02, true})
+	pts = append(pts, StatusTest{Pulse2LengthCounterNotZero, 0xfd, false})
+
+	pts = append(pts, StatusTest{Pulse1LengthCounterNotZero, 0x01, true})
+	pts = append(pts, StatusTest{Pulse1LengthCounterNotZero, 0xfe, false})
+
+	for _, pt := range pts {
+		apu.Registers.Status = Status(pt.value)
+
+		actual := apu.status(pt.flag)
+		expected := pt.expected
+
+		if actual != expected {
+			t.Errorf("Value is %v not %v\n", actual, expected)
+		}
+	}
+
+	Teardown()
+}
+
+type FrameCounterTest struct {
+	flag     FrameCounterFlag
+	value    uint8
+	expected uint8
+}
+
+func TestFrameCounter(t *testing.T) {
+	Setup()
+
+	address := uint16(0x4017)
+
+	apu.Registers.FrameCounter = 0xff
+	apu.Store(address, 0x00)
+
+	if apu.Registers.FrameCounter != 0x00 {
+		t.Error("Register is not 0x00")
+	}
+
+	pts := []FrameCounterTest{}
+
+	pts = append(pts, FrameCounterTest{Mode, 0x80, 5})
+	pts = append(pts, FrameCounterTest{Mode, 0x7f, 4})
+
+	pts = append(pts, FrameCounterTest{IRQInhibit, 0x40, 0x01})
+	pts = append(pts, FrameCounterTest{IRQInhibit, 0xbf, 0x00})
+
+	for _, pt := range pts {
+		apu.Registers.FrameCounter = FrameCounter(pt.value)
+
+		actual := apu.frameCounter(pt.flag)
+		expected := pt.expected
+
+		if actual != expected {
+			t.Errorf("Value is %02x not %02x\n", actual, expected)
+		}
 	}
 
 	Teardown()

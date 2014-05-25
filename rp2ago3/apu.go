@@ -157,6 +157,45 @@ const (
 	_
 )
 
+type ControlFlag uint8
+
+const (
+	EnablePulseChannel1 ControlFlag = 1 << iota
+	EnablePulseChannel2
+	EnableTriangle
+	EnableNoise
+	EnableDMC
+	_
+	_
+	_
+)
+
+type StatusFlag uint8
+
+const (
+	Pulse1LengthCounterNotZero StatusFlag = 1 << iota
+	Pulse2LengthCounterNotZero
+	TriangleLengthCounterNotZero
+	NoiseLengthCounterNotZero
+	DMCActive
+	_
+	FrameInterrupt
+	DMCInterrupt
+)
+
+type FrameCounterFlag uint8
+
+const (
+	_ FrameCounterFlag = 1 << iota
+	_
+	_
+	_
+	_
+	_
+	IRQInhibit
+	Mode
+)
+
 type Registers struct {
 	Pulse1       PulseChannel
 	Pulse2       PulseChannel
@@ -297,6 +336,38 @@ func (apu *APU) dmc(flag DMCFlag) (value uint8) {
 	return
 }
 
+func (apu *APU) control(flag ControlFlag) (value bool) {
+	if (apu.Registers.Control & Control(flag)) != 0 {
+		value = true
+	}
+
+	return
+}
+
+func (apu *APU) status(flag StatusFlag) (value bool) {
+	if (apu.Registers.Status & Status(flag)) != 0 {
+		value = true
+	}
+
+	return
+}
+
+func (apu *APU) frameCounter(flag FrameCounterFlag) (value uint8) {
+	switch flag {
+	case Mode:
+		switch uint8(apu.Registers.FrameCounter >> 7) {
+		case 0:
+			value = 4
+		case 1:
+			value = 5
+		}
+	case IRQInhibit:
+		value = uint8(apu.Registers.FrameCounter>>6) & 0x01
+	}
+
+	return
+}
+
 func (apu *APU) Mappings(which Mapping) (fetch, store []uint16) {
 	switch which {
 	case CPU:
@@ -319,6 +390,7 @@ func (apu *APU) Fetch(address uint16) (value uint8) {
 	// Status
 	case 0x4015:
 		value = uint8(apu.Registers.Status)
+		apu.Registers.Status &= Status(^FrameInterrupt)
 	}
 
 	return
@@ -379,6 +451,7 @@ func (apu *APU) Store(address uint16, value uint8) (oldValue uint8) {
 	case address == 0x4015:
 		oldValue = uint8(apu.Registers.Control)
 		apu.Registers.Control = Control(value)
+		apu.Registers.Status &= Status(^DMCInterrupt)
 	// Frame counter
 	case address == 0x4017:
 		oldValue = uint8(apu.Registers.FrameCounter)
