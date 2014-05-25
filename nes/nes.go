@@ -21,6 +21,7 @@ type NES struct {
 	ppu         *rp2cgo2.RP2C02
 	controllers *Controllers
 	rom         ROM
+	audio       Audio
 	video       Video
 	fps         *FPS
 	recorder    Recorder
@@ -35,6 +36,7 @@ type Options struct {
 }
 
 func NewNES(filename string, options *Options) (nes *NES, err error) {
+	var audio Audio
 	var video Video
 	var recorder Recorder
 	var cpuDivisor float32
@@ -68,6 +70,13 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		return
 	}
 
+	audio, err = NewSDLAudio()
+
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Error creating audio: %v", err))
+		return
+	}
+
 	switch options.Recorder {
 	case "none":
 		// none
@@ -96,6 +105,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		cpuDivisor:  cpuDivisor,
 		ppu:         ppu,
 		rom:         rom,
+		audio:       audio,
 		video:       video,
 		fps:         NewFPS(DEFAULT_FPS),
 		recorder:    recorder,
@@ -136,6 +146,8 @@ func (nes *NES) pause() {
 func (nes *NES) route() {
 	for nes.running {
 		select {
+		case s := <-nes.cpu.APU.Samples:
+			nes.audio.Input() <- s
 		case e := <-nes.video.ButtonPresses():
 			switch i := e.(type) {
 			case PressButton:
@@ -217,6 +229,7 @@ func (nes *NES) Run() (err error) {
 
 	go nes.controllers.Run()
 	go nes.RunProcessors()
+	go nes.audio.Run()
 	go nes.route()
 
 	if nes.recorder != nil {

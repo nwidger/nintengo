@@ -237,8 +237,6 @@ func (video *SDLVideo) Run() {
 		select {
 		case ev := <-sdl.Events:
 			switch e := ev.(type) {
-			case sdl.ResizeEvent:
-				video.ResizeEvent(int(e.W), int(e.H))
 			case sdl.QuitEvent:
 				running = false
 				video.buttonPresses <- PressQuit(0)

@@ -170,10 +170,13 @@ type Registers struct {
 
 type APU struct {
 	Registers Registers
+	Samples   chan int16
 }
 
 func NewAPU() *APU {
-	return &APU{}
+	return &APU{
+		Samples: make(chan int16),
+	}
 }
 
 func (apu *APU) Reset() {
@@ -383,4 +386,8 @@ func (apu *APU) Store(address uint16, value uint8) (oldValue uint8) {
 	}
 
 	return
+}
+
+func (apu *APU) Execute() {
+
 }

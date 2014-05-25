@@ -95,6 +95,7 @@ func getBuf(filename string) (buf []byte, err error) {
 		}
 
 		rc.Close()
+		break
 	}
 
 	return
