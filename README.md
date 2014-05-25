@@ -5,8 +5,8 @@ nintengo
 
 An NES emulator written in Go
 
-![Super Mario Bros.](http://imgur.com/g6ogqv7 "Super Mario Bros.")
+![Super Mario Bros.](http://i.imgur.com/g6ogqv7.gif "Super Mario Bros.")
 
-![Donkey Kong](http://imgur.com/0SIbydD "Donkey Kong")
+![Donkey Kong](http://i.imgur.com/0SIbydD.gif "Donkey Kong")
 
-![Excitebike](http://imgur.com/NTYlltB "Excitebike")
+![Excitebike](http://i.imgur.com/NTYlltB.gif "Excitebike")
