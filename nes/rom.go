@@ -86,9 +86,7 @@ func getBuf(filename string) (buf []byte, err error) {
 			return
 		}
 
-		buf = make([]byte, f.UncompressedSize64)
-
-		_, err = rc.Read(buf)
+		buf, err = ioutil.ReadAll(rc)
 
 		if err != nil {
 			return
