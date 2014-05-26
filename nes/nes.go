@@ -215,6 +215,8 @@ func (nes *NES) RunProcessors() (err error) {
 		for quota += float32(cycles) * nes.cpuDivisor; quota >= 1.0; quota-- {
 			nes.ppu.Execute()
 		}
+
+		nes.cpu.APU.Execute()
 	}
 
 	return

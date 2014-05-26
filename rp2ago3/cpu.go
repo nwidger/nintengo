@@ -61,8 +61,6 @@ func (cpu *RP2A03) Execute() (cycles uint16, err error) {
 
 	cycles += cpu.dma.PerformDMA()
 
-	cpu.APU.Execute()
-
 	return
 }
 

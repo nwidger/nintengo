@@ -13,25 +13,32 @@ const (
 	PPU
 )
 
+const (
+	UNMIRRORED uint32 = 0x10000
+)
+
 type MappableMemory interface {
 	m65go2.Memory
 	Mappings(which Mapping) (fetch, store []uint16)
 }
 
 type MappedMemory struct {
-	mirrors map[uint16]uint16
-	fetch   map[uint16]m65go2.Memory
-	store   map[uint16]m65go2.Memory
+	mirrors [65536]uint32
+	fetch   [65536]m65go2.Memory
+	store   [65536]m65go2.Memory
 	m65go2.Memory
 }
 
 func NewMappedMemory(base m65go2.Memory) *MappedMemory {
-	return &MappedMemory{
-		mirrors: make(map[uint16]uint16),
-		fetch:   make(map[uint16]m65go2.Memory),
-		store:   make(map[uint16]m65go2.Memory),
-		Memory:  base,
+	mem := &MappedMemory{
+		Memory: base,
 	}
+
+	for i := range mem.mirrors {
+		mem.mirrors[i] = UNMIRRORED
+	}
+
+	return mem
 }
 
 func (mem *MappedMemory) AddMirrors(mirrors map[uint16]uint16) (err error) {
@@ -41,12 +48,12 @@ func (mem *MappedMemory) AddMirrors(mirrors map[uint16]uint16) (err error) {
 			break
 		}
 
-		if _, ok := mem.mirrors[from]; ok {
+		if mem.mirrors[from] != UNMIRRORED {
 			err = errors.New("Address is already mirrored")
 			break
 		}
 
-		mem.mirrors[from] = to
+		mem.mirrors[from] = uint32(to)
 	}
 
 	return
@@ -56,7 +63,7 @@ func (mem *MappedMemory) AddMappings(mappable MappableMemory, which Mapping) (er
 	fetch, store := mappable.Mappings(which)
 
 	for _, address := range fetch {
-		if _, ok := mem.fetch[address]; ok {
+		if mmap := mem.fetch[address]; mmap != nil {
 			err = errors.New("Address is already mapped for fetch")
 			return
 		}
@@ -65,7 +72,7 @@ func (mem *MappedMemory) AddMappings(mappable MappableMemory, which Mapping) (er
 	}
 
 	for _, address := range store {
-		if _, ok := mem.store[address]; ok {
+		if mmap := mem.store[address]; mmap != nil {
 			err = errors.New("Address is already mapped for store")
 			return
 		}
@@ -85,10 +92,10 @@ func (mem *MappedMemory) mirror(address uint16) (newAddress uint16) {
 	newAddress = address
 
 	for {
-		if mapAddress, ok := mem.mirrors[newAddress]; !ok {
+		if mapAddress := mem.mirrors[newAddress]; mapAddress == UNMIRRORED {
 			break
 		} else {
-			newAddress = mapAddress
+			newAddress = uint16(mapAddress)
 		}
 	}
 
@@ -98,7 +105,7 @@ func (mem *MappedMemory) mirror(address uint16) (newAddress uint16) {
 func (mem *MappedMemory) Fetch(address uint16) (value uint8) {
 	address = mem.mirror(address)
 
-	if mmap, ok := mem.fetch[address]; ok {
+	if mmap := mem.fetch[address]; mmap != nil {
 		return mmap.Fetch(address)
 	}
 
@@ -108,7 +115,7 @@ func (mem *MappedMemory) Fetch(address uint16) (value uint8) {
 func (mem *MappedMemory) Store(address uint16, value uint8) (oldValue uint8) {
 	address = mem.mirror(address)
 
-	if mmap, ok := mem.store[address]; ok {
+	if mmap := mem.store[address]; mmap != nil {
 		return mmap.Store(address, value)
 	}
 
