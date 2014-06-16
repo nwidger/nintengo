@@ -10,7 +10,7 @@ var apu *APU
 var master *m65go2.Clock
 
 func Setup() {
-	apu = NewAPU()
+	apu = NewAPU(nil)
 	apu.Reset()
 }
 

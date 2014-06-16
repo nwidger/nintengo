@@ -51,7 +51,8 @@ type ROMFile struct {
 type ROM interface {
 	rp2ago3.MappableMemory
 	Region() Region
-	Mirrors() (mirrors map[uint16]uint16)
+	Mirrors() (mirrors map[uint32]uint32)
+	RefreshMirrors() bool
 	String() string
 }
 
@@ -115,8 +116,14 @@ func NewROM(filename string) (rom ROM, err error) {
 	}
 
 	switch romf.mapper {
-	case 0:
+	case 0x00:
+		fallthrough
+	case 0x40:
+		fallthrough
+	case 0x41:
 		rom = NewNROM(romf)
+	case 0x01:
+		rom = NewMMC1(romf)
 	default:
 		err = errors.New(fmt.Sprintf("Unsupported mapper type %v", romf.mapper))
 	}
@@ -239,33 +246,41 @@ func (romf *ROMFile) Region() Region {
 	return romf.region
 }
 
-func (romf *ROMFile) Mirrors() (mirrors map[uint16]uint16) {
-	mirrors = make(map[uint16]uint16)
+func (romf *ROMFile) Mirrors() (mirrors map[uint32]uint32) {
+	mirrors = make(map[uint32]uint32, 0x1000)
+
+	for i := uint32(0x2000); i <= 0x2fff; i++ {
+		mirrors[i] = rp2ago3.UNMIRRORED
+	}
 
 	switch romf.mirroring {
 	case rp2cgo2.Horizontal:
 		// Mirror nametable #1 to #0
-		for i := uint16(0x2400); i <= 0x27ff; i++ {
+		for i := uint32(0x2400); i <= 0x27ff; i++ {
 			mirrors[i] = i - 0x0400
 		}
 
 		// Mirror nametable #3 to #2
-		for i := uint16(0x2c00); i <= 0x2fff; i++ {
+		for i := uint32(0x2c00); i <= 0x2fff; i++ {
 			mirrors[i] = i - 0x0400
 		}
 	case rp2cgo2.Vertical:
 		// Mirror nametable #2 to #0
-		for i := uint16(0x2800); i <= 0x2bff; i++ {
+		for i := uint32(0x2800); i <= 0x2bff; i++ {
 			mirrors[i] = i - 0x0800
 		}
 
 		// Mirror nametable #3 to #1
-		for i := uint16(0x2c00); i <= 0x2fff; i++ {
+		for i := uint32(0x2c00); i <= 0x2fff; i++ {
 			mirrors[i] = i - 0x0800
 		}
 	}
 
 	return mirrors
+}
+
+func (romf *ROMFile) RefreshMirrors() bool {
+	return false
 }
 
 func (romf *ROMFile) String() string {

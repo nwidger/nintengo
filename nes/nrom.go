@@ -29,11 +29,13 @@ func (nrom *NROM) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 			// CHR bank 1
 			for i := uint32(0x0000); i <= 0x0fff; i++ {
 				fetch = append(fetch, uint16(i))
+				store = append(store, uint16(i))
 			}
 
 			// CHR bank 2
 			for i := uint32(0x1000); i <= 0x1fff; i++ {
 				fetch = append(fetch, uint16(i))
+				store = append(store, uint16(i))
 			}
 		}
 	case rp2ago3.CPU:
@@ -98,6 +100,10 @@ func (nrom *NROM) Store(address uint16, value uint8) (oldValue uint8) {
 	return
 }
 
-func (nrom *NROM) Mirrors() (mirrors map[uint16]uint16) {
+func (nrom *NROM) Mirrors() (mirrors map[uint32]uint32) {
 	return nrom.ROMFile.Mirrors()
+}
+
+func (nrom *NROM) RefreshMirrors() bool {
+	return false
 }

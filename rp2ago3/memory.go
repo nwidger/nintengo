@@ -41,19 +41,14 @@ func NewMappedMemory(base m65go2.Memory) *MappedMemory {
 	return mem
 }
 
-func (mem *MappedMemory) AddMirrors(mirrors map[uint16]uint16) (err error) {
+func (mem *MappedMemory) AddMirrors(mirrors map[uint32]uint32) (err error) {
 	for from, to := range mirrors {
 		if from == to {
 			err = errors.New("Address cannot be mirrored to itself")
 			break
 		}
 
-		if mem.mirrors[from] != UNMIRRORED {
-			err = errors.New("Address is already mirrored")
-			break
-		}
-
-		mem.mirrors[from] = uint32(to)
+		mem.mirrors[from] = to
 	}
 
 	return

@@ -201,19 +201,19 @@ type RP2C02 struct {
 
 func NewRP2C02(interrupt func(bool)) *RP2C02 {
 	mem := rp2ago3.NewMappedMemory(m65go2.NewBasicMemory(m65go2.DEFAULT_MEMORY_SIZE))
-	mirrors := make(map[uint16]uint16)
+	mirrors := make(map[uint32]uint32)
 
 	// Mirrored nametables
-	for i := uint16(0x3000); i <= 0x3eff; i++ {
+	for i := uint32(0x3000); i <= 0x3eff; i++ {
 		mirrors[i] = i - 0x1000
 	}
 
 	// Mirrored palette
-	for _, i := range []uint16{0x3f10, 0x3f14, 0x3f18, 0x3f1c} {
+	for _, i := range []uint32{0x3f10, 0x3f14, 0x3f18, 0x3f1c} {
 		mirrors[i] = i - 0x0010
 	}
 
-	for i := uint16(0x3f20); i <= 0x3fff; i++ {
+	for i := uint32(0x3f20); i <= 0x3fff; i++ {
 		mirrors[i] = i - 0x0020
 	}
 

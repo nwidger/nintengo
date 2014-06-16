@@ -14,15 +14,15 @@ type RP2A03 struct {
 
 func NewRP2A03() *RP2A03 {
 	mem := NewMappedMemory(m65go2.NewBasicMemory(m65go2.DEFAULT_MEMORY_SIZE))
-	mirrors := make(map[uint16]uint16)
+	mirrors := make(map[uint32]uint32)
 
 	// Mirrored 2KB internal RAM
-	for i := uint16(0x0800); i <= 0x1fff; i++ {
+	for i := uint32(0x0800); i <= 0x1fff; i++ {
 		mirrors[i] = i % 0x0800
 	}
 
 	// Mirrored PPU registers
-	for i := uint16(0x2008); i <= 0x3fff; i++ {
+	for i := uint32(0x2008); i <= 0x3fff; i++ {
 		mirrors[i] = 0x2000 + (i & 0x0007)
 	}
 
@@ -30,7 +30,7 @@ func NewRP2A03() *RP2A03 {
 
 	cpu := m65go2.NewM6502(mem)
 	cpu.DisableDecimalMode()
-	apu := NewAPU()
+	apu := NewAPU(cpu.InterruptLine(m65go2.Irq))
 
 	// APU memory maps
 	mem.AddMappings(apu, CPU)

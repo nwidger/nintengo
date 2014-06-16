@@ -207,14 +207,63 @@ type Registers struct {
 	FrameCounter FrameCounter
 }
 
-type APU struct {
-	Registers Registers
-	Samples   chan int16
+type Divider struct {
+	Counter int16
+	Period  int16
 }
 
-func NewAPU() *APU {
+type FrameCounterSequencer struct {
+	NumSteps uint8
+	Step     uint8
+	Cycles   uint16
+}
+
+type Envelope struct {
+	Start bool
+	Loop  bool
+	Divider
+	Counter uint8
+}
+
+type Noise struct {
+	Enabled bool
+	Envelope
+	Divider
+	Shift         uint16
+	LengthCounter uint8
+}
+
+type APU struct {
+	Registers        Registers
+	Samples          chan int16
+	NoisePeriodLUT   [16]int16
+	LengthCounterLUT [32]uint8
+	Interrupt        func(state bool)
+	FrameCounter     FrameCounterSequencer
+}
+
+func NewAPU(interrupt func(bool)) *APU {
 	return &APU{
-		Samples: make(chan int16),
+		Samples:   make(chan int16),
+		Interrupt: interrupt,
+		NoisePeriodLUT: [16]int16{
+			// NTSC
+			4, 8, 16, 32, 64, 96, 128, 160, 202,
+			254, 380, 508, 762, 1016, 2034, 4068,
+			// PAL
+			// 4, 8, 14, 30, 60, 88, 118, 148, 188,
+			// 236, 354, 472, 708, 944, 1890, 3778,
+		},
+		LengthCounterLUT: [32]uint8{
+			0x0a, 0xfe, 0x14, 0x02,
+			0x28, 0x04, 0x50, 0x06,
+			0xa0, 0x08, 0x3c, 0x0a,
+			0x0e, 0x0c, 0x1a, 0x0e,
+			0x0c, 0x10, 0x18, 0x12,
+			0x30, 0x14, 0x60, 0x16,
+			0xc0, 0x18, 0x48, 0x1a,
+			0x10, 0x1c, 0x20, 0x1e,
+		},
 	}
 }
 
@@ -461,6 +510,103 @@ func (apu *APU) Store(address uint16, value uint8) (oldValue uint8) {
 	return
 }
 
-func (apu *APU) Execute() {
+func (envelope *Envelope) Clock() {
+	if envelope.Start {
+		envelope.Start = false
+		envelope.Counter = 0x0f
+		envelope.Divider.Reload()
+	} else if envelope.Divider.Clock() {
+		if envelope.Counter > 0 {
+			envelope.Counter--
+		} else if envelope.Loop {
+			envelope.Counter = 0x0f
+		}
+	}
+}
 
+func (divider *Divider) Clock() (output bool) {
+	divider.Counter--
+
+	if divider.Counter == 0 {
+		divider.Reload()
+		output = true
+	}
+
+	return
+}
+
+func (divider *Divider) Reload() {
+	divider.Counter = divider.Period
+}
+
+func (frameCounter *FrameCounterSequencer) Clock() (changed bool, newStep uint8) {
+	// 2 CPU cycles = 1 APU cycle
+	frameCounter.Cycles++
+
+	oldStep := frameCounter.Step
+
+	switch frameCounter.Cycles {
+	case 3729 * 2:
+		fallthrough
+	case 7457 * 2:
+		fallthrough
+	case 11186 * 2:
+		fallthrough
+	case 14915 * 2:
+		fallthrough
+	case 18641 * 2:
+		frameCounter.Step++
+	}
+
+	newStep = frameCounter.Step
+
+	if oldStep != newStep {
+		changed = true
+	}
+
+	return
+}
+
+func (frameCounter *FrameCounterSequencer) Reset() {
+	frameCounter.Step = 0
+}
+
+func (apu *APU) Execute() {
+	if changed, step := apu.FrameCounter.Clock(); changed {
+		switch step {
+		case 1:
+			// clock env & tri's linear counter
+		case 2:
+			// clock env & tri's linear counter
+			// clock length counters & sweep units
+		case 3:
+			// clock env & tri's linear counter
+		case 4:
+			if apu.FrameCounter.NumSteps == 4 {
+				// clock env & tri's linear counter
+				// clock length counters & sweep units
+				// set frame interrupt flag if interrupt inhibit is clear
+			}
+		case 5:
+			if apu.FrameCounter.NumSteps == 5 {
+				// clock env & tri's linear counter
+				// clock length counters & sweep units
+			}
+		}
+
+		if step == apu.FrameCounter.NumSteps {
+			apu.FrameCounter.Reset()
+		}
+	}
+
+	if apu.control(EnableNoise) {
+		switch apu.noise(NoiseConstantVolume) {
+		case 1:
+			volume := apu.noise(NoiseVolumeEnvelope)
+			_ = volume
+		case 0:
+			period := apu.NoisePeriodLUT[apu.noise(NoisePeriod)]
+			_ = period
+		}
+	}
 }

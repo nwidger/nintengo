@@ -1,6 +1,7 @@
 package nes
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"log"
@@ -122,11 +123,167 @@ func (nes *NES) Reset() {
 	nes.controllers.Reset()
 }
 
+func (nes *NES) SaveState() {
+	fo, err := os.Create(fmt.Sprintf("game.save"))
+
+	if err != nil {
+		fmt.Println("*** Error saving state:", err)
+	}
+
+	defer fo.Close()
+
+	w := bufio.NewWriter(fo)
+
+	fmt.Println("*** Saving state")
+
+	for i := uint32(0); i < 0x10000; i++ {
+		err = w.WriteByte(nes.cpu.M6502.Memory.Fetch(uint16(i)))
+
+		if err != nil {
+			fmt.Println("*** Error saving state: CPU byte:", i, err)
+		}
+	}
+
+	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.PC >> 8))
+
+	if err != nil {
+		fmt.Println("*** Error saving state: High PC:", err)
+	}
+
+	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.PC & 0xff))
+
+	if err != nil {
+		fmt.Println("*** Error saving state: Low PC:", err)
+	}
+
+	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.A))
+
+	if err != nil {
+		fmt.Println("*** Error saving state: A:", err)
+	}
+
+	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.X))
+
+	if err != nil {
+		fmt.Println("*** Error saving state: X:", err)
+	}
+
+	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.Y))
+
+	if err != nil {
+		fmt.Println("*** Error saving state: Y:", err)
+	}
+
+	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.P))
+
+	if err != nil {
+		fmt.Println("*** Error saving state: P:", err)
+	}
+
+	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.SP))
+
+	if err != nil {
+		fmt.Println("*** Error saving state: SP:", err)
+	}
+
+	for i := uint32(0); i < 0x10000; i++ {
+		err = w.WriteByte(nes.ppu.Memory.Memory.Fetch(uint16(i)))
+
+		if err != nil {
+			fmt.Println("*** Error saving state: PPU byte:", i, err)
+		}
+	}
+
+	w.Flush()
+}
+
+func (nes *NES) LoadState() {
+	fo, err := os.Open(fmt.Sprintf("game.save"))
+
+	if err != nil {
+		fmt.Println("*** Error loading state: Opening game.save:", err)
+	}
+
+	defer fo.Close()
+
+	r := bufio.NewReader(fo)
+
+	fmt.Println("*** Loading state")
+
+	for i := uint32(0); i < 0x10000; i++ {
+		b, err := r.ReadByte()
+
+		if err != nil {
+			fmt.Println("*** Error loading state: CPU byte:", i, err)
+		}
+
+		nes.cpu.M6502.Memory.Store(uint16(i), b)
+	}
+
+	high, err := r.ReadByte()
+
+	if err != nil {
+		fmt.Println("*** Error loading state: High PC:", err)
+	}
+
+	low, err := r.ReadByte()
+
+	if err != nil {
+		fmt.Println("*** Error loading state: Low PC:", err)
+	}
+
+	nes.cpu.M6502.Registers.PC = (uint16(high) << 8) | uint16(low)
+
+	nes.cpu.M6502.Registers.A, err = r.ReadByte()
+
+	if err != nil {
+		fmt.Println("*** Error loading state: A:", err)
+	}
+
+	nes.cpu.M6502.Registers.X, err = r.ReadByte()
+
+	if err != nil {
+		fmt.Println("*** Error loading state: X:", err)
+	}
+
+	nes.cpu.M6502.Registers.Y, err = r.ReadByte()
+
+	if err != nil {
+		fmt.Println("*** Error loading state: Y:", err)
+	}
+
+	b, err := r.ReadByte()
+
+	nes.cpu.M6502.Registers.P = m65go2.Status(b)
+
+	if err != nil {
+		fmt.Println("*** Error loading state: P:", err)
+	}
+
+	nes.cpu.M6502.Registers.SP, err = r.ReadByte()
+
+	if err != nil {
+		fmt.Println("*** Error loading state: SP:", err)
+	}
+
+	for i := uint32(0); i < 0x10000; i++ {
+		b, err := r.ReadByte()
+
+		if err != nil {
+			fmt.Printf("*** Error loading state: PPU byte: %02x %v\n", i, err)
+		}
+
+		nes.cpu.Memory.Memory.Store(uint16(i), b)
+	}
+}
+
 type PressPause uint8
 type PressReset uint8
 type PressQuit uint8
 type PressRecord uint8
 type PressStop uint8
+type PressSave uint8
+type PressLoad uint8
 type PressShowBackground uint8
 type PressShowSprites uint8
 type PressFPS100 uint8
@@ -147,13 +304,13 @@ func (nes *NES) route() {
 	for nes.running {
 		select {
 		case s := <-nes.cpu.APU.Samples:
-			nes.audio.Input() <- s
+			go func() {
+				nes.audio.Input() <- s
+			}()
 		case e := <-nes.video.ButtonPresses():
 			switch i := e.(type) {
 			case PressButton:
-				go func() {
-					nes.controllers.Input() <- i
-				}()
+				nes.controllers.Input() <- i
 			case PressPause:
 				nes.pause()
 			case PressReset:
@@ -168,6 +325,10 @@ func (nes *NES) route() {
 				}
 			case PressQuit:
 				nes.running = false
+			case PressSave:
+				nes.SaveState()
+			case PressLoad:
+				nes.LoadState()
 			case PressShowBackground:
 				nes.ppu.ShowBackground = !nes.ppu.ShowBackground
 				fmt.Println("*** Toggling show background = ", nes.ppu.ShowBackground)
@@ -212,11 +373,17 @@ func (nes *NES) RunProcessors() (err error) {
 			break
 		}
 
+		if nes.rom.RefreshMirrors() {
+			nes.ppu.Memory.AddMirrors(nes.rom.Mirrors())
+		}
+
 		for quota += float32(cycles) * nes.cpuDivisor; quota >= 1.0; quota-- {
 			nes.ppu.Execute()
 		}
 
-		nes.cpu.APU.Execute()
+		for i := uint16(0); i < cycles; i++ {
+			nes.cpu.APU.Execute()
+		}
 	}
 
 	return
