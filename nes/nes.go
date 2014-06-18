@@ -284,6 +284,7 @@ type PressRecord uint8
 type PressStop uint8
 type PressSave uint8
 type PressLoad uint8
+type PressSavePatternTables uint8
 type PressShowBackground uint8
 type PressShowSprites uint8
 type PressFPS100 uint8
@@ -347,6 +348,9 @@ func (nes *NES) route() {
 			case PressFPS25:
 				nes.fps.SetRate(DEFAULT_FPS * 0.25)
 				fmt.Println("*** Setting fps to 25%")
+			case PressSavePatternTables:
+				fmt.Println("*** Saving PPU pattern tables")
+				nes.ppu.SavePatternTables()
 			}
 		case e := <-nes.ppu.Output:
 			if nes.recorder != nil {

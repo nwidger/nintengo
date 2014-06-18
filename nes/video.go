@@ -271,6 +271,10 @@ func (video *SDLVideo) Run() {
 						running = false
 						video.buttonPresses <- PressQuit(0)
 					}
+				case sdl.K_l:
+					if e.Type == sdl.KEYDOWN {
+						video.buttonPresses <- PressSavePatternTables(0)
+					}
 				case sdl.K_r:
 					if e.Type == sdl.KEYDOWN {
 						video.buttonPresses <- PressReset(0)

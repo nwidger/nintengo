@@ -1554,7 +1554,7 @@ func (ppu *RP2C02) Execute() {
 	}
 }
 
-func (ppu *RP2C02) dumpPatternTables() (left, right *image.RGBA) {
+func (ppu *RP2C02) SavePatternTables() (left, right *image.RGBA) {
 	left = image.NewRGBA(image.Rect(0, 0, 128, 128))
 	right = image.NewRGBA(image.Rect(0, 0, 128, 128))
 
@@ -1607,8 +1607,6 @@ func (ppu *RP2C02) dumpPatternTables() (left, right *image.RGBA) {
 }
 
 func (ppu *RP2C02) Run() {
-	// ppu.dumpPatternTables()
-
 	for {
 		ppu.Execute()
 	}
