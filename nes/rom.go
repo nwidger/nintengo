@@ -44,6 +44,7 @@ type ROMFile struct {
 	ramBanks    uint8
 	region      Region
 	trainerData []uint8
+	wramBanks   [][]uint8
 	romBanks    [][]uint8
 	vromBanks   [][]uint8
 }
@@ -237,6 +238,14 @@ func NewROMFile(buf []byte) (romf *ROMFile, err error) {
 	for n := 0; n < int(romf.chrBanks); n++ {
 		romf.vromBanks[n] = buf[i : i+offset]
 		i += offset
+	}
+
+	offset = 1024 * 8
+
+	romf.wramBanks = make([][]uint8, romf.ramBanks)
+
+	for n := 0; n < int(romf.ramBanks); n++ {
+		romf.wramBanks[n] = make([]uint8, offset)
 	}
 
 	return

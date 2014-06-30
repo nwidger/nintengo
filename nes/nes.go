@@ -284,6 +284,7 @@ type PressRecord uint8
 type PressStop uint8
 type PressSave uint8
 type PressLoad uint8
+type PressDecode uint8
 type PressSavePatternTables uint8
 type PressShowBackground uint8
 type PressShowSprites uint8
@@ -336,6 +337,8 @@ func (nes *NES) route() {
 			case PressShowSprites:
 				nes.ppu.ShowSprites = !nes.ppu.ShowSprites
 				fmt.Println("*** Toggling show sprites = ", nes.ppu.ShowSprites)
+			case PressDecode:
+				fmt.Println("*** Toggling CPU decode = ", nes.cpu.ToggleDecode())
 			case PressFPS100:
 				nes.fps.SetRate(DEFAULT_FPS * 1.00)
 				fmt.Println("*** Setting fps to 100%")

@@ -217,6 +217,11 @@ func (cpu *M6502) EnableDecode() {
 	cpu.decode.enabled = true
 }
 
+func (cpu *M6502) ToggleDecode() bool {
+	cpu.decode.enabled = !cpu.decode.enabled
+	return cpu.decode.enabled
+}
+
 // Error type used to indicate that the CPU attempted to execute an
 // invalid opcode
 type BadOpCodeError OpCode
