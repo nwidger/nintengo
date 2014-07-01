@@ -168,6 +168,8 @@ type Sprite struct {
 }
 
 type RP2C02 struct {
+	decode bool
+
 	frame    uint16
 	scanline uint16
 	cycle    uint16
@@ -228,6 +230,11 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 		ShowBackground: true,
 		ShowSprites:    true,
 	}
+}
+
+func (ppu *RP2C02) ToggleDecode() bool {
+	ppu.decode = !ppu.decode
+	return ppu.decode
 }
 
 func (ppu *RP2C02) Reset() {
@@ -429,7 +436,13 @@ func (ppu *RP2C02) Store(address uint16, value uint8) (oldValue uint8) {
 	// Mask
 	case 0x2001:
 		oldValue = ppu.Registers.Mask
+		old := ppu.rendering()
 		ppu.Registers.Mask = value
+		new := ppu.rendering()
+
+		if new != old && ppu.decode {
+			fmt.Printf("*** $2001 (mask) rendering switch from %v to %v: %08b -> %08b\n", old, new, oldValue, value)
+		}
 	// OAMAddress
 	case 0x2003:
 		oldValue = ppu.Registers.OAMAddress
@@ -545,73 +558,8 @@ func (ppu *RP2C02) incrementAddress() {
 
 func (ppu *RP2C02) reloadBackgroundTiles() {
 	switch ppu.cycle {
-	case 9:
-		fallthrough
-	case 17:
-		fallthrough
-	case 25:
-		fallthrough
-	case 33:
-		fallthrough
-	case 41:
-		fallthrough
-	case 49:
-		fallthrough
-	case 57:
-		fallthrough
-	case 65:
-		fallthrough
-	case 73:
-		fallthrough
-	case 81:
-		fallthrough
-	case 89:
-		fallthrough
-	case 97:
-		fallthrough
-	case 105:
-		fallthrough
-	case 113:
-		fallthrough
-	case 121:
-		fallthrough
-	case 129:
-		fallthrough
-	case 137:
-		fallthrough
-	case 145:
-		fallthrough
-	case 153:
-		fallthrough
-	case 161:
-		fallthrough
-	case 169:
-		fallthrough
-	case 177:
-		fallthrough
-	case 185:
-		fallthrough
-	case 193:
-		fallthrough
-	case 201:
-		fallthrough
-	case 209:
-		fallthrough
-	case 217:
-		fallthrough
-	case 225:
-		fallthrough
-	case 233:
-		fallthrough
-	case 241:
-		fallthrough
-	case 249:
-		fallthrough
-	case 257:
-		fallthrough
-	case 329:
-		fallthrough
-	case 337:
+	case 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121, 129, 137, 145, 153,
+		161, 169, 177, 185, 193, 201, 209, 217, 225, 233, 241, 249, 257, 329, 337:
 		ppu.tilesLow = (ppu.tilesLow & 0xff00) | (ppu.tilesLatch & 0x00ff)
 		ppu.tilesHigh = (ppu.tilesHigh & 0xff00) | ((ppu.tilesLatch >> 8) & 0x00ff)
 		ppu.attributeLatch = ppu.attributeNext
@@ -627,31 +575,9 @@ func (ppu *RP2C02) shiftBackgroundTiles() {
 }
 
 func (ppu *RP2C02) fetchSprites() {
-	index := uint8(0)
-
 	switch ppu.cycle {
-	case 319:
-		index++
-		fallthrough
-	case 311:
-		index++
-		fallthrough
-	case 303:
-		index++
-		fallthrough
-	case 295:
-		index++
-		fallthrough
-	case 287:
-		index++
-		fallthrough
-	case 279:
-		index++
-		fallthrough
-	case 271:
-		index++
-		fallthrough
-	case 263:
+	case 263, 271, 279, 287, 295, 303, 311, 319:
+		index := uint8((ppu.cycle >> 3) & 0x07)
 		sprite := ppu.oam.Sprite(index)
 
 		ppu.sprites[index].Sprite = sprite
@@ -806,579 +732,54 @@ func (ppu *RP2C02) renderVisibleScanline() {
 	case 0:
 
 	// open NT byte
-	case 1:
-		if ppu.scanline == 261 {
-			ppu.Registers.Status &^= uint8(VBlankStarted | Sprite0Hit | SpriteOverflow)
-		}
-
-		fallthrough
-	case 9:
-		fallthrough
-	case 17:
-		fallthrough
-	case 25:
-		fallthrough
-	case 33:
-		fallthrough
-	case 41:
-		fallthrough
-	case 49:
-		fallthrough
-	case 57:
-		fallthrough
-	case 65:
-		fallthrough
-	case 73:
-		fallthrough
-	case 81:
-		fallthrough
-	case 89:
-		fallthrough
-	case 97:
-		fallthrough
-	case 105:
-		fallthrough
-	case 113:
-		fallthrough
-	case 121:
-		fallthrough
-	case 129:
-		fallthrough
-	case 137:
-		fallthrough
-	case 145:
-		fallthrough
-	case 153:
-		fallthrough
-	case 161:
-		fallthrough
-	case 169:
-		fallthrough
-	case 177:
-		fallthrough
-	case 185:
-		fallthrough
-	case 193:
-		fallthrough
-	case 201:
-		fallthrough
-	case 209:
-		fallthrough
-	case 217:
-		fallthrough
-	case 225:
-		fallthrough
-	case 233:
-		fallthrough
-	case 241:
-		fallthrough
-	case 249:
-		fallthrough
-	case 321:
-		fallthrough
-	case 329:
-		fallthrough
-	case 337:
-		fallthrough
-	case 339:
+	case 1, 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121, 129, 137,
+		145, 153, 161, 169, 177, 185, 193, 201, 209, 217, 225, 233, 241, 249,
+		321, 329, 337, 339:
 		ppu.addressLine = ppu.openName(ppu.Registers.Address)
 
 	// fetch NT byte
-	case 2:
-		fallthrough
-	case 10:
-		fallthrough
-	case 18:
-		fallthrough
-	case 26:
-		fallthrough
-	case 34:
-		fallthrough
-	case 42:
-		fallthrough
-	case 50:
-		fallthrough
-	case 58:
-		fallthrough
-	case 66:
-		fallthrough
-	case 74:
-		fallthrough
-	case 82:
-		fallthrough
-	case 90:
-		fallthrough
-	case 98:
-		fallthrough
-	case 106:
-		fallthrough
-	case 114:
-		fallthrough
-	case 122:
-		fallthrough
-	case 130:
-		fallthrough
-	case 138:
-		fallthrough
-	case 146:
-		fallthrough
-	case 154:
-		fallthrough
-	case 162:
-		fallthrough
-	case 170:
-		fallthrough
-	case 178:
-		fallthrough
-	case 186:
-		fallthrough
-	case 194:
-		fallthrough
-	case 202:
-		fallthrough
-	case 210:
-		fallthrough
-	case 218:
-		fallthrough
-	case 226:
-		fallthrough
-	case 234:
-		fallthrough
-	case 242:
-		fallthrough
-	case 250:
-		fallthrough
-	case 322:
-		fallthrough
-	case 330:
-		fallthrough
-	case 338:
-		fallthrough
-	case 340:
+	case 2, 10, 18, 26, 34, 42, 50, 58, 66, 74, 82, 90, 98, 106, 114, 122, 130, 138,
+		146, 154, 162, 170, 178, 186, 194, 202, 210, 218, 226, 234, 242, 250,
+		322, 330, 338, 340:
 		ppu.patternAddress = ppu.fetchName(ppu.addressLine)
 
 	// open AT byte
-	case 3:
-		fallthrough
-	case 11:
-		fallthrough
-	case 19:
-		fallthrough
-	case 27:
-		fallthrough
-	case 35:
-		fallthrough
-	case 43:
-		fallthrough
-	case 51:
-		fallthrough
-	case 59:
-		fallthrough
-	case 67:
-		fallthrough
-	case 75:
-		fallthrough
-	case 83:
-		fallthrough
-	case 91:
-		fallthrough
-	case 99:
-		fallthrough
-	case 107:
-		fallthrough
-	case 115:
-		fallthrough
-	case 123:
-		fallthrough
-	case 131:
-		fallthrough
-	case 139:
-		fallthrough
-	case 147:
-		fallthrough
-	case 155:
-		fallthrough
-	case 163:
-		fallthrough
-	case 171:
-		fallthrough
-	case 179:
-		fallthrough
-	case 187:
-		fallthrough
-	case 195:
-		fallthrough
-	case 203:
-		fallthrough
-	case 211:
-		fallthrough
-	case 219:
-		fallthrough
-	case 227:
-		fallthrough
-	case 235:
-		fallthrough
-	case 243:
-		fallthrough
-	case 251:
-		fallthrough
-	case 323:
-		fallthrough
-	case 331:
+	case 3, 11, 19, 27, 35, 43, 51, 59, 67, 75, 83, 91, 99, 107, 115, 123, 131, 139,
+		147, 155, 163, 171, 179, 187, 195, 203, 211, 219, 227, 235, 243, 251,
+		323, 331:
 		ppu.addressLine = ppu.openAttribute(ppu.Registers.Address)
 
 	// fetch AT byte
-	case 4:
-		fallthrough
-	case 12:
-		fallthrough
-	case 20:
-		fallthrough
-	case 28:
-		fallthrough
-	case 36:
-		fallthrough
-	case 44:
-		fallthrough
-	case 52:
-		fallthrough
-	case 60:
-		fallthrough
-	case 68:
-		fallthrough
-	case 76:
-		fallthrough
-	case 84:
-		fallthrough
-	case 92:
-		fallthrough
-	case 100:
-		fallthrough
-	case 108:
-		fallthrough
-	case 116:
-		fallthrough
-	case 124:
-		fallthrough
-	case 132:
-		fallthrough
-	case 140:
-		fallthrough
-	case 148:
-		fallthrough
-	case 156:
-		fallthrough
-	case 164:
-		fallthrough
-	case 172:
-		fallthrough
-	case 180:
-		fallthrough
-	case 188:
-		fallthrough
-	case 196:
-		fallthrough
-	case 204:
-		fallthrough
-	case 212:
-		fallthrough
-	case 220:
-		fallthrough
-	case 228:
-		fallthrough
-	case 236:
-		fallthrough
-	case 244:
-		fallthrough
-	case 252:
-		fallthrough
-	case 324:
-		fallthrough
-	case 332:
+	case 4, 12, 20, 28, 36, 44, 52, 60, 68, 76, 84, 92, 100, 108, 116, 124, 132, 140,
+		148, 156, 164, 172, 180, 188, 196, 204, 212, 220, 228, 236, 244, 252,
+		324, 332:
 		ppu.attributeNext = ppu.fetchAttribute(ppu.addressLine)
 
 	// open low BG tile byte (color bit 0)
-	case 5:
-		fallthrough
-	case 13:
-		fallthrough
-	case 21:
-		fallthrough
-	case 29:
-		fallthrough
-	case 37:
-		fallthrough
-	case 45:
-		fallthrough
-	case 53:
-		fallthrough
-	case 61:
-		fallthrough
-	case 69:
-		fallthrough
-	case 77:
-		fallthrough
-	case 85:
-		fallthrough
-	case 93:
-		fallthrough
-	case 101:
-		fallthrough
-	case 109:
-		fallthrough
-	case 117:
-		fallthrough
-	case 125:
-		fallthrough
-	case 133:
-		fallthrough
-	case 141:
-		fallthrough
-	case 149:
-		fallthrough
-	case 157:
-		fallthrough
-	case 165:
-		fallthrough
-	case 173:
-		fallthrough
-	case 181:
-		fallthrough
-	case 189:
-		fallthrough
-	case 197:
-		fallthrough
-	case 205:
-		fallthrough
-	case 213:
-		fallthrough
-	case 221:
-		fallthrough
-	case 229:
-		fallthrough
-	case 237:
-		fallthrough
-	case 245:
-		fallthrough
-	case 253:
-		fallthrough
-	case 325:
-		fallthrough
-	case 333:
+	case 5, 13, 21, 29, 37, 45, 53, 61, 69, 77, 85, 93, 101, 109, 117, 125, 133, 141,
+		149, 157, 165, 173, 181, 189, 197, 205, 213, 221, 229, 237, 245, 253,
+		325, 333:
 		// Fetch color bit 0 for next 8 dots
 		ppu.addressLine = ppu.patternAddress
 
 	// fetch BG tile byte (color bit 0)
-	case 6:
-		fallthrough
-	case 14:
-		fallthrough
-	case 22:
-		fallthrough
-	case 30:
-		fallthrough
-	case 38:
-		fallthrough
-	case 46:
-		fallthrough
-	case 54:
-		fallthrough
-	case 62:
-		fallthrough
-	case 70:
-		fallthrough
-	case 78:
-		fallthrough
-	case 86:
-		fallthrough
-	case 94:
-		fallthrough
-	case 102:
-		fallthrough
-	case 110:
-		fallthrough
-	case 118:
-		fallthrough
-	case 126:
-		fallthrough
-	case 134:
-		fallthrough
-	case 142:
-		fallthrough
-	case 150:
-		fallthrough
-	case 158:
-		fallthrough
-	case 166:
-		fallthrough
-	case 174:
-		fallthrough
-	case 182:
-		fallthrough
-	case 190:
-		fallthrough
-	case 198:
-		fallthrough
-	case 206:
-		fallthrough
-	case 214:
-		fallthrough
-	case 222:
-		fallthrough
-	case 230:
-		fallthrough
-	case 238:
-		fallthrough
-	case 246:
-		fallthrough
-	case 254:
-		fallthrough
-	case 326:
-		fallthrough
-	case 334:
+	case 6, 14, 22, 30, 38, 46, 54, 62, 70, 78, 86, 94, 102, 110, 118, 126, 134, 142,
+		150, 158, 166, 174, 182, 190, 198, 206, 214, 222, 230, 238, 246, 254,
+		326, 334:
 		// Fetch color bit 0 for next 8 dots
 		ppu.tilesLatch = (ppu.tilesLatch & 0xff00) | uint16(ppu.Memory.Fetch(ppu.addressLine))
 
 	// open high BG tile byte (color bit 1)
-	case 7:
-		fallthrough
-	case 15:
-		fallthrough
-	case 23:
-		fallthrough
-	case 31:
-		fallthrough
-	case 39:
-		fallthrough
-	case 47:
-		fallthrough
-	case 55:
-		fallthrough
-	case 63:
-		fallthrough
-	case 71:
-		fallthrough
-	case 79:
-		fallthrough
-	case 87:
-		fallthrough
-	case 95:
-		fallthrough
-	case 103:
-		fallthrough
-	case 111:
-		fallthrough
-	case 119:
-		fallthrough
-	case 127:
-		fallthrough
-	case 135:
-		fallthrough
-	case 143:
-		fallthrough
-	case 151:
-		fallthrough
-	case 159:
-		fallthrough
-	case 167:
-		fallthrough
-	case 175:
-		fallthrough
-	case 183:
-		fallthrough
-	case 191:
-		fallthrough
-	case 199:
-		fallthrough
-	case 207:
-		fallthrough
-	case 215:
-		fallthrough
-	case 223:
-		fallthrough
-	case 231:
-		fallthrough
-	case 239:
-		fallthrough
-	case 247:
-		fallthrough
-	case 255:
-		fallthrough
-	case 327:
-		fallthrough
-	case 335:
+	case 7, 15, 23, 31, 39, 47, 55, 63, 71, 79, 87, 95, 103, 111, 119, 127, 135, 143,
+		151, 159, 167, 175, 183, 191, 199, 207, 215, 223, 231, 239, 247, 255,
+		327, 335:
 		// Fetch color bit 1 for next 8 dots
 		ppu.addressLine = ppu.patternAddress | 0x0008
 
 	// fetch high BG tile byte (color bit 1)
-	case 8:
-		fallthrough
-	case 16:
-		fallthrough
-	case 24:
-		fallthrough
-	case 32:
-		fallthrough
-	case 40:
-		fallthrough
-	case 48:
-		fallthrough
-	case 56:
-		fallthrough
-	case 64:
-		fallthrough
-	case 72:
-		fallthrough
-	case 80:
-		fallthrough
-	case 88:
-		fallthrough
-	case 96:
-		fallthrough
-	case 104:
-		fallthrough
-	case 112:
-		fallthrough
-	case 120:
-		fallthrough
-	case 128:
-		fallthrough
-	case 136:
-		fallthrough
-	case 144:
-		fallthrough
-	case 152:
-		fallthrough
-	case 160:
-		fallthrough
-	case 168:
-		fallthrough
-	case 176:
-		fallthrough
-	case 184:
-		fallthrough
-	case 192:
-		fallthrough
-	case 200:
-		fallthrough
-	case 208:
-		fallthrough
-	case 216:
-		fallthrough
-	case 224:
-		fallthrough
-	case 232:
-		fallthrough
-	case 240:
-		fallthrough
-	case 248:
-		fallthrough
-	case 256:
-		fallthrough
-	case 328:
-		fallthrough
-	case 336:
-
+	case 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144,
+		152, 160, 168, 176, 184, 192, 200, 208, 216, 224, 232, 240, 248, 256,
+		328, 336:
 		// Fetch color bit 1 for next 8 dots
 		ppu.tilesLatch = (ppu.tilesLatch & 0x00ff) | uint16(ppu.Memory.Fetch(ppu.addressLine))<<8
 
@@ -1395,55 +796,8 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		ppu.transferX()
 
 	// vert(v) = vert(t)
-	case 280:
-		fallthrough
-	case 281:
-		fallthrough
-	case 282:
-		fallthrough
-	case 283:
-		fallthrough
-	case 284:
-		fallthrough
-	case 285:
-		fallthrough
-	case 286:
-		fallthrough
-	case 287:
-		fallthrough
-	case 288:
-		fallthrough
-	case 289:
-		fallthrough
-	case 290:
-		fallthrough
-	case 291:
-		fallthrough
-	case 292:
-		fallthrough
-	case 293:
-		fallthrough
-	case 294:
-		fallthrough
-	case 295:
-		fallthrough
-	case 296:
-		fallthrough
-	case 297:
-		fallthrough
-	case 298:
-		fallthrough
-	case 299:
-		fallthrough
-	case 300:
-		fallthrough
-	case 301:
-		fallthrough
-	case 302:
-		fallthrough
-	case 303:
-		fallthrough
-	case 304:
+	case 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292,
+		293, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304:
 		if ppu.scanline == 261 {
 			ppu.transferY()
 		}
@@ -1486,7 +840,6 @@ func (ppu *RP2C02) renderVisibleScanline() {
 					spriteAddress = uint16(0x3f10 | spriteAttribute | spriteIndex)
 					spritePriority = ppu.sprite(sprite, Priority)
 					spriteUnit = i
-
 					break
 				}
 			}
@@ -1523,6 +876,10 @@ func (ppu *RP2C02) Execute() {
 	switch {
 	// visible scanlines (0-239), pre-render scanline (261)
 	case (ppu.scanline >= 0 && ppu.scanline <= 239) || ppu.scanline == 261:
+		if ppu.cycle == 1 && ppu.scanline == 261 {
+			ppu.Registers.Status &^= uint8(VBlankStarted | Sprite0Hit | SpriteOverflow)
+		}
+
 		if ppu.rendering() {
 			ppu.renderVisibleScanline()
 		}

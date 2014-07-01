@@ -1079,15 +1079,8 @@ func (instructions InstructionTable) InitInstructions() {
 				var address uint16
 
 				switch {
-				case opcode == 0x80:
-					fallthrough
-				case opcode == 0x82:
-					fallthrough
-				case opcode == 0x89:
-					fallthrough
-				case opcode == 0xc2:
-					fallthrough
-				case opcode == 0xe2:
+				case opcode == 0x80, opcode == 0x82, opcode == 0x89,
+					opcode == 0xc2, opcode == 0xe2:
 					address = cpu.immediateAddress()
 				case (opcode>>4)&0x01 == 0:
 					address = cpu.zeroPageAddress()

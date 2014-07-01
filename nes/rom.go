@@ -117,11 +117,7 @@ func NewROM(filename string) (rom ROM, err error) {
 	}
 
 	switch romf.mapper {
-	case 0x00:
-		fallthrough
-	case 0x40:
-		fallthrough
-	case 0x41:
+	case 0x00, 0x40, 0x41:
 		rom = NewNROM(romf)
 	case 0x01:
 		rom = NewMMC1(romf)

@@ -314,6 +314,7 @@ func (nes *NES) route() {
 			case PressButton:
 				nes.controllers.Input() <- i
 			case PressPause:
+
 				nes.pause()
 			case PressReset:
 				nes.Reset()
@@ -339,18 +340,19 @@ func (nes *NES) route() {
 				fmt.Println("*** Toggling show sprites = ", nes.ppu.ShowSprites)
 			case PressDecode:
 				fmt.Println("*** Toggling CPU decode = ", nes.cpu.ToggleDecode())
+				fmt.Println("*** Toggling PPU decode = ", nes.ppu.ToggleDecode())
 			case PressFPS100:
 				nes.fps.SetRate(DEFAULT_FPS * 1.00)
-				fmt.Println("*** Setting fps to 100%")
+				fmt.Println("*** Setting fps to 1/4")
 			case PressFPS75:
 				nes.fps.SetRate(DEFAULT_FPS * 0.75)
-				fmt.Println("*** Setting fps to 75%")
+				fmt.Println("*** Setting fps to 3/4")
 			case PressFPS50:
 				nes.fps.SetRate(DEFAULT_FPS * 0.50)
-				fmt.Println("*** Setting fps to 50%")
+				fmt.Println("*** Setting fps to 2/4")
 			case PressFPS25:
 				nes.fps.SetRate(DEFAULT_FPS * 0.25)
-				fmt.Println("*** Setting fps to 25%")
+				fmt.Println("*** Setting fps to 1/4")
 			case PressSavePatternTables:
 				fmt.Println("*** Saving PPU pattern tables")
 				nes.ppu.SavePatternTables()

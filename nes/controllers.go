@@ -29,21 +29,7 @@ func (btn Button) String() string {
 
 func (btn Button) Valid() bool {
 	switch btn {
-	case A:
-		fallthrough
-	case B:
-		fallthrough
-	case Select:
-		fallthrough
-	case Start:
-		fallthrough
-	case Up:
-		fallthrough
-	case Down:
-		fallthrough
-	case Left:
-		fallthrough
-	case Right:
+	case A, B, Select, Start, Up, Down, Left, Right:
 		return true
 	}
 
@@ -108,9 +94,7 @@ func (ctrls *Controllers) Mappings(which rp2ago3.Mapping) (fetch, store []uint16
 
 func (ctrls *Controllers) Fetch(address uint16) (value uint8) {
 	switch address {
-	case 0x4016:
-		fallthrough
-	case 0x4017:
+	case 0x4016, 0x4017:
 		index := address - 0x4016
 		ctrl := &ctrls.controllers[index]
 
@@ -151,13 +135,10 @@ func (ctrls *Controllers) ValidKeyDown(controller int, btn Button) (valid bool) 
 	valid = btn.Valid()
 
 	switch {
-	case btn == Up && ctrls.KeyIsDown(controller, Down):
-		fallthrough
-	case btn == Down && ctrls.KeyIsDown(controller, Up):
-		fallthrough
-	case btn == Left && ctrls.KeyIsDown(controller, Right):
-		fallthrough
-	case btn == Right && ctrls.KeyIsDown(controller, Left):
+	case btn == Up && ctrls.KeyIsDown(controller, Down),
+		btn == Down && ctrls.KeyIsDown(controller, Up),
+		btn == Left && ctrls.KeyIsDown(controller, Right),
+		btn == Right && ctrls.KeyIsDown(controller, Left):
 		valid = false
 	}
 

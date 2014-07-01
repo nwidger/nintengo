@@ -108,9 +108,7 @@ func TestPrgBanks(t *testing.T) {
 
 	for i := 16; i < n; i++ {
 		switch i {
-		case 16:
-			fallthrough
-		case n - 1:
+		case 16, n - 1:
 			buf[i] = 0xee
 		default:
 			buf[i] = 0xff
@@ -134,9 +132,7 @@ func TestPrgBanks(t *testing.T) {
 		var val uint8
 
 		switch i {
-		case 0:
-			fallthrough
-		case n - 1:
+		case 0, n - 1:
 			val = 0xee
 		default:
 			val = 0xff
@@ -188,9 +184,7 @@ func TestChrBanks(t *testing.T) {
 
 	for i := 16; i < n; i++ {
 		switch i {
-		case 16:
-			fallthrough
-		case n - 1:
+		case 16, n - 1:
 			buf[i] = 0xee
 		default:
 			buf[i] = 0xff
@@ -214,9 +208,7 @@ func TestChrBanks(t *testing.T) {
 		var val uint8
 
 		switch i {
-		case 0:
-			fallthrough
-		case n - 1:
+		case 0, n - 1:
 			val = 0xee
 		default:
 			val = 0xff

@@ -546,15 +546,8 @@ func (frameCounter *FrameCounterSequencer) Clock() (changed bool, newStep uint8)
 	oldStep := frameCounter.Step
 
 	switch frameCounter.Cycles {
-	case 3729 * 2:
-		fallthrough
-	case 7457 * 2:
-		fallthrough
-	case 11186 * 2:
-		fallthrough
-	case 14915 * 2:
-		fallthrough
-	case 18641 * 2:
+	case 3729 * 2, 7457 * 2, 11186 * 2,
+		14915 * 2, 18641 * 2:
 		frameCounter.Step++
 	}
 

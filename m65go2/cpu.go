@@ -399,9 +399,7 @@ func (cpu *M6502) rmwAddress(opcode OpCode, status *InstructionStatus) (address 
 		case 0x01:
 
 			switch opcode & 0xf0 {
-			case 0x90:
-				fallthrough
-			case 0xb0:
+			case 0x90, 0xb0:
 				index = Y
 			default:
 				index = X
@@ -413,9 +411,7 @@ func (cpu *M6502) rmwAddress(opcode OpCode, status *InstructionStatus) (address 
 		case 0x03:
 
 			switch opcode & 0xf0 {
-			case 0x90:
-				fallthrough
-			case 0xb0:
+			case 0x90, 0xb0:
 				index = Y
 			default:
 				index = X
@@ -450,9 +446,7 @@ func (cpu *M6502) unofficialAddress(opcode OpCode, status *InstructionStatus) (a
 		case 0x01:
 
 			switch opcode & 0xf0 {
-			case 0x90:
-				fallthrough
-			case 0xb0:
+			case 0x90, 0xb0:
 				index = Y
 			default:
 				index = X
@@ -467,9 +461,7 @@ func (cpu *M6502) unofficialAddress(opcode OpCode, status *InstructionStatus) (a
 				index = X
 			} else {
 				switch opcode & 0xf0 {
-				case 0x90:
-					fallthrough
-				case 0xb0:
+				case 0x90, 0xb0:
 					index = Y
 				default:
 					index = X
