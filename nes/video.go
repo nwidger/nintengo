@@ -289,7 +289,11 @@ func (video *SDLVideo) Run() {
 					}
 				case sdl.K_o:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressDecode(0)
+						video.buttonPresses <- PressCPUDecode(0)
+					}
+				case sdl.K_i:
+					if e.Type == sdl.KEYDOWN {
+						video.buttonPresses <- PressPPUDecode(0)
 					}
 				case sdl.K_9:
 					if e.Type == sdl.KEYDOWN {

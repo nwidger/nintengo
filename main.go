@@ -30,5 +30,9 @@ func main() {
 		return
 	}
 
-	nes.Run()
+	err = nes.Run()
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+	}
 }

@@ -1,6 +1,7 @@
 package nes
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -33,6 +34,8 @@ const (
 )
 
 type ROMFile struct {
+	gamename    string
+	filename    string
 	prgBanks    uint8
 	chrBanks    uint8
 	mirroring   rp2cgo2.Mirroring
@@ -55,6 +58,8 @@ type ROM interface {
 	Mirrors() (mirrors map[uint32]uint32)
 	RefreshMirrors() bool
 	String() string
+	LoadBattery()
+	SaveBattery() (err error)
 }
 
 func getBuf(filename string) (buf []byte, err error) {
@@ -115,6 +120,9 @@ func NewROM(filename string) (rom ROM, err error) {
 	if err != nil {
 		return
 	}
+
+	romf.filename = filename
+	romf.gamename = strings.TrimSuffix(romf.filename, ".nes")
 
 	switch romf.mapper {
 	case 0x00, 0x40, 0x41:
@@ -298,4 +306,47 @@ func (romf *ROMFile) String() string {
 		fmt.Sprintf("VS Cart: %v\n", romf.vsCart) +
 		fmt.Sprintf("RAM Banks: %v\n", romf.ramBanks) +
 		fmt.Sprintf("Region: %v\n", romf.region)
+}
+
+func (romf *ROMFile) LoadBattery() {
+	var ram []byte
+
+	if !romf.battery || romf.ramBanks == 0 {
+		return
+	}
+
+	fmt.Println("*** Loading battery")
+
+	ram, err := ioutil.ReadFile(romf.gamename + ".sav")
+
+	if err != nil {
+		return
+	}
+
+	for b := range romf.wramBanks {
+		for i := uint16(0); i < 0x2000; i++ {
+			romf.wramBanks[b][i] = ram[i]
+		}
+	}
+
+	return
+}
+
+func (romf *ROMFile) SaveBattery() (err error) {
+	if !romf.battery || romf.ramBanks == 0 {
+		return
+	}
+
+	fmt.Println("*** Saving battery")
+
+	buf := bytes.Buffer{}
+
+	for b := range romf.wramBanks {
+		for i := uint16(0); i < 0x2000; i++ {
+			buf.WriteByte(romf.wramBanks[b][i])
+		}
+	}
+
+	err = ioutil.WriteFile(romf.gamename+".sav", buf.Bytes(), 0644)
+	return
 }

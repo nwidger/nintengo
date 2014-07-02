@@ -284,7 +284,8 @@ type PressRecord uint8
 type PressStop uint8
 type PressSave uint8
 type PressLoad uint8
-type PressDecode uint8
+type PressCPUDecode uint8
+type PressPPUDecode uint8
 type PressSavePatternTables uint8
 type PressShowBackground uint8
 type PressShowSprites uint8
@@ -312,7 +313,9 @@ func (nes *NES) route() {
 		case e := <-nes.video.ButtonPresses():
 			switch i := e.(type) {
 			case PressButton:
-				nes.controllers.Input() <- i
+				go func() {
+					nes.controllers.Input() <- i
+				}()
 			case PressPause:
 
 				nes.pause()
@@ -338,8 +341,9 @@ func (nes *NES) route() {
 			case PressShowSprites:
 				nes.ppu.ShowSprites = !nes.ppu.ShowSprites
 				fmt.Println("*** Toggling show sprites = ", nes.ppu.ShowSprites)
-			case PressDecode:
+			case PressCPUDecode:
 				fmt.Println("*** Toggling CPU decode = ", nes.cpu.ToggleDecode())
+			case PressPPUDecode:
 				fmt.Println("*** Toggling PPU decode = ", nes.ppu.ToggleDecode())
 			case PressFPS100:
 				nes.fps.SetRate(DEFAULT_FPS * 1.00)
@@ -401,6 +405,7 @@ func (nes *NES) RunProcessors() (err error) {
 func (nes *NES) Run() (err error) {
 	fmt.Println(nes.rom)
 
+	nes.rom.LoadBattery()
 	nes.Reset()
 
 	nes.running = true
@@ -443,6 +448,8 @@ func (nes *NES) Run() (err error) {
 		pprof.WriteHeapProfile(f)
 		f.Close()
 	}
+
+	err = nes.rom.SaveBattery()
 
 	return
 }
