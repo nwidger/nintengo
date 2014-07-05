@@ -575,20 +575,24 @@ func (ppu *RP2C02) shiftBackgroundTiles() {
 }
 
 func (ppu *RP2C02) fetchSprites() {
+	var s *Sprite
+
 	switch ppu.cycle {
 	case 263, 271, 279, 287, 295, 303, 311, 319:
 		index := uint8((ppu.cycle >> 3) & 0x07)
 		sprite := ppu.oam.Sprite(index)
 
-		ppu.sprites[index].Sprite = sprite
-		ppu.sprites[index].XPosition = ppu.sprite(sprite, XPosition)
+		s = &ppu.sprites[index]
 
-		ppu.sprites[index].TileLow = 0x00
-		ppu.sprites[index].TileHigh = 0x00
+		s.Sprite = sprite
+		s.XPosition = ppu.sprite(sprite, XPosition)
+
+		s.TileLow = 0x00
+		s.TileHigh = 0x00
 
 		address := ppu.spriteAddress(sprite)
-		ppu.sprites[index].TileLow = ppu.Memory.Fetch(address)
-		ppu.sprites[index].TileHigh = ppu.Memory.Fetch(address | 0x0008)
+		s.TileLow = ppu.Memory.Fetch(address)
+		s.TileHigh = ppu.Memory.Fetch(address | 0x0008)
 
 		if ppu.sprite(sprite, FlipHorizontally) != 0 {
 			reverse := func(x uint8) uint8 {
@@ -598,25 +602,35 @@ func (ppu *RP2C02) fetchSprites() {
 				return x
 			}
 
-			ppu.sprites[index].TileLow = reverse(ppu.sprites[index].TileLow)
-			ppu.sprites[index].TileHigh = reverse(ppu.sprites[index].TileHigh)
+			s.TileLow = reverse(s.TileLow)
+			s.TileHigh = reverse(s.TileHigh)
 		}
 	}
 }
 
 func (ppu *RP2C02) decrementSprites() {
-	for i := range ppu.sprites {
-		if ppu.sprites[i].XPosition > 0 {
-			ppu.sprites[i].XPosition--
+	var i int
+	var s *Sprite
+
+	for i = range ppu.sprites {
+		s = &ppu.sprites[i]
+
+		if s.XPosition > 0 {
+			s.XPosition--
 		}
 	}
 }
 
 func (ppu *RP2C02) shiftSprites() {
-	for i := range ppu.sprites {
-		if ppu.sprites[i].XPosition == 0 {
-			ppu.sprites[i].TileLow <<= 1
-			ppu.sprites[i].TileHigh <<= 1
+	var i int
+	var s *Sprite
+
+	for i = range ppu.sprites {
+		s = &ppu.sprites[i]
+
+		if s.XPosition == 0 {
+			s.TileLow <<= 1
+			s.TileHigh <<= 1
 		}
 	}
 }
@@ -724,6 +738,45 @@ func (ppu *RP2C02) priorityMultiplexer(bgAddress, spriteAddress uint16, spritePr
 	return
 }
 
+func (ppu *RP2C02) renderBackground() (bgAddress, bgIndex uint16) {
+	if ppu.mask(ShowBackground) && (ppu.mask(ShowBackgroundLeft) || ppu.cycle > 8) {
+		scroll := 15 - ppu.Registers.Scroll
+		bgIndex = (((ppu.tilesHigh >> scroll) & 0x0001) << 1) | ((ppu.tilesLow >> scroll) & 0x0001)
+		bgAttribute := uint16((ppu.attributes>>(14-(2*ppu.Registers.Scroll)))&0x0003) << 2
+		bgAddress = uint16(0x3f00 | bgAttribute | bgIndex)
+	}
+
+	return
+}
+
+func (ppu *RP2C02) renderSprites() (spriteAddress, spriteIndex uint16, spritePriority uint8, spriteUnit int) {
+	var i int
+	var s *Sprite
+
+	if ppu.mask(ShowSprites) && (ppu.mask(ShowSpritesLeft) || ppu.cycle > 8) {
+		for i = range ppu.sprites {
+			s = &ppu.sprites[i]
+
+			if s.XPosition > 0 {
+				continue
+			}
+
+			index := uint16((((s.TileHigh >> 7) & 0x0001) << 1) | ((s.TileLow >> 7) & 0x0001))
+
+			if index != 0 {
+				spriteIndex = index
+				spriteAttribute := uint16(ppu.sprite(s.Sprite, SpritePalette)) << 2
+				spriteAddress = uint16(0x3f10 | spriteAttribute | spriteIndex)
+				spritePriority = ppu.sprite(s.Sprite, Priority)
+				spriteUnit = i
+				break
+			}
+		}
+	}
+
+	return
+}
+
 func (ppu *RP2C02) renderVisibleScanline() {
 	ppu.reloadBackgroundTiles()
 
@@ -806,45 +859,10 @@ func (ppu *RP2C02) renderVisibleScanline() {
 	if ppu.cycle >= 1 && ppu.cycle <= 256 {
 		address := uint16(0)
 
-		bgAddress := uint16(0)
-		bgAttribute := uint16(0)
-		bgIndex := uint16(0)
-
-		if ppu.mask(ShowBackground) && (ppu.mask(ShowBackgroundLeft) || ppu.cycle > 8) {
-			scroll := 15 - ppu.Registers.Scroll
-			bgIndex = (((ppu.tilesHigh >> scroll) & 0x0001) << 1) | ((ppu.tilesLow >> scroll) & 0x0001)
-			bgAttribute = uint16((ppu.attributes>>(14-(2*ppu.Registers.Scroll)))&0x0003) << 2
-			bgAddress = uint16(0x3f00 | bgAttribute | bgIndex)
-		}
-
-		spriteAddress := uint16(0)
-		spriteAttribute := uint16(0)
-		spriteIndex := uint16(0)
-		spritePriority := uint8(0)
-		spriteUnit := 0
+		bgAddress, bgIndex := ppu.renderBackground()
 
 		ppu.decrementSprites()
-
-		if ppu.mask(ShowSprites) && (ppu.mask(ShowSpritesLeft) || ppu.cycle > 8) {
-			for i, s := range ppu.sprites {
-				if s.XPosition > 0 {
-					continue
-				}
-
-				sprite := s.Sprite
-				index := uint16((((s.TileHigh >> 7) & 0x0001) << 1) | ((s.TileLow >> 7) & 0x0001))
-
-				if index != 0 {
-					spriteIndex = index
-					spriteAttribute = uint16(ppu.sprite(sprite, SpritePalette)) << 2
-					spriteAddress = uint16(0x3f10 | spriteAttribute | spriteIndex)
-					spritePriority = ppu.sprite(sprite, Priority)
-					spriteUnit = i
-					break
-				}
-			}
-		}
-
+		spriteAddress, spriteIndex, spritePriority, spriteUnit := ppu.renderSprites()
 		ppu.shiftSprites()
 
 		address = ppu.priorityMultiplexer(bgAddress, spriteAddress, spritePriority)

@@ -394,9 +394,9 @@ func (nes *NES) RunProcessors() (err error) {
 			nes.ppu.Execute()
 		}
 
-		for i := uint16(0); i < cycles; i++ {
-			nes.cpu.APU.Execute()
-		}
+		// for i := uint16(0); i < cycles; i++ {
+		// 	nes.cpu.APU.Execute()
+		// }
 	}
 
 	return

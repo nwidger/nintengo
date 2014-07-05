@@ -62,45 +62,54 @@ type ROM interface {
 	SaveBattery() (err error)
 }
 
-func getBuf(filename string) (buf []byte, err error) {
+func getBuf(filename string) (buf []byte, suffix string, err error) {
 	var r *zip.ReadCloser
 	var rc io.ReadCloser
 
-	if !strings.HasSuffix(filename, ".zip") {
-		buf, err = ioutil.ReadFile(filename)
-		return
-	}
+	switch {
+	case strings.HasSuffix(filename, ".nes"):
+		suffix = ".nes"
 
-	// Open a zip archive for reading.
-	r, err = zip.OpenReader(filename)
-
-	if err != nil {
-		return
-	}
-
-	defer r.Close()
-
-	// Iterate through the files in the archive,
-	// printing some of their contents.
-	for _, f := range r.File {
-		if !strings.HasSuffix(f.Name, ".nes") {
-			continue
+		if strings.HasSuffix(filename, suffix) {
+			buf, err = ioutil.ReadFile(filename)
+			return
 		}
+	case strings.HasSuffix(filename, ".zip"):
+		suffix = ".zip"
 
-		rc, err = f.Open()
+		// Open a zip archive for reading.
+		r, err = zip.OpenReader(filename)
 
 		if err != nil {
 			return
 		}
 
-		buf, err = ioutil.ReadAll(rc)
+		defer r.Close()
 
-		if err != nil {
-			return
+		// Iterate through the files in the archive,
+		// printing some of their contents.
+		for _, f := range r.File {
+			if !strings.HasSuffix(f.Name, ".nes") {
+				continue
+			}
+
+			rc, err = f.Open()
+
+			if err != nil {
+				return
+			}
+
+			buf, err = ioutil.ReadAll(rc)
+
+			if err != nil {
+				return
+			}
+
+			rc.Close()
+			break
 		}
-
-		rc.Close()
-		break
+	default:
+		err = errors.New("Unknown filetype, must be .nes or .zip")
 	}
 
 	return
@@ -108,8 +117,9 @@ func getBuf(filename string) (buf []byte, err error) {
 
 func NewROM(filename string) (rom ROM, err error) {
 	var buf []byte
+	var suffix string
 
-	buf, err = getBuf(filename)
+	buf, suffix, err = getBuf(filename)
 
 	if err != nil {
 		return
@@ -122,7 +132,7 @@ func NewROM(filename string) (rom ROM, err error) {
 	}
 
 	romf.filename = filename
-	romf.gamename = strings.TrimSuffix(romf.filename, ".nes")
+	romf.gamename = strings.TrimSuffix(romf.filename, suffix)
 
 	switch romf.mapper {
 	case 0x00, 0x40, 0x41:
@@ -315,13 +325,14 @@ func (romf *ROMFile) LoadBattery() {
 		return
 	}
 
-	fmt.Println("*** Loading battery")
-
-	ram, err := ioutil.ReadFile(romf.gamename + ".sav")
+	savename := romf.gamename + ".sav"
+	ram, err := ioutil.ReadFile(savename)
 
 	if err != nil {
 		return
 	}
+
+	fmt.Println("*** Loading battery from " + savename)
 
 	for b := range romf.wramBanks {
 		for i := uint16(0); i < 0x2000; i++ {
@@ -337,7 +348,9 @@ func (romf *ROMFile) SaveBattery() (err error) {
 		return
 	}
 
-	fmt.Println("*** Saving battery")
+	savename := romf.gamename + ".sav"
+
+	fmt.Println("*** Saving battery to " + savename)
 
 	buf := bytes.Buffer{}
 
@@ -347,6 +360,7 @@ func (romf *ROMFile) SaveBattery() (err error) {
 		}
 	}
 
-	err = ioutil.WriteFile(romf.gamename+".sav", buf.Bytes(), 0644)
+	err = ioutil.WriteFile(savename, buf.Bytes(), 0644)
+
 	return
 }
