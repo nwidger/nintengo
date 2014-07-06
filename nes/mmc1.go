@@ -68,6 +68,18 @@ func NewMMC1(romf *ROMFile) *MMC1 {
 		NTMirrors: makeNTMirrors(),
 	}
 
+	// divide 8KB CHR banks into 4KB banks since we may be
+	// swapping 4KB banks
+	vromBanks := make([][]uint8, romf.chrBanks*2)
+
+	for n := 0; n < int(romf.chrBanks); n++ {
+		vromBanks[2*n] = romf.vromBanks[n][0x000:0x1000]
+		vromBanks[(2*n)+1] = romf.vromBanks[n][0x1000:0x2000]
+	}
+
+	romf.vromBanks = vromBanks
+	romf.chrBanks *= 2
+
 	mmc1.Registers.Reset()
 
 	return mmc1
