@@ -33,7 +33,7 @@ func (oam *OAM) Sprite(index uint8) uint32 {
 }
 
 func (oam *OAM) SpriteEvaluation(scanline uint16, cycle uint16, size uint16) (spriteOverflow bool) {
-	if (scanline >= 0 && scanline <= 239) && (cycle >= 1 && cycle <= 256) {
+	if scanline != 261 {
 		switch cycle {
 		case 1:
 			oam.address = 0
