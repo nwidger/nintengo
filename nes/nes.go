@@ -412,7 +412,7 @@ func (nes *NES) Run() (err error) {
 
 	go nes.controllers.Run()
 	go nes.RunProcessors()
-	go nes.audio.Run()
+	// go nes.audio.Run()
 	go nes.route()
 
 	if nes.recorder != nil {

@@ -68,6 +68,11 @@ func (oam *OAM) SpriteEvaluation(scanline uint16, cycle uint16, size uint16) (sp
 	return
 }
 
+func (oam *OAM) incrementAddress(mask uint16) uint16 {
+	oam.address = (oam.address + 1) & mask
+	return oam.address
+}
+
 func fetchAddress(oam *OAM, scanline uint16, cycle uint16, size uint16) {
 	if oam.address < 0x0100 {
 		oam.latch = oam.Fetch(oam.address)
@@ -76,8 +81,7 @@ func fetchAddress(oam *OAM, scanline uint16, cycle uint16, size uint16) {
 
 func clearBuffer(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool) {
 	oam.Buffer.Store(oam.address, oam.latch)
-	oam.address++
-
+	oam.incrementAddress(0x001f)
 	return
 }
 
@@ -85,7 +89,7 @@ func copyYPosition(oam *OAM, scanline uint16, cycle uint16, size uint16) (sprite
 	if scanline-uint16(oam.latch) < size {
 		oam.Buffer.Store(oam.index+0, oam.latch)
 		oam.writeCycle = copyIndex
-		oam.address++
+		oam.incrementAddress(0x00ff)
 	} else {
 		oam.address += 4
 
@@ -100,26 +104,26 @@ func copyYPosition(oam *OAM, scanline uint16, cycle uint16, size uint16) (sprite
 func copyIndex(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool) {
 	oam.Buffer.Store(oam.index+1, oam.latch)
 	oam.writeCycle = copyAttributes
-	oam.address++
+	oam.incrementAddress(0x00ff)
 	return
 }
 
 func copyAttributes(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool) {
 	oam.Buffer.Store(oam.index+2, oam.latch)
 	oam.writeCycle = copyXPosition
-	oam.address++
+	oam.incrementAddress(0x00ff)
 	return
 }
 
 func copyXPosition(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool) {
-	oam.Buffer.Store(oam.index+3, oam.latch+1)
+	oam.Buffer.Store(oam.index+3, oam.latch)
 
 	if oam.index == 0 {
 		oam.SpriteZeroInBuffer = true
 	}
 
 	oam.index += 4
-	oam.address++
+	oam.incrementAddress(0x00ff)
 
 	switch {
 	case oam.address == 0x0100:
@@ -168,7 +172,7 @@ func evaluateXPosition(oam *OAM, scanline uint16, cycle uint16, size uint16) (sp
 	oam.address = (oam.address + 1) & 0x00ff
 
 	if (oam.address & 0x0003) == 0x0003 {
-		oam.address++
+		oam.incrementAddress(0x00ff)
 	}
 
 	oam.address &= 0x00fc

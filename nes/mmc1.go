@@ -35,7 +35,7 @@ const (
 	PRGRAMChipEnable
 )
 
-type Registers struct {
+type MMC1Registers struct {
 	Load       uint8
 	Control    uint8
 	CHRBank0   uint8
@@ -47,12 +47,12 @@ type Registers struct {
 
 type MMC1 struct {
 	*ROMFile
-	Registers      Registers
+	Registers      MMC1Registers
 	NTMirrors      []map[uint32]uint32
 	refreshMirrors bool
 }
 
-func (reg *Registers) Reset() {
+func (reg *MMC1Registers) Reset() {
 	reg.Load = 0x00
 	reg.Control = 0x0f
 	reg.CHRBank0 = 0x00
