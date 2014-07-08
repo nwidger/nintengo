@@ -116,7 +116,7 @@ func copyAttributes(oam *OAM, scanline uint16, cycle uint16, size uint16) (sprit
 }
 
 func copyXPosition(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool) {
-	oam.Buffer.Store(oam.index+3, oam.latch)
+	oam.Buffer.Store(oam.index+3, oam.latch+1)
 
 	if oam.index == 0 {
 		oam.SpriteZeroInBuffer = true

@@ -247,9 +247,9 @@ func (cpu *M6502) Execute() (cycles uint16, error error) {
 
 	// fetch
 	opcode := OpCode(cpu.Memory.Fetch(cpu.Registers.PC))
-	inst, ok := cpu.Instructions.opcodes[opcode]
+	inst := cpu.Instructions.opcodes[opcode]
 
-	if !ok {
+	if inst == nil {
 		return 0, BadOpCodeError(opcode)
 	}
 

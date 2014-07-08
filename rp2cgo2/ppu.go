@@ -761,7 +761,14 @@ func (ppu *RP2C02) renderSprites() (spriteAddress, spriteIndex uint16, spritePri
 				continue
 			}
 
-			index := uint16((((s.TileHigh >> 7) & 0x0001) << 1) | ((s.TileLow >> 7) & 0x0001))
+			high := s.TileHigh & 0x80
+			low := s.TileLow & 0x80
+
+			if high == 0x00 && low == 0x00 {
+				continue
+			}
+
+			index := uint16((high >> 6) | (low >> 7))
 
 			if index != 0 {
 				spriteIndex = index
