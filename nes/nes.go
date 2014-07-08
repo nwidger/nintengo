@@ -347,7 +347,7 @@ func (nes *NES) route() {
 				fmt.Println("*** Toggling PPU decode = ", nes.ppu.ToggleDecode())
 			case PressFPS100:
 				nes.fps.SetRate(DEFAULT_FPS * 1.00)
-				fmt.Println("*** Setting fps to 1/4")
+				fmt.Println("*** Setting fps to 4/4")
 			case PressFPS75:
 				nes.fps.SetRate(DEFAULT_FPS * 0.75)
 				fmt.Println("*** Setting fps to 3/4")
