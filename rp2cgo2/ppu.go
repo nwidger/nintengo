@@ -216,7 +216,7 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 	}
 
 	for i := uint32(0x3f20); i <= 0x3fff; i++ {
-		mirrors[i] = i - 0x0020
+		mirrors[i] = 0x3f00 + (i & 0x001f)
 	}
 
 	mem.AddMirrors(mirrors)
