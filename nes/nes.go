@@ -98,7 +98,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	cpu.Memory.AddMappings(rom, rp2ago3.CPU)
 	cpu.Memory.AddMappings(ctrls, rp2ago3.CPU)
 
-	ppu.Memory.AddMirrors(rom.Mirrors())
+	ppu.Nametable.SetTables(rom.Tables())
 	ppu.Memory.AddMappings(rom, rp2ago3.PPU)
 
 	nes = &NES{
@@ -386,8 +386,8 @@ func (nes *NES) RunProcessors() (err error) {
 			break
 		}
 
-		if nes.rom.RefreshMirrors() {
-			nes.ppu.Memory.AddMirrors(nes.rom.Mirrors())
+		if nes.rom.RefreshTables() {
+			nes.ppu.Nametable.SetTables(nes.rom.Tables())
 		}
 
 		for quota += float32(cycles) * nes.cpuDivisor; quota >= 1.0; quota-- {

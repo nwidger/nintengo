@@ -99,11 +99,3 @@ func (nrom *NROM) Store(address uint16, value uint8) (oldValue uint8) {
 
 	return
 }
-
-func (nrom *NROM) Mirrors() (mirrors map[uint32]uint32) {
-	return nrom.ROMFile.Mirrors()
-}
-
-func (nrom *NROM) RefreshMirrors() bool {
-	return false
-}

@@ -178,6 +178,7 @@ type RP2C02 struct {
 	colors    []uint8
 	Registers Registers
 	Memory    *rp2ago3.MappedMemory
+	Nametable *Nametable
 	Interrupt func(state bool)
 	oam       *OAM
 
@@ -216,15 +217,19 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 	}
 
 	for i := uint32(0x3f20); i <= 0x3fff; i++ {
-		mirrors[i] = i - 0x0020
+		mirrors[i] = 0x3f00 + (i & 0x001f)
 	}
 
+	nametable := NewNametable()
+
+	mem.AddMappings(nametable, rp2ago3.PPU)
 	mem.AddMirrors(mirrors)
 
 	return &RP2C02{
 		Output:         make(chan []uint8),
 		colors:         make([]uint8, 0xf000),
 		Memory:         mem,
+		Nametable:      nametable,
 		Interrupt:      interrupt,
 		oam:            NewOAM(),
 		ShowBackground: true,

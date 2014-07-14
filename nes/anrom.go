@@ -12,9 +12,8 @@ type ANROMRegisters struct {
 
 type ANROM struct {
 	*ROMFile
-	Registers      ANROMRegisters
-	NTMirrors      []map[uint32]uint32
-	refreshMirrors bool
+	Registers     ANROMRegisters
+	refreshTables bool
 }
 
 func (reg *ANROMRegisters) Reset() {
@@ -23,8 +22,7 @@ func (reg *ANROMRegisters) Reset() {
 
 func NewANROM(romf *ROMFile) *ANROM {
 	anrom := &ANROM{
-		ROMFile:   romf,
-		NTMirrors: makeNTMirrors(),
+		ROMFile: romf,
 	}
 
 	anrom.Registers.Reset()
@@ -123,7 +121,7 @@ func (anrom *ANROM) Store(address uint16, value uint8) (oldValue uint8) {
 		anrom.Registers.BankSelect = value
 
 		if anrom.mirroring() != oldMirrors {
-			anrom.refreshMirrors = true
+			anrom.refreshTables = true
 		}
 	}
 
@@ -143,15 +141,26 @@ func (anrom *ANROM) prgBanks() (lower, upper uint8) {
 	return
 }
 
-func (anrom *ANROM) Mirrors() (mirrors map[uint32]uint32) {
-	return anrom.NTMirrors[MMC1Mirroring(anrom.mirroring())]
+func (anrom *ANROM) Tables() (t0, t1, t2, t3 int) {
+	switch MMC1Mirroring(anrom.mirroring()) {
+	case OneScreenLowerBank:
+		t0, t1, t2, t3 = 1, 1, 1, 1
+	case OneScreenUpperBank:
+		t0, t1, t2, t3 = 0, 0, 0, 0
+	case Vertical:
+		t0, t1, t2, t3 = 0, 1, 0, 1
+	case Horizontal:
+		t0, t1, t2, t3 = 0, 0, 1, 1
+	}
+
+	return
 }
 
-func (anrom *ANROM) RefreshMirrors() (refresh bool) {
-	refresh = anrom.refreshMirrors
+func (anrom *ANROM) RefreshTables() (refresh bool) {
+	refresh = anrom.refreshTables
 
-	if anrom.refreshMirrors {
-		anrom.refreshMirrors = false
+	if anrom.refreshTables {
+		anrom.refreshTables = false
 	}
 
 	return refresh

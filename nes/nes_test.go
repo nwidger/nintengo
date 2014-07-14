@@ -7,10 +7,8 @@ import (
 )
 
 func TestVerticalMirroring(t *testing.T) {
-	romf := &ROMFile{mirroring: rp2cgo2.Vertical}
-	nrom := &NROM{ROMFile: romf}
 	ppu := rp2cgo2.NewRP2C02(nil)
-	ppu.Memory.AddMirrors(nrom.Mirrors())
+	ppu.Nametable.SetTables(0, 1, 0, 1)
 
 	// Mirror nametable #2 to #0
 	for i := uint16(0x2800); i <= 0x2bff; i++ {
@@ -122,10 +120,8 @@ func TestVerticalMirroring(t *testing.T) {
 }
 
 func TestHorizontalMirroring(t *testing.T) {
-	romf := &ROMFile{mirroring: rp2cgo2.Horizontal}
-	nrom := &NROM{ROMFile: romf}
 	ppu := rp2cgo2.NewRP2C02(nil)
-	ppu.Memory.AddMirrors(nrom.Mirrors())
+	ppu.Nametable.SetTables(0, 0, 1, 1)
 
 	// Mirror nametable #1 to #0
 	for i := uint16(0x2400); i <= 0x27ff; i++ {

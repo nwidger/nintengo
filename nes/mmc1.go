@@ -47,9 +47,8 @@ type MMC1Registers struct {
 
 type MMC1 struct {
 	*ROMFile
-	Registers      MMC1Registers
-	NTMirrors      []map[uint32]uint32
-	refreshMirrors bool
+	Registers     MMC1Registers
+	refreshTables bool
 }
 
 func (reg *MMC1Registers) Reset() {
@@ -64,8 +63,7 @@ func (reg *MMC1Registers) Reset() {
 
 func NewMMC1(romf *ROMFile) *MMC1 {
 	mmc1 := &MMC1{
-		ROMFile:   romf,
-		NTMirrors: makeNTMirrors(),
+		ROMFile: romf,
 	}
 
 	// divide 8KB CHR banks into 4KB banks since we may be
@@ -83,75 +81,6 @@ func NewMMC1(romf *ROMFile) *MMC1 {
 	mmc1.Registers.Reset()
 
 	return mmc1
-}
-
-func makeNTMirrors() []map[uint32]uint32 {
-	m := make([]map[uint32]uint32, 4)
-
-	for mirroring := range [4]MMC1Mirroring{OneScreenLowerBank, OneScreenUpperBank, Vertical, Horizontal} {
-		mirrors := make(map[uint32]uint32, 0x1000)
-
-		for i := uint32(0x2000); i <= 0x2fff; i++ {
-			mirrors[i] = rp2ago3.UNMIRRORED
-		}
-
-		switch mirroring {
-		case int(OneScreenLowerBank):
-			// Mirror nametable #0 to #1
-			for i := uint32(0x2000); i <= 0x23ff; i++ {
-				mirrors[i] = i + 0x0400
-			}
-
-			// Mirror nametable #2 to #1
-			for i := uint32(0x2800); i <= 0x2bff; i++ {
-				mirrors[i] = i - 0x0400
-			}
-
-			// Mirror nametable #3 to #1
-			for i := uint32(0x2c00); i <= 0x2fff; i++ {
-				mirrors[i] = i - 0x0800
-			}
-		case int(OneScreenUpperBank):
-			// Mirror nametable #1 to #0
-			for i := uint32(0x2400); i <= 0x27ff; i++ {
-				mirrors[i] = i - 0x0400
-			}
-
-			// Mirror nametable #2 to #0
-			for i := uint32(0x2800); i <= 0x2bff; i++ {
-				mirrors[i] = i - 0x0800
-			}
-
-			// Mirror nametable #3 to #0
-			for i := uint32(0x2c00); i <= 0x2fff; i++ {
-				mirrors[i] = i - 0x0c00
-			}
-		case int(Vertical):
-			// Mirror nametable #2 to #0
-			for i := uint32(0x2800); i <= 0x2bff; i++ {
-				mirrors[i] = i - 0x0800
-			}
-
-			// Mirror nametable #3 to #1
-			for i := uint32(0x2c00); i <= 0x2fff; i++ {
-				mirrors[i] = i - 0x0800
-			}
-		case int(Horizontal):
-			// Mirror nametable #1 to #0
-			for i := uint32(0x2400); i <= 0x27ff; i++ {
-				mirrors[i] = i - 0x0400
-			}
-
-			// Mirror nametable #3 to #2
-			for i := uint32(0x2c00); i <= 0x2fff; i++ {
-				mirrors[i] = i - 0x0400
-			}
-		}
-
-		m[mirroring] = mirrors
-	}
-
-	return m
 }
 
 func (mmc1 *MMC1) String() string {
@@ -321,7 +250,7 @@ func (mmc1 *MMC1) Store(address uint16, value uint8) (oldValue uint8) {
 		}
 
 		if mmc1.control(Mirroring) != oldMirrors {
-			mmc1.refreshMirrors = true
+			mmc1.refreshTables = true
 		}
 	}
 
@@ -443,15 +372,26 @@ func (mmc1 *MMC1) prgBanks() (lower, upper uint8) {
 	return
 }
 
-func (mmc1 *MMC1) Mirrors() (mirrors map[uint32]uint32) {
-	return mmc1.NTMirrors[MMC1Mirroring(mmc1.control(Mirroring))]
+func (mmc1 *MMC1) Tables() (t0, t1, t2, t3 int) {
+	switch MMC1Mirroring(mmc1.control(Mirroring)) {
+	case OneScreenLowerBank:
+		t0, t1, t2, t3 = 1, 1, 1, 1
+	case OneScreenUpperBank:
+		t0, t1, t2, t3 = 0, 0, 0, 0
+	case Vertical:
+		t0, t1, t2, t3 = 0, 1, 0, 1
+	case Horizontal:
+		t0, t1, t2, t3 = 0, 0, 1, 1
+	}
+
+	return
 }
 
-func (mmc1 *MMC1) RefreshMirrors() (refresh bool) {
-	refresh = mmc1.refreshMirrors
+func (mmc1 *MMC1) RefreshTables() (refresh bool) {
+	refresh = mmc1.refreshTables
 
-	if mmc1.refreshMirrors {
-		mmc1.refreshMirrors = false
+	if mmc1.refreshTables {
+		mmc1.refreshTables = false
 	}
 
 	return refresh

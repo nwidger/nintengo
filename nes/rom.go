@@ -55,8 +55,8 @@ type ROMFile struct {
 type ROM interface {
 	rp2ago3.MappableMemory
 	Region() Region
-	Mirrors() (mirrors map[uint32]uint32)
-	RefreshMirrors() bool
+	Tables() (t0, t1, t2, t3 int)
+	RefreshTables() bool
 	String() string
 	LoadBattery()
 	SaveBattery() (err error)
@@ -275,40 +275,18 @@ func (romf *ROMFile) Region() Region {
 	return romf.region
 }
 
-func (romf *ROMFile) Mirrors() (mirrors map[uint32]uint32) {
-	mirrors = make(map[uint32]uint32, 0x1000)
-
-	for i := uint32(0x2000); i <= 0x2fff; i++ {
-		mirrors[i] = rp2ago3.UNMIRRORED
-	}
-
+func (romf *ROMFile) Tables() (t0, t1, t2, t3 int) {
 	switch romf.mirroring {
 	case rp2cgo2.Horizontal:
-		// Mirror nametable #1 to #0
-		for i := uint32(0x2400); i <= 0x27ff; i++ {
-			mirrors[i] = i - 0x0400
-		}
-
-		// Mirror nametable #3 to #2
-		for i := uint32(0x2c00); i <= 0x2fff; i++ {
-			mirrors[i] = i - 0x0400
-		}
+		t0, t1, t2, t3 = 0, 0, 1, 1
 	case rp2cgo2.Vertical:
-		// Mirror nametable #2 to #0
-		for i := uint32(0x2800); i <= 0x2bff; i++ {
-			mirrors[i] = i - 0x0800
-		}
-
-		// Mirror nametable #3 to #1
-		for i := uint32(0x2c00); i <= 0x2fff; i++ {
-			mirrors[i] = i - 0x0800
-		}
+		t0, t1, t2, t3 = 0, 1, 0, 1
 	}
 
-	return mirrors
+	return
 }
 
-func (romf *ROMFile) RefreshMirrors() bool {
+func (romf *ROMFile) RefreshTables() bool {
 	return false
 }
 
