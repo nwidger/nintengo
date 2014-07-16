@@ -145,6 +145,8 @@ func NewROM(filename string) (rom ROM, err error) {
 		rom = NewCNROM(romf)
 	case 0x07:
 		rom = NewANROM(romf)
+	case 0x09:
+		rom = NewMMC2(romf)
 	default:
 		err = errors.New(fmt.Sprintf("Unsupported mapper type %v", romf.mapper))
 	}

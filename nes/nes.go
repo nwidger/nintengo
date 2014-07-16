@@ -306,18 +306,21 @@ func (nes *NES) pause() {
 func (nes *NES) route() {
 	for nes.running {
 		select {
-		case s := <-nes.cpu.APU.Samples:
-			go func() {
-				nes.audio.Input() <- s
-			}()
+		// case s := <-nes.cpu.APU.Samples:
+		// 	go func() {
+		// 		nes.audio.Input() <- s
+		// 	}()
 		case e := <-nes.video.ButtonPresses():
 			switch i := e.(type) {
 			case PressButton:
 				go func() {
-					nes.controllers.Input() <- i
+					if i.down {
+						nes.controllers.KeyDown(i.controller, i.button)
+					} else {
+						nes.controllers.KeyUp(i.controller, i.button)
+					}
 				}()
 			case PressPause:
-
 				nes.pause()
 			case PressReset:
 				nes.Reset()
@@ -410,7 +413,6 @@ func (nes *NES) Run() (err error) {
 
 	nes.running = true
 
-	go nes.controllers.Run()
 	go nes.RunProcessors()
 	// go nes.audio.Run()
 	go nes.route()
