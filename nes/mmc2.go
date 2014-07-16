@@ -31,8 +31,8 @@ func (reg *MMC2Registers) Reset() {
 	reg.CHRBank2 = 0x00
 	reg.CHRBank3 = 0x00
 	reg.Mirroring = 0x00
-	reg.Latch0 = 0x00
-	reg.Latch1 = 0x00
+	reg.Latch0 = 0xfd
+	reg.Latch1 = 0xfe
 }
 
 func NewMMC2(romf *ROMFile) *MMC2 {
@@ -238,7 +238,6 @@ func (mmc2 *MMC2) Store(address uint16, value uint8) (oldValue uint8) {
 	// Mirroring
 	case address >= 0xf000 && address <= 0xffff:
 		oldMirroring := mmc2.mirroring()
-
 		mmc2.Registers.Mirroring = value
 
 		if mmc2.mirroring() != oldMirroring {
