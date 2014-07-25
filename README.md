@@ -79,7 +79,7 @@ s - Save screenshot to frame.jpg
 
 Audio has not been implemented yet.
 
-Battery backed saves is not implemented yet.
+Battery backed saves is implemented.
 
 ### Mappers
 
