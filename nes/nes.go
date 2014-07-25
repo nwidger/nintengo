@@ -42,7 +42,13 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	var recorder Recorder
 	var cpuDivisor float32
 
-	rom, err := NewROM(filename)
+	cpu := rp2ago3.NewRP2A03()
+
+	if options.CPUDecode {
+		cpu.EnableDecode()
+	}
+
+	rom, err := NewROM(filename, cpu.InterruptLine(m65go2.Irq))
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error loading ROM: %v", err))
@@ -54,12 +60,6 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		cpuDivisor = rp2ago3.NTSC_CPU_CLOCK_DIVISOR
 	case PAL:
 		cpuDivisor = rp2ago3.PAL_CPU_CLOCK_DIVISOR
-	}
-
-	cpu := rp2ago3.NewRP2A03()
-
-	if options.CPUDecode {
-		cpu.EnableDecode()
 	}
 
 	ctrls := NewControllers()

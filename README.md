@@ -77,8 +77,16 @@ s - Save screenshot to frame.jpg
 
 ## Support
 
-NROM (mapper 0) has been implemented, no other mappers are supported yet.
-
 Audio has not been implemented yet.
 
-Battern backed saves is not implemented yet.
+Battery backed saves is not implemented yet.
+
+### Mappers
+
+- NROM
+- MMC1
+- UNROM
+- CNROM
+- MMC3
+- ANROM
+- MMC2

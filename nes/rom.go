@@ -50,6 +50,7 @@ type ROMFile struct {
 	wramBanks   [][]uint8
 	romBanks    [][]uint8
 	vromBanks   [][]uint8
+	irq         func(state bool)
 }
 
 type ROM interface {
@@ -115,7 +116,7 @@ func getBuf(filename string) (buf []byte, suffix string, err error) {
 	return
 }
 
-func NewROM(filename string) (rom ROM, err error) {
+func NewROM(filename string, irq func(state bool)) (rom ROM, err error) {
 	var buf []byte
 	var suffix string
 
@@ -131,6 +132,7 @@ func NewROM(filename string) (rom ROM, err error) {
 		return
 	}
 
+	romf.irq = irq
 	romf.filename = filename
 	romf.gamename = strings.TrimSuffix(romf.filename, suffix)
 
@@ -143,6 +145,8 @@ func NewROM(filename string) (rom ROM, err error) {
 		rom = NewUNROM(romf)
 	case 0x03, 0x43:
 		rom = NewCNROM(romf)
+	case 0x04:
+		rom = NewMMC3(romf)
 	case 0x07:
 		rom = NewANROM(romf)
 	case 0x09:
