@@ -11,6 +11,10 @@ An NES emulator written in Go
 
 ![Excitebike](http://i.imgur.com/NTYlltB.gif "Excitebike")
 
+![Legend of Zelda](http://i.imgur.com/XnrqFhI.gif "Legend of Zelda")
+
+![Punch-Out!](http://i.imgur.com/UbIroEM.gif "Punch-Out!")
+
 ## Build
 
 Requires Go 1.1.
