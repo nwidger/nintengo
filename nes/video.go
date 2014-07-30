@@ -18,7 +18,7 @@ import (
 
 type Video interface {
 	Input() chan []uint8
-	ButtonPresses() chan interface{}
+	Events() chan Event
 	Run()
 }
 
@@ -46,16 +46,16 @@ type SDLVideo struct {
 	width, height int
 	textureUni    gl.AttribLocation
 	palette       []uint32
-	buttonPresses chan interface{}
+	events        chan Event
 	overscan      bool
 }
 
-func NewSDLVideo() (video *SDLVideo, err error) {
+func NewSDLVideo(events chan Event) (video *SDLVideo, err error) {
 	video = &SDLVideo{
-		input:         make(chan []uint8),
-		buttonPresses: make(chan interface{}),
-		palette:       SDLPalette,
-		overscan:      true,
+		input:    make(chan []uint8),
+		events:   events,
+		palette:  SDLPalette,
+		overscan: true,
 	}
 
 	if sdl.Init(sdl.INIT_VIDEO|sdl.INIT_JOYSTICK|sdl.INIT_AUDIO) != 0 {
@@ -79,8 +79,8 @@ func NewSDLVideo() (video *SDLVideo, err error) {
 	return
 }
 
-func (video *SDLVideo) ButtonPresses() chan interface{} {
-	return video.buttonPresses
+func (video *SDLVideo) Events() chan Event {
+	return video.events
 }
 
 const vertShaderSrcDef = `
@@ -239,7 +239,7 @@ func (video *SDLVideo) Run() {
 			switch e := ev.(type) {
 			case sdl.QuitEvent:
 				running = false
-				video.buttonPresses <- PressQuit(0)
+				video.events <- &QuitEvent{}
 			case sdl.KeyboardEvent:
 				switch e.Keysym.Sym {
 				case sdl.K_1:
@@ -264,85 +264,87 @@ func (video *SDLVideo) Run() {
 					}
 				case sdl.K_p:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressPause(0)
+						video.events <- &PauseEvent{}
 					}
 				case sdl.K_q:
 					if e.Type == sdl.KEYDOWN {
 						running = false
-						video.buttonPresses <- PressQuit(0)
+						video.events <- &QuitEvent{}
 					}
 				case sdl.K_l:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressSavePatternTables(0)
+						video.events <- &SavePatternTablesEvent{}
 					}
 				case sdl.K_r:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressReset(0)
+						video.events <- &ResetEvent{}
 					}
 				case sdl.K_s:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressRecord(0)
+						video.events <- &RecordEvent{}
 					}
 				case sdl.K_d:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressStop(0)
+						video.events <- &StopEvent{}
 					}
 				case sdl.K_o:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressCPUDecode(0)
+						video.events <- &CPUDecodeEvent{}
 					}
 				case sdl.K_i:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressPPUDecode(0)
+						video.events <- &PPUDecodeEvent{}
 					}
 				case sdl.K_9:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressShowBackground(0)
+						video.events <- &ShowBackgroundEvent{}
 					}
 				case sdl.K_0:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressShowSprites(0)
+						video.events <- &ShowSpritesEvent{}
 					}
 				case sdl.K_F6:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressSave(0)
+						video.events <- &SaveEvent{}
 					}
 				case sdl.K_F7:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressLoad(0)
+						video.events <- &LoadEvent{}
+					}
+				case sdl.K_F8:
+					if e.Type == sdl.KEYDOWN {
+						video.events <- &FastForwardEvent{}
 					}
 				case sdl.K_F9:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressFPS100(0)
+						video.events <- &FPS100Event{}
 					}
 				case sdl.K_F10:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressFPS75(0)
+						video.events <- &FPS75Event{}
 					}
 				case sdl.K_F11:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressFPS50(0)
+						video.events <- &FPS50Event{}
 					}
 				case sdl.K_F12:
 					if e.Type == sdl.KEYDOWN {
-						video.buttonPresses <- PressFPS25(0)
+						video.events <- &FPS25Event{}
 					}
 				}
 
 				if running {
+					ce := &ControllerEvent{
+						button: button(e),
+					}
+
 					switch e.Type {
 					case sdl.KEYDOWN:
-						video.buttonPresses <- PressButton{
-							controller: 0,
-							down:       true,
-							button:     button(e),
-						}
+						ce.down = true
+						video.events <- ce
 					case sdl.KEYUP:
-						video.buttonPresses <- PressButton{
-							controller: 0,
-							down:       false,
-							button:     button(e),
-						}
+						ce.down = false
+						video.events <- ce
 					}
 				}
 			}
@@ -380,8 +382,6 @@ func (video *SDLVideo) Run() {
 			if video.screen != nil {
 				sdl.GL_SwapBuffers()
 			}
-
-			video.input <- []uint8{}
 		}
 	}
 }

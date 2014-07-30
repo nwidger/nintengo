@@ -174,7 +174,6 @@ type RP2C02 struct {
 	scanline uint16
 	cycle    uint16
 
-	Output    chan []uint8
 	colors    []uint8
 	Registers Registers
 	Memory    *rp2ago3.MappedMemory
@@ -226,7 +225,6 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 	mem.AddMirrors(mirrors)
 
 	return &RP2C02{
-		Output:         make(chan []uint8),
 		colors:         make([]uint8, 0xf000),
 		Memory:         mem,
 		Nametable:      nametable,
@@ -613,33 +611,6 @@ func (ppu *RP2C02) fetchSprites() {
 	}
 }
 
-func (ppu *RP2C02) decrementSprites() {
-	var i int
-	var s *Sprite
-
-	for i = range ppu.sprites {
-		s = &ppu.sprites[i]
-
-		if s.XPosition > 0 {
-			s.XPosition--
-		}
-	}
-}
-
-func (ppu *RP2C02) shiftSprites() {
-	var i int
-	var s *Sprite
-
-	for i = range ppu.sprites {
-		s = &ppu.sprites[i]
-
-		if s.XPosition == 0 {
-			s.TileLow <<= 1
-			s.TileHigh <<= 1
-		}
-	}
-}
-
 func (ppu *RP2C02) rendering() bool {
 	return ppu.mask(ShowBackground) || ppu.mask(ShowSprites)
 }
@@ -755,34 +726,31 @@ func (ppu *RP2C02) renderBackground() (bgAddress, bgIndex uint16) {
 }
 
 func (ppu *RP2C02) renderSprites() (spriteAddress, spriteIndex uint16, spritePriority uint8, spriteUnit int) {
-	var i int
 	var s *Sprite
 
-	if ppu.mask(ShowSprites) && (ppu.mask(ShowSpritesLeft) || ppu.cycle > 8) {
-		for i = range ppu.sprites {
-			s = &ppu.sprites[i]
+	showSprites := ppu.mask(ShowSprites) && (ppu.mask(ShowSpritesLeft) || ppu.cycle > 8)
 
-			if s.XPosition > 0 {
-				continue
-			}
+	for i := 0; i < 8; i++ {
+		s = &ppu.sprites[i]
 
+		if ppu.cycle >= uint16(s.XPosition) && ppu.cycle <= (uint16(s.XPosition)+7) {
 			high := s.TileHigh & 0x80
 			low := s.TileLow & 0x80
 
-			if high == 0x00 && low == 0x00 {
-				continue
+			if (high|low) != 0x00 && spriteIndex == 0x0000 && showSprites {
+				index := uint16((high >> 6) | (low >> 7))
+
+				if index != 0 {
+					spriteIndex = index
+					spriteAttribute := uint16(ppu.sprite(s.Sprite, SpritePalette)) << 2
+					spriteAddress = uint16(0x3f10 | spriteAttribute | spriteIndex)
+					spritePriority = ppu.sprite(s.Sprite, Priority)
+					spriteUnit = i
+				}
 			}
 
-			index := uint16((high >> 6) | (low >> 7))
-
-			if index != 0 {
-				spriteIndex = index
-				spriteAttribute := uint16(ppu.sprite(s.Sprite, SpritePalette)) << 2
-				spriteAddress = uint16(0x3f10 | spriteAttribute | spriteIndex)
-				spritePriority = ppu.sprite(s.Sprite, Priority)
-				spriteUnit = i
-				break
-			}
+			s.TileLow <<= 1
+			s.TileHigh <<= 1
 		}
 	}
 
@@ -872,10 +840,7 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		address := uint16(0)
 
 		bgAddress, bgIndex := ppu.renderBackground()
-
-		ppu.decrementSprites()
 		spriteAddress, spriteIndex, spritePriority, spriteUnit := ppu.renderSprites()
-		ppu.shiftSprites()
 
 		address = ppu.priorityMultiplexer(bgAddress, spriteAddress, spritePriority)
 
@@ -902,7 +867,7 @@ func (ppu *RP2C02) renderVisibleScanline() {
 	return
 }
 
-func (ppu *RP2C02) Execute() {
+func (ppu *RP2C02) Execute() (colors []uint8) {
 	switch {
 	// visible scanlines (0-239), pre-render scanline (261)
 	case (ppu.scanline >= 0 && ppu.scanline <= 239) || ppu.scanline == 261:
@@ -931,14 +896,15 @@ func (ppu *RP2C02) Execute() {
 
 		if ppu.scanline++; ppu.scanline == NUM_SCANLINES {
 			if ppu.rendering() {
-				ppu.Output <- ppu.colors
-				<-ppu.Output
+				colors = ppu.colors
 			}
 
 			ppu.scanline = 0
 			ppu.frame++
 		}
 	}
+
+	return
 }
 
 func (ppu *RP2C02) SavePatternTables() (left, right *image.RGBA) {

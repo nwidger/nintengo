@@ -347,12 +347,12 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 				mmc3.refreshTables = true
 			}
 		}
-	// IRQ reload (odd) / IRQ latch (even)
+	// IRQ latch (even) / IRQ reload (odd)
 	case address >= 0xc000 && address <= 0xdfff:
-		if (address & 0x0001) == 0x0001 { // odd
-			mmc3.Registers.IRQReload = true
-		} else { // even
+		if (address & 0x0001) == 0x0000 { // even
 			mmc3.Registers.IRQLatch = value
+		} else { // odd
+			mmc3.Registers.IRQCounter = 0
 		}
 	// IRQ enable (odd) / IRQ disable (even)
 	case address >= 0xe000 && address <= 0xffff:
@@ -360,6 +360,7 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 			mmc3.Registers.IRQEnable = true
 		} else { // even
 			mmc3.Registers.IRQEnable = false
+			mmc3.ROMFile.irq(false)
 		}
 	}
 
@@ -370,20 +371,17 @@ func (mmc3 *MMC3) scanlineCounter(address uint16) {
 	a12 := address & 0x1000
 
 	if a12 == 0x1000 && mmc3.lastA12 == 0x0000 {
-		if mmc3.Registers.IRQReload {
+		if mmc3.Registers.IRQCounter == 0x00 || mmc3.Registers.IRQReload {
 			mmc3.Registers.IRQCounter = mmc3.Registers.IRQLatch
-			mmc3.Registers.IRQReload = false
-		} else if mmc3.Registers.IRQCounter != 0 {
+		} else {
 			mmc3.Registers.IRQCounter--
 		}
 
-		if mmc3.Registers.IRQCounter == 0x00 {
-			if mmc3.Registers.IRQEnable {
-				mmc3.ROMFile.irq(true)
-			}
-
-			mmc3.Registers.IRQReload = true
+		if mmc3.Registers.IRQCounter == 0x00 && mmc3.Registers.IRQEnable {
+			mmc3.ROMFile.irq(true)
 		}
+
+		mmc3.Registers.IRQReload = false
 	}
 
 	mmc3.lastA12 = a12

@@ -15,8 +15,18 @@ import (
 	"github.com/nwidger/nintengo/rp2cgo2"
 )
 
+type RunState uint8
+
+const (
+	Running RunState = 1 << iota
+	Paused
+	Quitting
+)
+
 type NES struct {
-	running     bool
+	state       RunState
+	paused      chan uint8
+	events      chan Event
 	cpu         *rp2ago3.RP2A03
 	cpuDivisor  float32
 	ppu         *rp2cgo2.RP2C02
@@ -64,7 +74,8 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 
 	ctrls := NewControllers()
 
-	video, err = NewSDLVideo()
+	events := make(chan Event, 1)
+	video, err = NewSDLVideo(events)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error creating video: %v", err))
@@ -102,6 +113,8 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	ppu.Memory.AddMappings(rom, rp2ago3.PPU)
 
 	nes = &NES{
+		paused:      make(chan uint8, 1),
+		events:      events,
 		cpu:         cpu,
 		cpuDivisor:  cpuDivisor,
 		ppu:         ppu,
@@ -277,105 +290,9 @@ func (nes *NES) LoadState() {
 	}
 }
 
-type PressPause uint8
-type PressReset uint8
-type PressQuit uint8
-type PressRecord uint8
-type PressStop uint8
-type PressSave uint8
-type PressLoad uint8
-type PressCPUDecode uint8
-type PressPPUDecode uint8
-type PressSavePatternTables uint8
-type PressShowBackground uint8
-type PressShowSprites uint8
-type PressFPS100 uint8
-type PressFPS75 uint8
-type PressFPS50 uint8
-type PressFPS25 uint8
-
-func (nes *NES) pause() {
-	for done := false; !done; {
-		switch (<-nes.video.ButtonPresses()).(type) {
-		case PressPause:
-			done = true
-		}
-	}
-}
-
 func (nes *NES) route() {
-	for nes.running {
-		select {
-		// case s := <-nes.cpu.APU.Samples:
-		// 	go func() {
-		// 		nes.audio.Input() <- s
-		// 	}()
-		case e := <-nes.video.ButtonPresses():
-			switch i := e.(type) {
-			case PressButton:
-				go func() {
-					if i.down {
-						nes.controllers.KeyDown(i.controller, i.button)
-					} else {
-						nes.controllers.KeyUp(i.controller, i.button)
-					}
-				}()
-			case PressPause:
-				nes.pause()
-			case PressReset:
-				nes.Reset()
-			case PressRecord:
-				if nes.recorder != nil {
-					nes.recorder.Record()
-				}
-			case PressStop:
-				if nes.recorder != nil {
-					nes.recorder.Stop()
-				}
-			case PressQuit:
-				nes.running = false
-			case PressSave:
-				nes.SaveState()
-			case PressLoad:
-				nes.LoadState()
-			case PressShowBackground:
-				nes.ppu.ShowBackground = !nes.ppu.ShowBackground
-				fmt.Println("*** Toggling show background = ", nes.ppu.ShowBackground)
-			case PressShowSprites:
-				nes.ppu.ShowSprites = !nes.ppu.ShowSprites
-				fmt.Println("*** Toggling show sprites = ", nes.ppu.ShowSprites)
-			case PressCPUDecode:
-				fmt.Println("*** Toggling CPU decode = ", nes.cpu.ToggleDecode())
-			case PressPPUDecode:
-				fmt.Println("*** Toggling PPU decode = ", nes.ppu.ToggleDecode())
-			case PressFPS100:
-				nes.fps.SetRate(DEFAULT_FPS * 1.00)
-				fmt.Println("*** Setting fps to 4/4")
-			case PressFPS75:
-				nes.fps.SetRate(DEFAULT_FPS * 0.75)
-				fmt.Println("*** Setting fps to 3/4")
-			case PressFPS50:
-				nes.fps.SetRate(DEFAULT_FPS * 0.50)
-				fmt.Println("*** Setting fps to 2/4")
-			case PressFPS25:
-				nes.fps.SetRate(DEFAULT_FPS * 0.25)
-				fmt.Println("*** Setting fps to 1/4")
-			case PressSavePatternTables:
-				fmt.Println("*** Saving PPU pattern tables")
-				nes.ppu.SavePatternTables()
-			}
-		case e := <-nes.ppu.Output:
-			if nes.recorder != nil {
-				nes.recorder.Input() <- e
-			}
-
-			go func() {
-				nes.video.Input() <- e
-				ok := <-nes.video.Input()
-				nes.fps.Delay()
-				nes.ppu.Output <- ok
-			}()
-		}
+	for nes.state != Quitting {
+		go (<-nes.events).Process(nes)
 	}
 }
 
@@ -384,22 +301,31 @@ func (nes *NES) RunProcessors() (err error) {
 
 	quota := float32(0)
 
-	for {
-		if cycles, err = nes.cpu.Execute(); err != nil {
-			break
-		}
+	for nes.state != Quitting {
+		select {
+		case paused := <-nes.paused:
+			if paused != 0 {
+				<-nes.paused
+			}
+		default:
+			if cycles, err = nes.cpu.Execute(); err != nil {
+				break
+			}
 
-		if nes.rom.RefreshTables() {
-			nes.ppu.Nametable.SetTables(nes.rom.Tables())
-		}
+			if nes.rom.RefreshTables() {
+				nes.ppu.Nametable.SetTables(nes.rom.Tables())
+			}
 
-		for quota += float32(cycles) * nes.cpuDivisor; quota >= 1.0; quota-- {
-			nes.ppu.Execute()
-		}
+			for quota += float32(cycles) * nes.cpuDivisor; quota >= 1.0; quota-- {
+				if colors := nes.ppu.Execute(); colors != nil {
+					nes.events <- &FrameEvent{
+						colors: colors,
+					}
 
-		// for i := uint16(0); i < cycles; i++ {
-		// 	nes.cpu.APU.Execute()
-		// }
+					nes.fps.Delay()
+				}
+			}
+		}
 	}
 
 	return
@@ -411,10 +337,9 @@ func (nes *NES) Run() (err error) {
 	nes.rom.LoadBattery()
 	nes.Reset()
 
-	nes.running = true
+	nes.state = Running
 
 	go nes.RunProcessors()
-	// go nes.audio.Run()
 	go nes.route()
 
 	if nes.recorder != nil {
@@ -422,6 +347,7 @@ func (nes *NES) Run() (err error) {
 	}
 
 	runtime.LockOSThread()
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	if nes.options.CPUProfile != "" {
 		f, err := os.Create(nes.options.CPUProfile)

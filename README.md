@@ -58,18 +58,25 @@ p - Pause/Unpause
 r - Reset
 q - Quit
 
+F8  - 200% FPS (2x fast forward)
 F9  - 100% FPS
 F10 - 75% FPS
 F11 - 50% FPS
 F12 - 25% FPS
 
-1 - 1:1 aspect ratio
-2 - 2:1 aspect ratio
-3 - 3:1 aspect ratio
-4 - 4:1 aspect ratio
+1 - 256x240 screen size
+2 - 512x480 screen size
+3 - 768x720 screen size
+4 - 1024x960 screen size
+5 - 2560x1440 screen size
 
 9 - Show/hide background
 0 - Show/hide sprites
+
+l - Save pattern tables to left/right.jpg
+
+o - Toggle CPU decoding
+i - Toggle PPU decoding
 
 with -recorder=gif:
 s - Start recording to frame.gif

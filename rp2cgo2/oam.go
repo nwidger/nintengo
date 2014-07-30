@@ -55,13 +55,9 @@ func (oam *OAM) SpriteEvaluation(scanline uint16, cycle uint16, size uint16) (sp
 
 		switch cycle & 0x1 {
 		case 1: // odd cycle
-			if oam.readCycle != nil {
-				oam.readCycle(oam, scanline, cycle, size)
-			}
+			oam.readCycle(oam, scanline, cycle, size)
 		case 0: // even cycle
-			if oam.writeCycle != nil {
-				spriteOverflow = oam.writeCycle(oam, scanline, cycle, size)
-			}
+			spriteOverflow = oam.writeCycle(oam, scanline, cycle, size)
 		}
 	}
 
