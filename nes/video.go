@@ -236,12 +236,18 @@ func (video *SDLVideo) Run() {
 	for running {
 		select {
 		case ev := <-sdl.Events:
+			var event Event
+
 			switch e := ev.(type) {
 			case sdl.QuitEvent:
 				running = false
-				video.events <- &QuitEvent{}
+				event = &QuitEvent{}
 			case sdl.KeyboardEvent:
 				switch e.Keysym.Sym {
+				case sdl.K_BACKQUOTE:
+					if e.Type == sdl.KEYDOWN {
+						video.overscan = !video.overscan
+					}
 				case sdl.K_1:
 					if e.Type == sdl.KEYDOWN {
 						video.ResizeEvent(256, 240)
@@ -264,89 +270,85 @@ func (video *SDLVideo) Run() {
 					}
 				case sdl.K_p:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &PauseEvent{}
+						event = &PauseEvent{}
 					}
 				case sdl.K_q:
 					if e.Type == sdl.KEYDOWN {
 						running = false
-						video.events <- &QuitEvent{}
+						event = &QuitEvent{}
 					}
 				case sdl.K_l:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &SavePatternTablesEvent{}
+						event = &SavePatternTablesEvent{}
 					}
 				case sdl.K_r:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &ResetEvent{}
+						event = &ResetEvent{}
 					}
 				case sdl.K_s:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &RecordEvent{}
+						event = &RecordEvent{}
 					}
 				case sdl.K_d:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &StopEvent{}
+						event = &StopEvent{}
 					}
 				case sdl.K_o:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &CPUDecodeEvent{}
+						event = &CPUDecodeEvent{}
 					}
 				case sdl.K_i:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &PPUDecodeEvent{}
+						event = &PPUDecodeEvent{}
 					}
 				case sdl.K_9:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &ShowBackgroundEvent{}
+						event = &ShowBackgroundEvent{}
 					}
 				case sdl.K_0:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &ShowSpritesEvent{}
+						event = &ShowSpritesEvent{}
 					}
 				case sdl.K_F6:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &SaveEvent{}
+						event = &SaveEvent{}
 					}
 				case sdl.K_F7:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &LoadEvent{}
+						event = &LoadEvent{}
 					}
 				case sdl.K_F8:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &FastForwardEvent{}
+						event = &FastForwardEvent{}
 					}
 				case sdl.K_F9:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &FPS100Event{}
+						event = &FPS100Event{}
 					}
 				case sdl.K_F10:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &FPS75Event{}
+						event = &FPS75Event{}
 					}
 				case sdl.K_F11:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &FPS50Event{}
+						event = &FPS50Event{}
 					}
 				case sdl.K_F12:
 					if e.Type == sdl.KEYDOWN {
-						video.events <- &FPS25Event{}
+						event = &FPS25Event{}
 					}
 				}
 
-				if running {
-					ce := &ControllerEvent{
+				if event == nil && running {
+					event = &ControllerEvent{
 						button: button(e),
-					}
-
-					switch e.Type {
-					case sdl.KEYDOWN:
-						ce.down = true
-						video.events <- ce
-					case sdl.KEYUP:
-						ce.down = false
-						video.events <- ce
+						down:   e.Type == sdl.KEYDOWN,
 					}
 				}
+			}
+
+			if event != nil {
+				go func() { video.events <- event }()
 			}
 		case colors := <-video.input:
 			index := 0

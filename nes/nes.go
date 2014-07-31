@@ -25,7 +25,7 @@ const (
 
 type NES struct {
 	state       RunState
-	paused      chan uint8
+	paused      chan bool
 	events      chan Event
 	cpu         *rp2ago3.RP2A03
 	cpuDivisor  float32
@@ -74,7 +74,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 
 	ctrls := NewControllers()
 
-	events := make(chan Event, 1)
+	events := make(chan Event)
 	video, err = NewSDLVideo(events)
 
 	if err != nil {
@@ -113,7 +113,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	ppu.Memory.AddMappings(rom, rp2ago3.PPU)
 
 	nes = &NES{
-		paused:      make(chan uint8, 1),
+		paused:      make(chan bool),
 		events:      events,
 		cpu:         cpu,
 		cpuDivisor:  cpuDivisor,
@@ -290,9 +290,10 @@ func (nes *NES) LoadState() {
 	}
 }
 
-func (nes *NES) route() {
+func (nes *NES) processEvents() {
 	for nes.state != Quitting {
-		go (<-nes.events).Process(nes)
+		e := <-nes.events
+		go e.Process(nes)
 	}
 }
 
@@ -304,7 +305,7 @@ func (nes *NES) RunProcessors() (err error) {
 	for nes.state != Quitting {
 		select {
 		case paused := <-nes.paused:
-			if paused != 0 {
+			if paused {
 				<-nes.paused
 			}
 		default:
@@ -318,9 +319,11 @@ func (nes *NES) RunProcessors() (err error) {
 
 			for quota += float32(cycles) * nes.cpuDivisor; quota >= 1.0; quota-- {
 				if colors := nes.ppu.Execute(); colors != nil {
-					nes.events <- &FrameEvent{
-						colors: colors,
-					}
+					go func() {
+						nes.events <- &FrameEvent{
+							colors: colors,
+						}
+					}()
 
 					nes.fps.Delay()
 				}
@@ -340,7 +343,7 @@ func (nes *NES) Run() (err error) {
 	nes.state = Running
 
 	go nes.RunProcessors()
-	go nes.route()
+	go nes.processEvents()
 
 	if nes.recorder != nil {
 		go nes.recorder.Run()

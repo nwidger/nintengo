@@ -64,6 +64,7 @@ F10 - 75% FPS
 F11 - 50% FPS
 F12 - 25% FPS
 
+` - toggle overscan
 1 - 256x240 screen size
 2 - 512x480 screen size
 3 - 768x720 screen size
