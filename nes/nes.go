@@ -319,12 +319,7 @@ func (nes *NES) RunProcessors() (err error) {
 
 			for quota += float32(cycles) * nes.cpuDivisor; quota >= 1.0; quota-- {
 				if colors := nes.ppu.Execute(); colors != nil {
-					go func() {
-						nes.events <- &FrameEvent{
-							colors: colors,
-						}
-					}()
-
+					go nes.frame(colors)
 					nes.fps.Delay()
 				}
 			}
@@ -332,6 +327,12 @@ func (nes *NES) RunProcessors() (err error) {
 	}
 
 	return
+}
+
+func (nes *NES) frame(colors []uint8) {
+	nes.events <- &FrameEvent{
+		colors: colors,
+	}
 }
 
 func (nes *NES) Run() (err error) {
