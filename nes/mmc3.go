@@ -39,9 +39,8 @@ type MMC3Registers struct {
 
 type MMC3 struct {
 	*ROMFile
-	Registers     MMC3Registers
-	lastA12       uint16
-	refreshTables bool
+	Registers MMC3Registers
+	lowA12    uint64
 }
 
 func (reg *MMC3Registers) Reset() {
@@ -71,30 +70,36 @@ func NewMMC3(romf *ROMFile) *MMC3 {
 	}
 
 	// divide 8KB CHR banks into 1KB banks
-	vromBanks := make([][]uint8, romf.chrBanks*8)
+	if romf.chrBanks > 0 {
+		offset := 0x0400
+		vromBanks := make([][]uint8, uint16(romf.chrBanks)*8)
 
-	for n := 0; n < int(romf.chrBanks); n++ {
-		for i := 0; i < 8; i++ {
-			vromBanks[(8*n)+i] = romf.vromBanks[n][(0x0400 * i):((0x0400 * i) + 0x0400)]
+		for n := 0; n < int(romf.chrBanks); n++ {
+			for i := 0; i < 8; i++ {
+				vromBanks[(8*n)+i] = romf.vromBanks[n][(offset * i):((offset * i) + offset)]
+			}
 		}
-	}
 
-	romf.vromBanks = vromBanks
-	romf.chrBanks *= 8
+		romf.vromBanks = vromBanks
+		romf.chrBanks *= 8
+	}
 
 	// divide 16KB PRG banks into 8KB banks since we may be
 	// swapping 8KB banks
-	romBanks := make([][]uint8, romf.prgBanks*2)
+	if romf.prgBanks > 0 {
+		romBanks := make([][]uint8, uint16(romf.prgBanks)*2)
 
-	for n := 0; n < int(romf.prgBanks); n++ {
-		romBanks[2*n] = romf.romBanks[n][0x0000:0x2000]
-		romBanks[(2*n)+1] = romf.romBanks[n][0x2000:0x4000]
+		for n := 0; n < int(romf.prgBanks); n++ {
+			romBanks[2*n] = romf.romBanks[n][0x0000:0x2000]
+			romBanks[(2*n)+1] = romf.romBanks[n][0x2000:0x4000]
+		}
+
+		romf.romBanks = romBanks
+		romf.prgBanks *= 2
 	}
 
-	romf.romBanks = romBanks
-	romf.prgBanks *= 2
-
 	mmc3.Registers.Reset()
+	mmc3.ROMFile.setTables(mmc3.Tables())
 
 	return mmc3
 }
@@ -198,9 +203,17 @@ func (mmc3 *MMC3) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 	return
 }
 
+func (mmc3 *MMC3) NeedTraces() bool {
+	return true
+}
+
+func (mmc3 *MMC3) Trace(which rp2ago3.TraceType, address uint16, value uint8) {
+	mmc3.scanlineCounter(address)
+}
+
 func (mmc3 *MMC3) Reset() {
 	mmc3.Registers.Reset()
-	mmc3.lastA12 = 0x0000
+	mmc3.lowA12 = 0
 }
 
 func (mmc3 *MMC3) Fetch(address uint16) (value uint8) {
@@ -237,8 +250,6 @@ func (mmc3 *MMC3) Fetch(address uint16) (value uint8) {
 		case address >= 0x1c00 && address <= 0x1fff:
 			value = mmc3.ROMFile.vromBanks[bank8][index]
 		}
-
-		mmc3.scanlineCounter(address)
 	// CPU only
 	case address >= 0x6000 && address <= 0x7fff:
 		index := address & 0x1fff
@@ -300,8 +311,6 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 		case address >= 0x1c00 && address <= 0x1fff:
 			mmc3.ROMFile.vromBanks[bank8][index] = value
 		}
-
-		mmc3.scanlineCounter(address)
 	// CPU only
 	// PRG RAM bank
 	case address >= 0x6000 && address <= 0x7fff:
@@ -344,7 +353,7 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 			mmc3.Registers.Mirroring = value
 
 			if mmc3.mirroring() != oldMirroring {
-				mmc3.refreshTables = true
+				mmc3.ROMFile.setTables(mmc3.Tables())
 			}
 		}
 	// IRQ latch (even) / IRQ reload (odd)
@@ -370,7 +379,9 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 func (mmc3 *MMC3) scanlineCounter(address uint16) {
 	a12 := address & 0x1000
 
-	if a12 == 0x1000 && mmc3.lastA12 == 0x0000 {
+	if a12 == 0x1000 && mmc3.lowA12 == 5 {
+		mmc3.lowA12 = 0
+
 		if mmc3.Registers.IRQCounter == 0x00 || mmc3.Registers.IRQReload {
 			mmc3.Registers.IRQCounter = mmc3.Registers.IRQLatch
 		} else {
@@ -384,7 +395,11 @@ func (mmc3 *MMC3) scanlineCounter(address uint16) {
 		mmc3.Registers.IRQReload = false
 	}
 
-	mmc3.lastA12 = a12
+	if a12 == 0x0000 {
+		mmc3.lowA12++
+	} else {
+		mmc3.lowA12 = 0
+	}
 }
 
 func (mmc3 *MMC3) bankSelect(flag MMC3BankSelectFlag) (value uint8) {
@@ -482,14 +497,4 @@ func (mmc3 *MMC3) Tables() (t0, t1, t2, t3 int) {
 	}
 
 	return
-}
-
-func (mmc3 *MMC3) RefreshTables() (refresh bool) {
-	refresh = mmc3.refreshTables
-
-	if mmc3.refreshTables {
-		mmc3.refreshTables = false
-	}
-
-	return refresh
 }

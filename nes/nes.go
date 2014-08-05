@@ -58,7 +58,9 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		cpu.EnableDecode()
 	}
 
-	rom, err := NewROM(filename, cpu.InterruptLine(m65go2.Irq))
+	ppu := rp2cgo2.NewRP2C02(cpu.InterruptLine(m65go2.Nmi))
+
+	rom, err := NewROM(filename, cpu.InterruptLine(m65go2.Irq), ppu.SetTablesFunc())
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error loading ROM: %v", err))
@@ -103,14 +105,12 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		return
 	}
 
-	ppu := rp2cgo2.NewRP2C02(cpu.InterruptLine(m65go2.Nmi))
-
 	cpu.Memory.AddMappings(ppu, rp2ago3.CPU)
 	cpu.Memory.AddMappings(rom, rp2ago3.CPU)
 	cpu.Memory.AddMappings(ctrls, rp2ago3.CPU)
 
-	ppu.Nametable.SetTables(rom.Tables())
 	ppu.Memory.AddMappings(rom, rp2ago3.PPU)
+	ppu.Memory.AddTracer(rom)
 
 	nes = &NES{
 		paused:      make(chan bool),
@@ -297,7 +297,7 @@ func (nes *NES) processEvents() {
 	}
 }
 
-func (nes *NES) RunProcessors() (err error) {
+func (nes *NES) runProcessors() (err error) {
 	var cycles uint16
 
 	quota := float32(0)
@@ -311,10 +311,6 @@ func (nes *NES) RunProcessors() (err error) {
 		default:
 			if cycles, err = nes.cpu.Execute(); err != nil {
 				break
-			}
-
-			if nes.rom.RefreshTables() {
-				nes.ppu.Nametable.SetTables(nes.rom.Tables())
 			}
 
 			for quota += float32(cycles) * nes.cpuDivisor; quota >= 1.0; quota-- {
@@ -343,7 +339,7 @@ func (nes *NES) Run() (err error) {
 
 	nes.state = Running
 
-	go nes.RunProcessors()
+	go nes.runProcessors()
 	go nes.processEvents()
 
 	if nes.recorder != nil {

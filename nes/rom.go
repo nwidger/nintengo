@@ -51,16 +51,17 @@ type ROMFile struct {
 	romBanks    [][]uint8
 	vromBanks   [][]uint8
 	irq         func(state bool)
+	setTables   func(t0, t1, t2, t3 int)
 }
 
 type ROM interface {
 	rp2ago3.MappableMemory
 	Region() Region
-	Tables() (t0, t1, t2, t3 int)
-	RefreshTables() bool
 	String() string
 	LoadBattery()
 	SaveBattery() (err error)
+	NeedTraces() bool
+	Trace(which rp2ago3.TraceType, address uint16, value uint8)
 }
 
 func getBuf(filename string) (buf []byte, suffix string, err error) {
@@ -116,7 +117,7 @@ func getBuf(filename string) (buf []byte, suffix string, err error) {
 	return
 }
 
-func NewROM(filename string, irq func(state bool)) (rom ROM, err error) {
+func NewROM(filename string, irq func(state bool), setTables func(t0, t1, t2, t3 int)) (rom ROM, err error) {
 	var buf []byte
 	var suffix string
 
@@ -133,8 +134,11 @@ func NewROM(filename string, irq func(state bool)) (rom ROM, err error) {
 	}
 
 	romf.irq = irq
+	romf.setTables = setTables
 	romf.filename = filename
 	romf.gamename = strings.TrimSuffix(romf.filename, suffix)
+
+	romf.setTables(romf.Tables())
 
 	switch romf.mapper {
 	case 0x00, 0x40, 0x41:
@@ -353,4 +357,12 @@ func (romf *ROMFile) SaveBattery() (err error) {
 	err = ioutil.WriteFile(savename, buf.Bytes(), 0644)
 
 	return
+}
+
+func (romf *ROMFile) NeedTraces() bool {
+	return false
+}
+
+func (romf *ROMFile) Trace(which rp2ago3.TraceType, address uint16, value uint8) {
+
 }

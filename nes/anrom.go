@@ -12,8 +12,7 @@ type ANROMRegisters struct {
 
 type ANROM struct {
 	*ROMFile
-	Registers     ANROMRegisters
-	refreshTables bool
+	Registers ANROMRegisters
 }
 
 func (reg *ANROMRegisters) Reset() {
@@ -26,6 +25,7 @@ func NewANROM(romf *ROMFile) *ANROM {
 	}
 
 	anrom.Registers.Reset()
+	anrom.ROMFile.setTables(anrom.Tables())
 
 	return anrom
 }
@@ -121,7 +121,7 @@ func (anrom *ANROM) Store(address uint16, value uint8) (oldValue uint8) {
 		anrom.Registers.BankSelect = value
 
 		if anrom.mirroring() != oldMirrors {
-			anrom.refreshTables = true
+			anrom.ROMFile.setTables(anrom.Tables())
 		}
 	}
 
@@ -154,14 +154,4 @@ func (anrom *ANROM) Tables() (t0, t1, t2, t3 int) {
 	}
 
 	return
-}
-
-func (anrom *ANROM) RefreshTables() (refresh bool) {
-	refresh = anrom.refreshTables
-
-	if anrom.refreshTables {
-		anrom.refreshTables = false
-	}
-
-	return refresh
 }

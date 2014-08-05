@@ -47,8 +47,7 @@ type MMC1Registers struct {
 
 type MMC1 struct {
 	*ROMFile
-	Registers     MMC1Registers
-	refreshTables bool
+	Registers MMC1Registers
 }
 
 func (reg *MMC1Registers) Reset() {
@@ -68,17 +67,20 @@ func NewMMC1(romf *ROMFile) *MMC1 {
 
 	// divide 8KB CHR banks into 4KB banks since we may be
 	// swapping 4KB banks
-	vromBanks := make([][]uint8, romf.chrBanks*2)
+	if romf.chrBanks > 0 {
+		vromBanks := make([][]uint8, uint16(romf.chrBanks)*2)
 
-	for n := 0; n < int(romf.chrBanks); n++ {
-		vromBanks[2*n] = romf.vromBanks[n][0x000:0x1000]
-		vromBanks[(2*n)+1] = romf.vromBanks[n][0x1000:0x2000]
+		for n := 0; n < int(romf.chrBanks); n++ {
+			vromBanks[2*n] = romf.vromBanks[n][0x000:0x1000]
+			vromBanks[(2*n)+1] = romf.vromBanks[n][0x1000:0x2000]
+		}
+
+		romf.vromBanks = vromBanks
+		romf.chrBanks *= 2
 	}
 
-	romf.vromBanks = vromBanks
-	romf.chrBanks *= 2
-
 	mmc1.Registers.Reset()
+	mmc1.ROMFile.setTables(mmc1.Tables())
 
 	return mmc1
 }
@@ -250,7 +252,7 @@ func (mmc1 *MMC1) Store(address uint16, value uint8) (oldValue uint8) {
 		}
 
 		if mmc1.control(Mirroring) != oldMirrors {
-			mmc1.refreshTables = true
+			mmc1.ROMFile.setTables(mmc1.Tables())
 		}
 	}
 
@@ -385,14 +387,4 @@ func (mmc1 *MMC1) Tables() (t0, t1, t2, t3 int) {
 	}
 
 	return
-}
-
-func (mmc1 *MMC1) RefreshTables() (refresh bool) {
-	refresh = mmc1.refreshTables
-
-	if mmc1.refreshTables {
-		mmc1.refreshTables = false
-	}
-
-	return refresh
 }

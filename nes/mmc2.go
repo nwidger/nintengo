@@ -20,8 +20,7 @@ type MMC2Registers struct {
 
 type MMC2 struct {
 	*ROMFile
-	Registers     MMC2Registers
-	refreshTables bool
+	Registers MMC2Registers
 }
 
 func (reg *MMC2Registers) Reset() {
@@ -42,29 +41,34 @@ func NewMMC2(romf *ROMFile) *MMC2 {
 
 	// divide 8KB CHR banks into 4KB banks since we may be
 	// swapping 4KB banks
-	vromBanks := make([][]uint8, romf.chrBanks*2)
+	if romf.chrBanks > 0 {
+		vromBanks := make([][]uint8, uint16(romf.chrBanks)*2)
 
-	for n := 0; n < int(romf.chrBanks); n++ {
-		vromBanks[2*n] = romf.vromBanks[n][0x0000:0x1000]
-		vromBanks[(2*n)+1] = romf.vromBanks[n][0x1000:0x2000]
+		for n := 0; n < int(romf.chrBanks); n++ {
+			vromBanks[2*n] = romf.vromBanks[n][0x0000:0x1000]
+			vromBanks[(2*n)+1] = romf.vromBanks[n][0x1000:0x2000]
+		}
+
+		romf.vromBanks = vromBanks
+		romf.chrBanks *= 2
 	}
-
-	romf.vromBanks = vromBanks
-	romf.chrBanks *= 2
 
 	// divide 16KB PRG banks into 8KB banks since we may be
 	// swapping 8KB banks
-	romBanks := make([][]uint8, romf.prgBanks*2)
+	if romf.prgBanks > 0 {
+		romBanks := make([][]uint8, uint16(romf.prgBanks)*2)
 
-	for n := 0; n < int(romf.prgBanks); n++ {
-		romBanks[2*n] = romf.romBanks[n][0x0000:0x2000]
-		romBanks[(2*n)+1] = romf.romBanks[n][0x2000:0x4000]
+		for n := 0; n < int(romf.prgBanks); n++ {
+			romBanks[2*n] = romf.romBanks[n][0x0000:0x2000]
+			romBanks[(2*n)+1] = romf.romBanks[n][0x2000:0x4000]
+		}
+
+		romf.romBanks = romBanks
+		romf.prgBanks *= 2
 	}
 
-	romf.romBanks = romBanks
-	romf.prgBanks *= 2
-
 	mmc2.Registers.Reset()
+	mmc2.ROMFile.setTables(mmc2.Tables())
 
 	return mmc2
 }
@@ -241,7 +245,7 @@ func (mmc2 *MMC2) Store(address uint16, value uint8) (oldValue uint8) {
 		mmc2.Registers.Mirroring = value
 
 		if mmc2.mirroring() != oldMirroring {
-			mmc2.refreshTables = true
+			mmc2.ROMFile.setTables(mmc2.Tables())
 		}
 	}
 
@@ -304,14 +308,4 @@ func (mmc2 *MMC2) Tables() (t0, t1, t2, t3 int) {
 	}
 
 	return
-}
-
-func (mmc2 *MMC2) RefreshTables() (refresh bool) {
-	refresh = mmc2.refreshTables
-
-	if mmc2.refreshTables {
-		mmc2.refreshTables = false
-	}
-
-	return refresh
 }

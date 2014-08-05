@@ -17,12 +17,25 @@ const (
 	UNMIRRORED uint32 = 0x10000
 )
 
+type TraceType uint8
+
+const (
+	Fetch TraceType = 1 << iota
+	Store
+)
+
+type MemoryTracer interface {
+	NeedTraces() bool
+	Trace(which TraceType, address uint16, value uint8)
+}
+
 type MappableMemory interface {
 	m65go2.Memory
 	Mappings(which Mapping) (fetch, store []uint16)
 }
 
 type MappedMemory struct {
+	tracers []MemoryTracer
 	mirrors [65536]uint32
 	fetch   [65536]m65go2.Memory
 	store   [65536]m65go2.Memory
@@ -39,6 +52,14 @@ func NewMappedMemory(base m65go2.Memory) *MappedMemory {
 	}
 
 	return mem
+}
+
+func (mem *MappedMemory) AddTracer(tracer MemoryTracer) (err error) {
+	if tracer.NeedTraces() {
+		mem.tracers = append(mem.tracers, tracer)
+	}
+
+	return
 }
 
 func (mem *MappedMemory) AddMirrors(mirrors map[uint32]uint32) (err error) {
@@ -98,21 +119,35 @@ func (mem *MappedMemory) mirror(address uint16) (newAddress uint16) {
 }
 
 func (mem *MappedMemory) Fetch(address uint16) (value uint8) {
+	origAddress := address
 	address = mem.mirror(address)
 
 	if mmap := mem.fetch[address]; mmap != nil {
-		return mmap.Fetch(address)
+		value = mmap.Fetch(address)
+	} else {
+		value = mem.Memory.Fetch(address)
 	}
 
-	return mem.Memory.Fetch(address)
+	for _, t := range mem.tracers {
+		t.Trace(Fetch, origAddress, 0)
+	}
+
+	return
 }
 
 func (mem *MappedMemory) Store(address uint16, value uint8) (oldValue uint8) {
+	origAddress := address
 	address = mem.mirror(address)
 
 	if mmap := mem.store[address]; mmap != nil {
-		return mmap.Store(address, value)
+		value = mmap.Store(address, value)
+	} else {
+		value = mem.Memory.Store(address, value)
 	}
 
-	return mem.Memory.Store(address, value)
+	for _, t := range mem.tracers {
+		t.Trace(Store, origAddress, value)
+	}
+
+	return
 }

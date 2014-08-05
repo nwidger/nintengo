@@ -235,6 +235,12 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 	}
 }
 
+func (ppu *RP2C02) SetTablesFunc() func(t0, t1, t2, t3 int) {
+	return func(t0, t1, t2, t3 int) {
+		ppu.Nametable.SetTables(t0, t1, t2, t3)
+	}
+}
+
 func (ppu *RP2C02) ToggleDecode() bool {
 	ppu.decode = !ppu.decode
 	return ppu.decode
@@ -877,7 +883,12 @@ func (ppu *RP2C02) Execute() (colors []uint8) {
 
 		if ppu.rendering() {
 			ppu.renderVisibleScanline()
+
+			if (ppu.frame&0x01) == 0x01 && ppu.scanline == 261 && ppu.cycle == 339 {
+				ppu.cycle++
+			}
 		}
+
 	// post-render scanline (240), vertical blanking scanlines (241-260)
 	default:
 		if ppu.scanline == 241 && ppu.cycle == 1 {
@@ -957,10 +968,4 @@ func (ppu *RP2C02) SavePatternTables() (left, right *image.RGBA) {
 	jpeg.Encode(w, right, &jpeg.Options{Quality: 100})
 
 	return
-}
-
-func (ppu *RP2C02) Run() {
-	for {
-		ppu.Execute()
-	}
 }
