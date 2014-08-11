@@ -356,18 +356,18 @@ func (mmc1 *MMC1) chrBanks() (lower, upper uint8) {
 // |++--- PRG ROM bank mode (0, 1: switch 32 KB at $8000, ignoring low bit of bank number;
 // |                         2: fix first bank at $8000 and switch 16 KB bank at $C000;
 // |                         3: fix last bank at $C000 and switch 16 KB bank at $8000)
-func (mmc1 *MMC1) prgBanks() (lower, upper uint8) {
+func (mmc1 *MMC1) prgBanks() (lower, upper uint16) {
 	switch mmc1.control(PRGRomBankMode) {
 	// 32 KB
 	case 0, 1:
-		lower = mmc1.prgBank(PRGBankSelect)
+		lower = uint16(mmc1.prgBank(PRGBankSelect))
 		upper = lower | 0x01
 	// 16 KB
 	case 2:
 		lower = 0
-		upper = mmc1.prgBank(PRGBankSelect)
+		upper = uint16(mmc1.prgBank(PRGBankSelect))
 	case 3:
-		lower = mmc1.prgBank(PRGBankSelect)
+		lower = uint16(mmc1.prgBank(PRGBankSelect))
 		upper = mmc1.ROMFile.prgBanks - 1
 	}
 

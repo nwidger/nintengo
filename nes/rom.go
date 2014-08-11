@@ -36,8 +36,8 @@ const (
 type ROMFile struct {
 	gamename    string
 	filename    string
-	prgBanks    uint8
-	chrBanks    uint8
+	prgBanks    uint16
+	chrBanks    uint16
 	mirroring   rp2cgo2.Mirroring
 	battery     bool
 	trainer     bool
@@ -184,9 +184,9 @@ func NewROMFile(buf []byte) (romf *ROMFile, err error) {
 
 		switch i {
 		case 4:
-			romf.prgBanks = byte
+			romf.prgBanks = uint16(byte)
 		case 5:
-			romf.chrBanks = byte
+			romf.chrBanks = uint16(byte)
 		case 6:
 			for j := 0; j < 4; j++ {
 				if byte&(0x01<<uint8(j)) != 0 {

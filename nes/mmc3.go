@@ -438,21 +438,21 @@ func (mmc3 *MMC3) prgRAMProtect() (chipEnable, allowWrites bool) {
 	return
 }
 
-func (mmc3 *MMC3) prgBanks() (bank1, bank2, bank3, bank4 uint8) {
+func (mmc3 *MMC3) prgBanks() (bank1, bank2, bank3, bank4 uint16) {
 	switch mmc3.bankSelect(PRGROMBankMode) {
 	// $8000-$9fff swappable,
 	// $c000-$dfff fixed to second-last bank
 	case 0:
-		bank1 = mmc3.Registers.PRGBankLow
-		bank2 = mmc3.Registers.PRGBankHigh
+		bank1 = uint16(mmc3.Registers.PRGBankLow)
+		bank2 = uint16(mmc3.Registers.PRGBankHigh)
 		bank3 = mmc3.ROMFile.prgBanks - 2
 		bank4 = mmc3.ROMFile.prgBanks - 1
 	// $c000-$dfff swappable,
 	// $8000-$9fff fixed to second-last bank
 	case 1:
 		bank1 = mmc3.ROMFile.prgBanks - 2
-		bank2 = mmc3.Registers.PRGBankHigh
-		bank3 = mmc3.Registers.PRGBankLow
+		bank2 = uint16(mmc3.Registers.PRGBankHigh)
+		bank3 = uint16(mmc3.Registers.PRGBankLow)
 		bank4 = mmc3.ROMFile.prgBanks - 1
 	}
 
