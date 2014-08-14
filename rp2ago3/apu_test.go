@@ -25,15 +25,15 @@ func TestPulse1Channel(t *testing.T) {
 
 	address := uint16(0x4000)
 
-	for i := range apu.Registers.Pulse1 {
-		apu.Registers.Pulse1[i] = 0x00
+	for i := range apu.Pulse1.Registers {
+		apu.Pulse1.Registers[i] = 0x00
 		apu.Store(address+uint16(i), 0xff)
 
-		if apu.Registers.Pulse1[i] != 0xff {
+		if apu.Pulse1.Registers[i] != 0xff {
 			t.Error("Register is not 0xff")
 		}
 
-		apu.Registers.Pulse1[i] = 0xff
+		apu.Pulse1.Registers[i] = 0xff
 		value := apu.Fetch(address + uint16(i))
 
 		if value != 0x00 {
@@ -77,9 +77,9 @@ func TestPulse1Channel(t *testing.T) {
 	pts = append(pts, PulseTest{PulseTimerHigh, 3, 0xf8, 0x00})
 
 	for _, pt := range pts {
-		apu.Registers.Pulse1[pt.index] = pt.value
+		apu.Pulse1.Registers[pt.index] = pt.value
 
-		actual := apu.pulse1(pt.flag)
+		actual := apu.Pulse1.registers(pt.flag)
 		expected := pt.expected
 
 		if actual != expected {
@@ -95,15 +95,15 @@ func TestPulse2Channel(t *testing.T) {
 
 	address := uint16(0x4004)
 
-	for i := range apu.Registers.Pulse2 {
-		apu.Registers.Pulse2[i] = 0x00
+	for i := range apu.Pulse2.Registers {
+		apu.Pulse2.Registers[i] = 0x00
 		apu.Store(address+uint16(i), 0xff)
 
-		if apu.Registers.Pulse2[i] != 0xff {
+		if apu.Pulse2.Registers[i] != 0xff {
 			t.Error("Register is not 0xff")
 		}
 
-		apu.Registers.Pulse2[i] = 0xff
+		apu.Pulse2.Registers[i] = 0xff
 		value := apu.Fetch(address + uint16(i))
 
 		if value != 0x00 {
@@ -126,7 +126,7 @@ func TestTriangleChannel(t *testing.T) {
 
 	var address uint16
 
-	for i := range apu.Registers.Triangle {
+	for i := range apu.Triangle.Registers {
 		switch i {
 		case 0:
 			address = 0x4008
@@ -136,14 +136,14 @@ func TestTriangleChannel(t *testing.T) {
 			address = 0x400b
 		}
 
-		apu.Registers.Triangle[i] = 0x00
+		apu.Triangle.Registers[i] = 0x00
 		apu.Store(address, 0xff)
 
-		if apu.Registers.Triangle[i] != 0xff {
+		if apu.Triangle.Registers[i] != 0xff {
 			t.Error("Register is not 0xff")
 		}
 
-		apu.Registers.Triangle[i] = 0xff
+		apu.Triangle.Registers[i] = 0xff
 		value := apu.Fetch(address)
 
 		if value != 0x00 {
@@ -169,9 +169,9 @@ func TestTriangleChannel(t *testing.T) {
 	pts = append(pts, TriangleTest{TriangleTimerHigh, 2, 0xf8, 0x00})
 
 	for _, pt := range pts {
-		apu.Registers.Triangle[pt.index] = pt.value
+		apu.Triangle.Registers[pt.index] = pt.value
 
-		actual := apu.triangle(pt.flag)
+		actual := apu.Triangle.registers(pt.flag)
 		expected := pt.expected
 
 		if actual != expected {
@@ -194,7 +194,7 @@ func TestNoiseChannel(t *testing.T) {
 
 	var address uint16
 
-	for i := range apu.Registers.Noise {
+	for i := range apu.Noise.Registers {
 		switch i {
 		case 0:
 			address = 0x400c
@@ -204,14 +204,14 @@ func TestNoiseChannel(t *testing.T) {
 			address = 0x400f
 		}
 
-		apu.Registers.Noise[i] = 0x00
+		apu.Noise.Registers[i] = 0x00
 		apu.Store(address, 0xff)
 
-		if apu.Registers.Noise[i] != 0xff {
+		if apu.Noise.Registers[i] != 0xff {
 			t.Error("Register is not 0xff")
 		}
 
-		apu.Registers.Noise[i] = 0xff
+		apu.Noise.Registers[i] = 0xff
 		value := apu.Fetch(address)
 
 		if value != 0x00 {
@@ -240,9 +240,9 @@ func TestNoiseChannel(t *testing.T) {
 	pts = append(pts, NoiseTest{NoiseLengthCounterLoad, 2, 0x07, 0x00})
 
 	for _, pt := range pts {
-		apu.Registers.Noise[pt.index] = pt.value
+		apu.Noise.Registers[pt.index] = pt.value
 
-		actual := apu.noise(pt.flag)
+		actual := apu.Noise.registers(pt.flag)
 		expected := pt.expected
 
 		if actual != expected {
@@ -265,15 +265,15 @@ func TestDMCChannel(t *testing.T) {
 
 	address := uint16(0x4010)
 
-	for i := range apu.Registers.DMC {
-		apu.Registers.DMC[i] = 0x00
+	for i := range apu.DMC.Registers {
+		apu.DMC.Registers[i] = 0x00
 		apu.Store(address+uint16(i), 0xff)
 
-		if apu.Registers.DMC[i] != 0xff {
+		if apu.DMC.Registers[i] != 0xff {
 			t.Error("Register is not 0xff")
 		}
 
-		apu.Registers.DMC[i] = 0xff
+		apu.DMC.Registers[i] = 0xff
 		value := apu.Fetch(address + uint16(i))
 
 		if value != 0x00 {
@@ -302,9 +302,9 @@ func TestDMCChannel(t *testing.T) {
 	pts = append(pts, DMCTest{SampleLength, 3, 0x00, 0x00})
 
 	for _, pt := range pts {
-		apu.Registers.DMC[pt.index] = pt.value
+		apu.DMC.Registers[pt.index] = pt.value
 
-		actual := apu.dmc(pt.flag)
+		actual := apu.DMC.registers(pt.flag)
 		expected := pt.expected
 
 		if actual != expected {
@@ -446,10 +446,10 @@ func TestFrameCounter(t *testing.T) {
 
 	address := uint16(0x4017)
 
-	apu.Registers.FrameCounter = 0xff
+	apu.FrameCounter.Register = 0xff
 	apu.Store(address, 0x00)
 
-	if apu.Registers.FrameCounter != 0x00 {
+	if apu.FrameCounter.Register != 0x00 {
 		t.Error("Register is not 0x00")
 	}
 
@@ -462,9 +462,9 @@ func TestFrameCounter(t *testing.T) {
 	pts = append(pts, FrameCounterTest{IRQInhibit, 0xbf, 0x00})
 
 	for _, pt := range pts {
-		apu.Registers.FrameCounter = FrameCounter(pt.value)
+		apu.FrameCounter.Register = pt.value
 
-		actual := apu.frameCounter(pt.flag)
+		actual := apu.FrameCounter.register(pt.flag)
 		expected := pt.expected
 
 		if actual != expected {

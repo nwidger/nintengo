@@ -319,6 +319,12 @@ func (nes *NES) runProcessors() (err error) {
 					nes.fps.Delay()
 				}
 			}
+
+			for i := uint16(0); i < cycles; i++ {
+				if sample, haveSample := nes.cpu.APU.Execute(); haveSample {
+					go nes.sample(sample)
+				}
+			}
 		}
 	}
 
@@ -331,6 +337,12 @@ func (nes *NES) frame(colors []uint8) {
 	}
 }
 
+func (nes *NES) sample(sample int16) {
+	nes.events <- &SampleEvent{
+		sample: sample,
+	}
+}
+
 func (nes *NES) Run() (err error) {
 	fmt.Println(nes.rom)
 
@@ -339,6 +351,7 @@ func (nes *NES) Run() (err error) {
 
 	nes.state = Running
 
+	go nes.audio.Run()
 	go nes.runProcessors()
 	go nes.processEvents()
 

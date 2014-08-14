@@ -26,6 +26,22 @@ func (e *FrameEvent) Process(nes *NES) {
 	nes.video.Input() <- e.colors
 }
 
+type SampleEvent struct {
+	sample int16
+}
+
+func (e *SampleEvent) String() string {
+	return "SampleEvent"
+}
+
+func (e *SampleEvent) Process(nes *NES) {
+	if nes.state != Running {
+		return
+	}
+
+	nes.audio.Input() <- e.sample
+}
+
 type ControllerEvent struct {
 	controller int
 	down       bool

@@ -6,10 +6,10 @@ func TestStore(t *testing.T) {
 	cpu := NewRP2A03()
 	cpu.Reset()
 
-	cpu.APU.Registers.Pulse1[0] = 0xde
+	cpu.APU.Pulse1.Registers[0] = 0xde
 	cpu.Memory.Store(0x4000, 0xff)
 
-	if cpu.APU.Registers.Pulse1[0] != 0xff {
+	if cpu.APU.Pulse1.Registers[0] != 0xff {
 		t.Error("Register is not 0xff")
 	}
 

@@ -379,25 +379,24 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 func (mmc3 *MMC3) scanlineCounter(address uint16) {
 	a12 := address & 0x1000
 
-	if a12 == 0x1000 && mmc3.lowA12 == 5 {
-		mmc3.lowA12 = 0
-
-		if mmc3.Registers.IRQCounter == 0x00 || mmc3.Registers.IRQReload {
-			mmc3.Registers.IRQCounter = mmc3.Registers.IRQLatch
-		} else {
-			mmc3.Registers.IRQCounter--
-		}
-
-		if mmc3.Registers.IRQCounter == 0x00 && mmc3.Registers.IRQEnable {
-			mmc3.ROMFile.irq(true)
-		}
-
-		mmc3.Registers.IRQReload = false
-	}
-
-	if a12 == 0x0000 {
+	switch a12 {
+	case 0x0000:
 		mmc3.lowA12++
-	} else {
+	case 0x1000:
+		if mmc3.lowA12 == 1 {
+			if mmc3.Registers.IRQCounter == 0x00 || mmc3.Registers.IRQReload {
+				mmc3.Registers.IRQCounter = mmc3.Registers.IRQLatch
+			} else {
+				mmc3.Registers.IRQCounter--
+			}
+
+			if mmc3.Registers.IRQCounter == 0x00 && mmc3.Registers.IRQEnable {
+				mmc3.ROMFile.irq(true)
+			}
+
+			mmc3.Registers.IRQReload = false
+		}
+
 		mmc3.lowA12 = 0
 	}
 }
