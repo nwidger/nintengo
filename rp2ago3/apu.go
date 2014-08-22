@@ -111,8 +111,11 @@ type APU struct {
 }
 
 func NewAPU(interrupt func(bool)) *APU {
+	cpuFrequency := uint64(1789773)
+	apuFrequency := uint64(44100)
+
 	apu := &APU{
-		TargetCycles: 1789773 / 44100,
+		TargetCycles: cpuFrequency / apuFrequency,
 		Interrupt:    interrupt,
 		Noise: Noise{
 			PeriodLUT: [16]int16{
@@ -162,7 +165,13 @@ func NewAPU(interrupt func(bool)) *APU {
 func (apu *APU) Reset() {
 	apu.Registers.Control = 0x00
 	apu.Registers.Status = 0x00
-	apu.Noise.Shift = 0x0001
+
+	apu.Noise.Reset()
+
+	apu.Triangle.LengthCounter = 0x00
+
+	// apu.Pulse1.LengthCounter = 0x00
+	// apu.Pulse2.LengthCounter = 0x00
 }
 
 func (apu *APU) Mappings(which Mapping) (fetch, store []uint16) {
@@ -184,8 +193,7 @@ func (apu *APU) Fetch(address uint16) (value uint8) {
 	switch address {
 	// Status
 	case 0x4015:
-		value = uint8(apu.Registers.Status)
-		apu.Registers.Status &= Status(^FrameInterrupt)
+		value = apu.FetchUpdatedStatus()
 	}
 
 	return
@@ -238,18 +246,26 @@ func (apu *APU) Store(address uint16, value uint8) (oldValue uint8) {
 		apu.Registers.Control = Control(value)
 		apu.Registers.Status &= Status(^DMCInterrupt)
 
-		if !apu.control(EnableNoise) {
-			apu.Noise.LengthCounter = 0
-		}
+		apu.Noise.SetEnabled(apu.control(EnableNoise))
+		apu.Triangle.SetEnabled(apu.control(EnableTriangle))
 	// Frame counter
 	case address == 0x4017:
-		var execute bool
+		var executeFrameCounter bool
 
-		if oldValue, execute = apu.FrameCounter.Store(value); execute {
+		if oldValue, executeFrameCounter = apu.FrameCounter.Store(value); executeFrameCounter {
 			apu.ExecuteFrameCounter()
 		}
 
 	}
+
+	return
+}
+
+func (apu *APU) FetchUpdatedStatus() (value uint8) {
+	apu.status(NoiseLengthCounterNotZero, apu.Noise.LengthCounter > 0)
+	apu.status(FrameInterrupt, false)
+
+	value = uint8(apu.Registers.Status)
 
 	return
 }
@@ -376,7 +392,6 @@ func (apu *APU) Execute() (sample int16, haveSample bool) {
 		haveSample = true
 
 		apu.Cycles = 0
-
 		apu.TargetCycles ^= 0x1
 	}
 
@@ -457,6 +472,7 @@ func (pulse *Pulse) Sample() (sample int16) {
 }
 
 type Triangle struct {
+	Enabled   bool
 	Registers [3]uint8
 
 	Divider          Divider
@@ -466,9 +482,40 @@ type Triangle struct {
 	LengthCounterLUT [32]uint8
 }
 
+func (triangle *Triangle) Reset() {
+	triangle.Enabled = false
+
+	for i := range triangle.Registers {
+		triangle.Registers[i] = 0x00
+	}
+
+	triangle.Divider.Reset()
+	triangle.LinearCounter.Reset()
+	triangle.Sequencer.Reset()
+	triangle.LengthCounter = 0x00
+}
+
+func (triangle *Triangle) SetEnabled(enabled bool) {
+	if triangle.Enabled = enabled; !enabled {
+		triangle.LengthCounter = 0
+	}
+}
+
 func (triangle *Triangle) Store(index uint16, value uint8) (oldValue uint8) {
 	oldValue = triangle.Registers[index]
 	triangle.Registers[index] = value
+
+	switch index {
+	// $4008
+	case 0:
+
+	// $400a
+	case 1:
+
+	// $400b
+	case 2:
+		triangle.LengthCounter = triangle.LengthCounterLUT[triangle.registers(TriangleLengthCounterLoad)]
+	}
 
 	return
 }
@@ -511,7 +558,17 @@ func (triangle *Triangle) Sample() (sample int16) {
 	return
 }
 
+func (triangle *Triangle) ClockLengthCounter() {
+	if triangle.Enabled && triangle.registers(LengthCounterHaltLinearCounterControl) != 0 &&
+		triangle.LengthCounter > 0 {
+		triangle.LengthCounter--
+	}
+
+	return
+}
+
 type Noise struct {
+	Enabled   bool
 	Registers [3]uint8
 
 	Envelope         Envelope
@@ -522,6 +579,26 @@ type Noise struct {
 	PeriodLUT        [16]int16
 }
 
+func (noise *Noise) Reset() {
+	noise.Enabled = false
+
+	for i := range noise.Registers {
+		noise.Registers[i] = 0x00
+	}
+
+	noise.Envelope.Reset()
+	noise.Divider.Reset()
+
+	noise.Shift = 0x0001
+	noise.LengthCounter = 0x00
+}
+
+func (noise *Noise) SetEnabled(enabled bool) {
+	if noise.Enabled = enabled; !enabled {
+		noise.LengthCounter = 0
+	}
+}
+
 func (noise *Noise) Store(index uint16, value uint8) (oldValue uint8) {
 	oldValue = noise.Registers[index]
 	noise.Registers[index] = value
@@ -530,14 +607,18 @@ func (noise *Noise) Store(index uint16, value uint8) (oldValue uint8) {
 	// $400c
 	case 0:
 		noise.Envelope.Counter = noise.registers(NoiseVolumeEnvelope)
-		noise.Envelope.Loop = noise.registers(LoopNoise) != 0
 	// $400e
 	case 1:
+		noise.Envelope.Loop = noise.registers(LoopNoise) != 0
 		noise.Divider.Period = noise.PeriodLUT[noise.registers(NoisePeriod)]
 		noise.Divider.Reload()
 	// $400f
 	case 2:
-		noise.LengthCounter = noise.LengthCounterLUT[noise.registers(NoiseLengthCounterLoad)]
+		noise.Envelope.Start = true
+
+		if noise.Enabled {
+			noise.LengthCounter = noise.LengthCounterLUT[noise.registers(NoiseLengthCounterLoad)]
+		}
 	}
 
 	return
@@ -582,10 +663,12 @@ func (noise *Noise) registers(flag NoiseFlag, state ...uint8) (value uint8) {
 }
 
 func (noise *Noise) ClockLengthCounter() {
-	if noise.registers(NoiseEnvelopeLoopLengthCounterHalt) != 0 &&
+	if noise.Enabled && noise.registers(NoiseEnvelopeLoopLengthCounterHalt) != 0 &&
 		noise.LengthCounter > 0 {
 		noise.LengthCounter--
 	}
+
+	return
 }
 
 func (noise *Noise) ClockEnvelope() {
@@ -596,8 +679,6 @@ func (noise *Noise) ClockDivider() {
 	var tmp uint16
 
 	if noise.Divider.Clock() {
-		// fmt.Printf("APU: Noise: timer clocked\n")
-
 		if noise.registers(LoopNoise) == 0 {
 			tmp = 5
 		} else {
@@ -689,7 +770,7 @@ func (frameCounter *FrameCounter) Reset() {
 	frameCounter.Step = 0
 }
 
-func (frameCounter *FrameCounter) Store(value uint8) (oldValue uint8, execute bool) {
+func (frameCounter *FrameCounter) Store(value uint8) (oldValue uint8, executeFrameCounter bool) {
 	oldValue = frameCounter.Register
 	frameCounter.Register = value
 
@@ -699,7 +780,7 @@ func (frameCounter *FrameCounter) Store(value uint8) (oldValue uint8, execute bo
 	frameCounter.Reset()
 
 	if frameCounter.register(Mode) == 5 {
-		execute = true
+		executeFrameCounter = true
 	}
 
 	return
@@ -822,6 +903,13 @@ type Envelope struct {
 	Counter uint8
 }
 
+func (envelope *Envelope) Reset() {
+	envelope.Start = false
+	envelope.Loop = false
+	envelope.Divider.Reset()
+	envelope.Counter = 0x00
+}
+
 func (envelope *Envelope) Clock() (output uint8) {
 	if envelope.Start {
 		envelope.Start = false
@@ -841,6 +929,11 @@ func (envelope *Envelope) Clock() (output uint8) {
 type Divider struct {
 	Counter int16
 	Period  int16
+}
+
+func (divider *Divider) Reset() {
+	divider.Counter = 0
+	divider.Period = 0
 }
 
 func (divider *Divider) Clock() (output bool) {

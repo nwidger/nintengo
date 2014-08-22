@@ -334,12 +334,12 @@ func TestControl(t *testing.T) {
 	}
 
 	apu.Registers.Control = 0x00
-	apu.Registers.Status = 0xff
+	apu.Registers.Status = 0x00
 
 	value := apu.Fetch(address)
 
-	if value != 0xff {
-		t.Error("Value is not 0xff")
+	if value != 0x00 {
+		t.Error("Value is not 0x00")
 	}
 
 	pts := []ControlTest{}
@@ -384,52 +384,13 @@ func TestStatus(t *testing.T) {
 
 	address := uint16(0x4015)
 
-	apu.Registers.Status = 0xff
+	apu.Registers.Status = 0x00
 	value := apu.Fetch(address)
 
-	if value != 0xff {
-		t.Error("Value is not 0xff")
-	}
+	apu.Noise.LengthCounter = 0
 
-	apu.Registers.Status = 0xff
-	apu.Store(address, 0x00)
-
-	if apu.Registers.Status != 0x7f {
-		t.Error("Register is not 0x7f")
-	}
-
-	pts := []StatusTest{}
-
-	pts = append(pts, StatusTest{DMCInterrupt, 0x80, true})
-	pts = append(pts, StatusTest{DMCInterrupt, 0x7f, false})
-
-	pts = append(pts, StatusTest{FrameInterrupt, 0x40, true})
-	pts = append(pts, StatusTest{FrameInterrupt, 0xbf, false})
-
-	pts = append(pts, StatusTest{DMCActive, 0x10, true})
-	pts = append(pts, StatusTest{DMCActive, 0xef, false})
-
-	pts = append(pts, StatusTest{NoiseLengthCounterNotZero, 0x08, true})
-	pts = append(pts, StatusTest{NoiseLengthCounterNotZero, 0xf7, false})
-
-	pts = append(pts, StatusTest{TriangleLengthCounterNotZero, 0x04, true})
-	pts = append(pts, StatusTest{TriangleLengthCounterNotZero, 0xfb, false})
-
-	pts = append(pts, StatusTest{Pulse2LengthCounterNotZero, 0x02, true})
-	pts = append(pts, StatusTest{Pulse2LengthCounterNotZero, 0xfd, false})
-
-	pts = append(pts, StatusTest{Pulse1LengthCounterNotZero, 0x01, true})
-	pts = append(pts, StatusTest{Pulse1LengthCounterNotZero, 0xfe, false})
-
-	for _, pt := range pts {
-		apu.Registers.Status = Status(pt.value)
-
-		actual := apu.status(pt.flag)
-		expected := pt.expected
-
-		if actual != expected {
-			t.Errorf("Value is %v not %v\n", actual, expected)
-		}
+	if value != 0x00 {
+		t.Error("Value is not 0x00")
 	}
 
 	Teardown()
