@@ -138,6 +138,15 @@ func NewAPU(interrupt func(bool)) *APU {
 			},
 		},
 		Triangle: Triangle{
+			Divider: Divider{
+				PlusOne: true,
+			},
+			Sequencer: Sequencer{
+				Values: []uint8{
+					15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+					0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+				},
+			},
 			LengthCounterLUT: [32]uint8{
 				0x0a, 0xfe, 0x14, 0x02,
 				0x28, 0x04, 0x50, 0x06,
@@ -337,23 +346,23 @@ func (apu *APU) ExecuteFrameCounter() {
 		case 1:
 			// clock env & tri's linear counter
 			apu.Noise.ClockEnvelope()
-			apu.Triangle.LinearCounter.Clock()
+			apu.Triangle.ClockLinearCounter()
 		case 2:
 			// clock env & tri's linear counter
 			apu.Noise.ClockEnvelope()
-			apu.Triangle.LinearCounter.Clock()
+			apu.Triangle.ClockLinearCounter()
 
 			// clock length counters & sweep units
 			apu.Noise.ClockLengthCounter()
 		case 3:
 			// clock env & tri's linear counter
 			apu.Noise.ClockEnvelope()
-			apu.Triangle.LinearCounter.Clock()
+			apu.Triangle.ClockLinearCounter()
 		case 4:
 			if apu.FrameCounter.NumSteps == 4 {
 				// clock env & tri's linear counter
 				apu.Noise.ClockEnvelope()
-				apu.Triangle.LinearCounter.Clock()
+				apu.Triangle.ClockLinearCounter()
 
 				// clock length counters & sweep units
 				apu.Noise.ClockLengthCounter()
@@ -367,7 +376,7 @@ func (apu *APU) ExecuteFrameCounter() {
 			if apu.FrameCounter.NumSteps == 5 {
 				// clock env & tri's linear counter
 				apu.Noise.ClockEnvelope()
-				apu.Triangle.LinearCounter.Clock()
+				apu.Triangle.ClockLinearCounter()
 
 				// clock length counters & sweep units
 				apu.Noise.ClockLengthCounter()
@@ -382,6 +391,10 @@ func (apu *APU) ExecuteFrameCounter() {
 
 func (apu *APU) Execute() (sample int16, haveSample bool) {
 	apu.ExecuteFrameCounter()
+
+	if apu.control(EnableTriangle) {
+		apu.Triangle.ClockDivider()
+	}
 
 	if apu.control(EnableNoise) {
 		apu.Noise.ClockDivider()
@@ -508,13 +521,26 @@ func (triangle *Triangle) Store(index uint16, value uint8) (oldValue uint8) {
 	switch index {
 	// $4008
 	case 0:
+		// C---.----: control flag (and length counter halt flag)
+		// -RRR.RRRR: counter reload value
+		if triangle.registers(LengthCounterHaltLinearCounterControl) == 0 {
+			triangle.LinearCounter.Control = false
+		}
 
+		triangle.LinearCounter.ReloadValue = triangle.registers(LinearCounterLoad)
 	// $400a
 	case 1:
-
+		// LLLL.LLLL: timer low
+		triangle.Divider.Period = (triangle.Divider.Period & 0x0700) | int16(triangle.registers(TriangleTimerLow))
 	// $400b
 	case 2:
-		triangle.LengthCounter = triangle.LengthCounterLUT[triangle.registers(TriangleLengthCounterLoad)]
+		// llll.lHHH: length counter load, timer high
+		if triangle.Enabled {
+			triangle.LengthCounter = triangle.LengthCounterLUT[triangle.registers(TriangleLengthCounterLoad)]
+		}
+
+		triangle.Divider.Period = (triangle.Divider.Period & 0x00ff) | (int16(triangle.registers(TriangleTimerHigh)) << 8)
+		triangle.LinearCounter.Halt = true
 	}
 
 	return
@@ -555,6 +581,26 @@ func (triangle *Triangle) registers(flag TriangleFlag, state ...uint8) (value ui
 }
 
 func (triangle *Triangle) Sample() (sample int16) {
+	if triangle.Enabled &&
+		triangle.LinearCounter.Counter > 0 && triangle.LengthCounter > 0 {
+		sample = int16(triangle.Sequencer.Output)
+	}
+
+	return
+}
+
+func (triangle *Triangle) ClockDivider() {
+	if triangle.Divider.Clock() &&
+		triangle.LinearCounter.Counter > 0 && triangle.LengthCounter > 0 {
+		triangle.ClockSequencer()
+	}
+}
+
+func (triangle *Triangle) ClockLinearCounter() {
+	if triangle.Enabled && triangle.registers(LengthCounterHaltLinearCounterControl) != 0 {
+		triangle.LinearCounter.Clock()
+	}
+
 	return
 }
 
@@ -564,6 +610,11 @@ func (triangle *Triangle) ClockLengthCounter() {
 		triangle.LengthCounter--
 	}
 
+	return
+}
+
+func (triangle *Triangle) ClockSequencer() {
+	triangle.Sequencer.Clock()
 	return
 }
 
@@ -679,8 +730,8 @@ func (noise *Noise) ClockDivider() {
 	var tmp uint16
 
 	if noise.Divider.Clock() {
-		if noise.registers(LoopNoise) == 0 {
-			tmp = 5
+		if noise.registers(LoopNoise) == 1 {
+			tmp = 6
 		} else {
 			tmp = 1
 		}
@@ -865,6 +916,7 @@ func (sequencer *Sequencer) Clock() (output uint8) {
 
 func (sequencer *Sequencer) Reset() {
 	sequencer.Index = 0
+	sequencer.Output = 0
 }
 
 type LinearCounter struct {
@@ -891,6 +943,7 @@ func (linearCounter *LinearCounter) Clock() (counter uint8) {
 }
 
 func (linearCounter *LinearCounter) Reset() {
+	linearCounter.Control = false
 	linearCounter.Halt = false
 	linearCounter.Counter = 0
 	linearCounter.ReloadValue = 0
@@ -929,6 +982,7 @@ func (envelope *Envelope) Clock() (output uint8) {
 type Divider struct {
 	Counter int16
 	Period  int16
+	PlusOne bool
 }
 
 func (divider *Divider) Reset() {
@@ -949,4 +1003,8 @@ func (divider *Divider) Clock() (output bool) {
 
 func (divider *Divider) Reload() {
 	divider.Counter = divider.Period
+
+	if divider.PlusOne {
+		divider.Counter++
+	}
 }
