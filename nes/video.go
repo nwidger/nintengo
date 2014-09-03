@@ -337,6 +337,26 @@ func (video *SDLVideo) Run() {
 					if e.Type == sdl.KEYDOWN {
 						event = &FPS25Event{}
 					}
+				case sdl.K_KP0:
+					if e.Type == sdl.KEYDOWN {
+						event = &MuteEvent{}
+					}
+				case sdl.K_KP1:
+					if e.Type == sdl.KEYDOWN {
+						event = &MutePulse1Event{}
+					}
+				case sdl.K_KP2:
+					if e.Type == sdl.KEYDOWN {
+						event = &MutePulse2Event{}
+					}
+				case sdl.K_KP3:
+					if e.Type == sdl.KEYDOWN {
+						event = &MuteTriangleEvent{}
+					}
+				case sdl.K_KP4:
+					if e.Type == sdl.KEYDOWN {
+						event = &MuteNoiseEvent{}
+					}
 				}
 
 				if event == nil && running {

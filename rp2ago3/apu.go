@@ -84,12 +84,31 @@ const (
 	Mode
 )
 
+var LengthCounterLUT [32]uint8 = [32]uint8{
+	0x0a, 0xfe, 0x14, 0x02,
+	0x28, 0x04, 0x50, 0x06,
+	0xa0, 0x08, 0x3c, 0x0a,
+	0x0e, 0x0c, 0x1a, 0x0e,
+	0x0c, 0x10, 0x18, 0x12,
+	0x30, 0x14, 0x60, 0x16,
+	0xc0, 0x18, 0x48, 0x1a,
+	0x10, 0x1c, 0x20, 0x1e,
+}
+
+var SequencerLUT [8][]uint8 = [8][]uint8{
+	[]uint8{0, 1, 0, 0, 0, 0, 0, 0},
+	[]uint8{0, 1, 1, 0, 0, 0, 0, 0},
+	[]uint8{0, 1, 1, 1, 1, 0, 0, 0},
+	[]uint8{1, 0, 0, 1, 1, 1, 1, 1},
+}
+
 type Registers struct {
 	Control Control
 	Status  Status
 }
 
 type APU struct {
+	Muted     bool
 	Registers Registers
 
 	Pulse1       Pulse
@@ -117,6 +136,14 @@ func NewAPU(interrupt func(bool)) *APU {
 	apu := &APU{
 		TargetCycles: cpuFrequency / apuFrequency,
 		Interrupt:    interrupt,
+		Pulse1: Pulse{
+			SequencerLUT:     SequencerLUT,
+			LengthCounterLUT: LengthCounterLUT,
+		},
+		Pulse2: Pulse{
+			SequencerLUT:     SequencerLUT,
+			LengthCounterLUT: LengthCounterLUT,
+		},
 		Noise: Noise{
 			PeriodLUT: [16]int16{
 				// NTSC
@@ -126,16 +153,7 @@ func NewAPU(interrupt func(bool)) *APU {
 				// 4, 8, 14, 30, 60, 88, 118, 148, 188,
 				// 236, 354, 472, 708, 944, 1890, 3778,
 			},
-			LengthCounterLUT: [32]uint8{
-				0x0a, 0xfe, 0x14, 0x02,
-				0x28, 0x04, 0x50, 0x06,
-				0xa0, 0x08, 0x3c, 0x0a,
-				0x0e, 0x0c, 0x1a, 0x0e,
-				0x0c, 0x10, 0x18, 0x12,
-				0x30, 0x14, 0x60, 0x16,
-				0xc0, 0x18, 0x48, 0x1a,
-				0x10, 0x1c, 0x20, 0x1e,
-			},
+			LengthCounterLUT: LengthCounterLUT,
 		},
 		Triangle: Triangle{
 			Divider: Divider{
@@ -147,16 +165,7 @@ func NewAPU(interrupt func(bool)) *APU {
 					0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
 				},
 			},
-			LengthCounterLUT: [32]uint8{
-				0x0a, 0xfe, 0x14, 0x02,
-				0x28, 0x04, 0x50, 0x06,
-				0xa0, 0x08, 0x3c, 0x0a,
-				0x0e, 0x0c, 0x1a, 0x0e,
-				0x0c, 0x10, 0x18, 0x12,
-				0x30, 0x14, 0x60, 0x16,
-				0xc0, 0x18, 0x48, 0x1a,
-				0x10, 0x1c, 0x20, 0x1e,
-			},
+			LengthCounterLUT: LengthCounterLUT,
 		},
 	}
 
@@ -175,12 +184,10 @@ func (apu *APU) Reset() {
 	apu.Registers.Control = 0x00
 	apu.Registers.Status = 0x00
 
+	apu.Pulse1.Reset()
+	apu.Pulse2.Reset()
 	apu.Noise.Reset()
-
-	apu.Triangle.LengthCounter = 0x00
-
-	// apu.Pulse1.LengthCounter = 0x00
-	// apu.Pulse2.LengthCounter = 0x00
+	apu.Triangle.Reset()
 }
 
 func (apu *APU) Mappings(which Mapping) (fetch, store []uint16) {
@@ -255,6 +262,8 @@ func (apu *APU) Store(address uint16, value uint8) (oldValue uint8) {
 		apu.Registers.Control = Control(value)
 		apu.Registers.Status &= Status(^DMCInterrupt)
 
+		apu.Pulse1.SetEnabled(apu.control(EnablePulseChannel1))
+		apu.Pulse2.SetEnabled(apu.control(EnablePulseChannel2))
 		apu.Noise.SetEnabled(apu.control(EnableNoise))
 		apu.Triangle.SetEnabled(apu.control(EnableTriangle))
 	// Frame counter
@@ -271,7 +280,10 @@ func (apu *APU) Store(address uint16, value uint8) (oldValue uint8) {
 }
 
 func (apu *APU) FetchUpdatedStatus() (value uint8) {
+	apu.status(Pulse1LengthCounterNotZero, apu.Pulse1.LengthCounter > 0)
+	apu.status(Pulse2LengthCounterNotZero, apu.Pulse2.LengthCounter > 0)
 	apu.status(NoiseLengthCounterNotZero, apu.Noise.LengthCounter > 0)
+	apu.status(TriangleLengthCounterNotZero, apu.Triangle.LengthCounter > 0)
 	apu.status(FrameInterrupt, false)
 
 	value = uint8(apu.Registers.Status)
@@ -294,12 +306,14 @@ func (apu *APU) hipassWeak(s int16) int16 {
 }
 
 func (apu *APU) Sample() (sample int16) {
-	pulse := apu.pulseLUT[apu.Pulse1.Sample()+apu.Pulse2.Sample()]
-	tnd := apu.tndLUT[(3*apu.Triangle.Sample())+(2*apu.Noise.Sample())+apu.DMC.Sample()]
+	if !apu.Muted {
+		pulse := apu.pulseLUT[apu.Pulse1.Sample()+apu.Pulse2.Sample()]
+		tnd := apu.tndLUT[(3*apu.Triangle.Sample())+(2*apu.Noise.Sample())+apu.DMC.Sample()]
 
-	sample = int16((pulse + tnd) * 40000)
-	sample = apu.hipassStrong(sample)
-	sample = apu.hipassWeak(sample)
+		sample = int16((pulse + tnd) * 40000)
+		sample = apu.hipassStrong(sample)
+		sample = apu.hipassWeak(sample)
+	}
 
 	return
 }
@@ -345,27 +359,43 @@ func (apu *APU) ExecuteFrameCounter() {
 		switch step {
 		case 1:
 			// clock env & tri's linear counter
+			apu.Pulse1.ClockEnvelope()
+			apu.Pulse2.ClockEnvelope()
 			apu.Noise.ClockEnvelope()
 			apu.Triangle.ClockLinearCounter()
 		case 2:
 			// clock env & tri's linear counter
+			apu.Pulse1.ClockEnvelope()
+			apu.Pulse2.ClockEnvelope()
 			apu.Noise.ClockEnvelope()
 			apu.Triangle.ClockLinearCounter()
 
 			// clock length counters & sweep units
+			apu.Pulse1.ClockLengthCounter()
+			apu.Pulse2.ClockLengthCounter()
 			apu.Noise.ClockLengthCounter()
+			apu.Pulse1.ClockSweepUnit()
+			apu.Pulse2.ClockSweepUnit()
 		case 3:
 			// clock env & tri's linear counter
+			apu.Pulse1.ClockEnvelope()
+			apu.Pulse2.ClockEnvelope()
 			apu.Noise.ClockEnvelope()
 			apu.Triangle.ClockLinearCounter()
 		case 4:
 			if apu.FrameCounter.NumSteps == 4 {
 				// clock env & tri's linear counter
+				apu.Pulse1.ClockEnvelope()
+				apu.Pulse2.ClockEnvelope()
 				apu.Noise.ClockEnvelope()
 				apu.Triangle.ClockLinearCounter()
 
 				// clock length counters & sweep units
+				apu.Pulse1.ClockLengthCounter()
+				apu.Pulse2.ClockLengthCounter()
 				apu.Noise.ClockLengthCounter()
+				apu.Pulse1.ClockSweepUnit()
+				apu.Pulse2.ClockSweepUnit()
 
 				// set frame interrupt flag if interrupt inhibit is clear
 				if !apu.FrameCounter.IRQInhibit {
@@ -375,11 +405,17 @@ func (apu *APU) ExecuteFrameCounter() {
 		case 5:
 			if apu.FrameCounter.NumSteps == 5 {
 				// clock env & tri's linear counter
+				apu.Pulse1.ClockEnvelope()
+				apu.Pulse2.ClockEnvelope()
 				apu.Noise.ClockEnvelope()
 				apu.Triangle.ClockLinearCounter()
 
 				// clock length counters & sweep units
+				apu.Pulse1.ClockLengthCounter()
+				apu.Pulse2.ClockLengthCounter()
 				apu.Noise.ClockLengthCounter()
+				apu.Pulse1.ClockSweepUnit()
+				apu.Pulse2.ClockSweepUnit()
 			}
 		}
 
@@ -391,6 +427,14 @@ func (apu *APU) ExecuteFrameCounter() {
 
 func (apu *APU) Execute() (sample int16, haveSample bool) {
 	apu.ExecuteFrameCounter()
+
+	if apu.control(EnablePulseChannel1) {
+		apu.Pulse1.ClockDivider()
+	}
+
+	if apu.control(EnablePulseChannel2) {
+		apu.Pulse2.ClockDivider()
+	}
 
 	if apu.control(EnableTriangle) {
 		apu.Triangle.ClockDivider()
@@ -412,12 +456,68 @@ func (apu *APU) Execute() (sample int16, haveSample bool) {
 }
 
 type Pulse struct {
+	Muted     bool
+	Enabled   bool
 	Registers [4]uint8
+
+	Envelope         Envelope
+	SweepUnit        SweepUnit
+	Divider          Divider
+	Sequencer        Sequencer
+	SequencerLUT     [8][]uint8
+	LengthCounter    uint8
+	LengthCounterLUT [32]uint8
+}
+
+func (pulse *Pulse) Reset() {
+	pulse.Enabled = false
+
+	for i := range pulse.Registers {
+		pulse.Registers[i] = 0x00
+	}
+
+	pulse.Envelope.Reset()
+	pulse.SweepUnit.Reset()
+	pulse.Divider.Reset()
+	pulse.Sequencer.Reset()
+
+	pulse.LengthCounter = 0x00
+}
+
+func (pulse *Pulse) SetEnabled(enabled bool) {
+	if pulse.Enabled = enabled; !enabled {
+		pulse.LengthCounter = 0
+	}
 }
 
 func (pulse *Pulse) Store(index uint16, value uint8) (oldValue uint8) {
 	oldValue = pulse.Registers[index]
 	pulse.Registers[index] = value
+
+	switch index {
+	// $4000 / $4004
+	case 0:
+		pulse.Envelope.Counter = pulse.registers(PulseVolumeEnvelope)
+		pulse.Envelope.Loop = pulse.registers(PulseEnvelopeLoopLengthCounterHalt) == 1
+		pulse.Sequencer.Values = pulse.SequencerLUT[pulse.registers(Duty)]
+	// $4001 / $4005
+	case 1:
+		pulse.SweepUnit.Enabled = pulse.registers(SweepEnabled) == 1
+		pulse.SweepUnit.Divider.Period = int16(pulse.registers(SweepPeriod))
+		pulse.SweepUnit.Reload = true
+	// $4002 / $4006
+	case 2:
+		pulse.Divider.Period = (pulse.Divider.Period & 0x0700) | int16(pulse.registers(PulseTimerLow))
+	// $4003 / $4007
+	case 3:
+		if pulse.Enabled {
+			pulse.LengthCounter = pulse.LengthCounterLUT[pulse.registers(PulseLengthCounterLoad)]
+		}
+
+		pulse.Divider.Period = (pulse.Divider.Period & 0x00ff) | (int16(pulse.registers(PulseTimerHigh)) << 8)
+		pulse.Sequencer.Reset()
+		pulse.Envelope.Start = true
+	}
 
 	return
 }
@@ -481,10 +581,51 @@ func (pulse *Pulse) registers(flag PulseFlag, state ...uint8) (value uint8) {
 }
 
 func (pulse *Pulse) Sample() (sample int16) {
+	if !pulse.Muted && pulse.Sequencer.Output != 0 && pulse.LengthCounter != 0 &&
+		pulse.Divider.Counter >= 8 {
+		if pulse.registers(PulseConstantVolume) == 0 {
+			sample = int16(pulse.Envelope.Counter)
+		} else {
+			sample = int16(pulse.registers(PulseVolumeEnvelope))
+		}
+	}
+
 	return
 }
 
+func (pulse *Pulse) ClockEnvelope() {
+	pulse.Envelope.Clock()
+}
+
+func (pulse *Pulse) ClockDivider() {
+	if pulse.Divider.Clock() {
+		pulse.ClockSequencer()
+	}
+
+	return
+}
+
+func (pulse *Pulse) ClockSequencer() {
+	pulse.Sequencer.Clock()
+}
+
+func (pulse *Pulse) ClockLengthCounter() {
+	if pulse.Enabled && pulse.registers(PulseEnvelopeLoopLengthCounterHalt) != 0 &&
+		pulse.LengthCounter > 0 {
+		pulse.LengthCounter--
+	}
+
+	return
+}
+
+func (pulse *Pulse) ClockSweepUnit() {
+	if adjustPeriod := pulse.SweepUnit.Clock(); adjustPeriod && pulse.Divider.Counter < 8 {
+
+	}
+}
+
 type Triangle struct {
+	Muted     bool
 	Enabled   bool
 	Registers [3]uint8
 
@@ -581,7 +722,7 @@ func (triangle *Triangle) registers(flag TriangleFlag, state ...uint8) (value ui
 }
 
 func (triangle *Triangle) Sample() (sample int16) {
-	if triangle.Enabled &&
+	if !triangle.Muted && triangle.Enabled &&
 		triangle.LinearCounter.Counter > 0 && triangle.LengthCounter > 0 {
 		sample = int16(triangle.Sequencer.Output)
 	}
@@ -619,6 +760,7 @@ func (triangle *Triangle) ClockSequencer() {
 }
 
 type Noise struct {
+	Muted     bool
 	Enabled   bool
 	Registers [3]uint8
 
@@ -744,7 +886,7 @@ func (noise *Noise) ClockDivider() {
 }
 
 func (noise *Noise) Sample() (sample int16) {
-	if (noise.Shift&0x0001) == 0 && noise.LengthCounter != 0 {
+	if !noise.Muted && (noise.Shift&0x0001) == 0 && noise.LengthCounter != 0 {
 		if noise.registers(NoiseConstantVolume) == 0 {
 			sample = int16(noise.Envelope.Counter)
 		} else {
@@ -902,13 +1044,15 @@ type Sequencer struct {
 }
 
 func (sequencer *Sequencer) Clock() (output uint8) {
-	sequencer.Output = sequencer.Values[sequencer.Index]
-	output = sequencer.Output
+	if sequencer.Values != nil {
+		sequencer.Output = sequencer.Values[sequencer.Index]
+		output = sequencer.Output
 
-	sequencer.Index++
+		sequencer.Index++
 
-	if sequencer.Index == len(sequencer.Values) {
-		sequencer.Index = 0
+		if sequencer.Index == len(sequencer.Values) {
+			sequencer.Index = 0
+		}
 	}
 
 	return
@@ -949,6 +1093,36 @@ func (linearCounter *LinearCounter) Reset() {
 	linearCounter.ReloadValue = 0
 }
 
+type SweepUnit struct {
+	Enabled bool
+	Reload  bool
+	Divider Divider
+}
+
+func (sweepUnit *SweepUnit) Reset() {
+	sweepUnit.Enabled = false
+	sweepUnit.Reload = false
+	sweepUnit.Divider.Reset()
+}
+
+func (sweepUnit *SweepUnit) Clock() (adjustPeriod bool) {
+	if sweepUnit.Reload {
+		if sweepUnit.Divider.Counter == 0 && sweepUnit.Enabled {
+			// adjust pulse's period if in range
+			adjustPeriod = true
+		}
+
+		sweepUnit.Divider.Reload()
+		sweepUnit.Reload = false
+	} else if !sweepUnit.Divider.Clock() && sweepUnit.Enabled {
+		sweepUnit.Divider.Reload()
+		// adjust pulse's period if in range
+		adjustPeriod = true
+	}
+
+	return
+}
+
 type Envelope struct {
 	Start bool
 	Loop  bool
@@ -963,7 +1137,7 @@ func (envelope *Envelope) Reset() {
 	envelope.Counter = 0x00
 }
 
-func (envelope *Envelope) Clock() (output uint8) {
+func (envelope *Envelope) Clock() {
 	if envelope.Start {
 		envelope.Start = false
 		envelope.Counter = 0x0f
@@ -975,8 +1149,6 @@ func (envelope *Envelope) Clock() (output uint8) {
 			envelope.Counter = 0x0f
 		}
 	}
-
-	return
 }
 
 type Divider struct {
