@@ -137,6 +137,10 @@ func NewAPU(interrupt func(bool)) *APU {
 		TargetCycles: cpuFrequency / apuFrequency,
 		Interrupt:    interrupt,
 		Pulse1: Pulse{
+			minusOne: true,
+			Divider: Divider{
+				PlusOne: true,
+			},
 			SequencerLUT:     SequencerLUT,
 			LengthCounterLUT: LengthCounterLUT,
 		},
@@ -145,6 +149,11 @@ func NewAPU(interrupt func(bool)) *APU {
 			LengthCounterLUT: LengthCounterLUT,
 		},
 		Noise: Noise{
+			Envelope: Envelope{
+				Divider: Divider{
+					PlusOne: true,
+				},
+			},
 			PeriodLUT: [16]int16{
 				// NTSC
 				4, 8, 16, 32, 64, 96, 128, 160, 202,
@@ -181,6 +190,8 @@ func NewAPU(interrupt func(bool)) *APU {
 }
 
 func (apu *APU) Reset() {
+	apu.Cycles = 0
+
 	apu.Registers.Control = 0x00
 	apu.Registers.Status = 0x00
 
@@ -444,6 +455,10 @@ func (apu *APU) Execute() (sample int16, haveSample bool) {
 		apu.Noise.ClockDivider()
 	}
 
+	if apu.control(EnableDMC) {
+
+	}
+
 	if apu.Cycles++; apu.Cycles == apu.TargetCycles {
 		sample = apu.Sample()
 		haveSample = true
@@ -458,6 +473,7 @@ func (apu *APU) Execute() (sample int16, haveSample bool) {
 type Pulse struct {
 	Muted     bool
 	Enabled   bool
+	minusOne  bool
 	Registers [4]uint8
 
 	Envelope         Envelope
@@ -580,9 +596,26 @@ func (pulse *Pulse) registers(flag PulseFlag, state ...uint8) (value uint8) {
 	return
 }
 
+func (pulse *Pulse) TargetPeriod() (target int16) {
+	current := pulse.Divider.Period
+	delta := (current >> pulse.registers(SweepShift))
+
+	if pulse.registers(SweepNegate) == 1 {
+		delta *= -1
+
+		if pulse.minusOne {
+			delta -= 1
+		}
+	}
+
+	target = current + delta
+	return
+}
+
 func (pulse *Pulse) Sample() (sample int16) {
-	if !pulse.Muted && pulse.Sequencer.Output != 0 && pulse.LengthCounter != 0 &&
-		pulse.Divider.Counter >= 8 {
+	if !pulse.Muted && pulse.Sequencer.Output != 0 &&
+		(pulse.Divider.Period >= 0x0008 && pulse.TargetPeriod() <= 0x07ff) &&
+		pulse.LengthCounter != 0 && pulse.Divider.Counter >= 8 {
 		if pulse.registers(PulseConstantVolume) == 0 {
 			sample = int16(pulse.Envelope.Counter)
 		} else {
@@ -619,8 +652,12 @@ func (pulse *Pulse) ClockLengthCounter() {
 }
 
 func (pulse *Pulse) ClockSweepUnit() {
-	if adjustPeriod := pulse.SweepUnit.Clock(); adjustPeriod && pulse.Divider.Counter < 8 {
+	current := pulse.Divider.Period
+	target := pulse.TargetPeriod()
 
+	if adjustPeriod := pulse.SweepUnit.Clock(); (current >= 0x0008 && target <= 0x07ff) &&
+		pulse.Enabled && pulse.registers(SweepShift) > 0 && adjustPeriod {
+		pulse.Divider.Period = target
 	}
 }
 
@@ -799,7 +836,7 @@ func (noise *Noise) Store(index uint16, value uint8) (oldValue uint8) {
 	switch index {
 	// $400c
 	case 0:
-		noise.Envelope.Counter = noise.registers(NoiseVolumeEnvelope)
+		noise.Envelope.Divider.Period = int16(noise.registers(NoiseVolumeEnvelope))
 	// $400e
 	case 1:
 		noise.Envelope.Loop = noise.registers(LoopNoise) != 0
@@ -886,7 +923,7 @@ func (noise *Noise) ClockDivider() {
 }
 
 func (noise *Noise) Sample() (sample int16) {
-	if !noise.Muted && (noise.Shift&0x0001) == 0 && noise.LengthCounter != 0 {
+	if !noise.Muted && noise.Enabled && (noise.Shift&0x0001) == 0 && noise.LengthCounter != 0 {
 		if noise.registers(NoiseConstantVolume) == 0 {
 			sample = int16(noise.Envelope.Counter)
 		} else {
@@ -1124,9 +1161,9 @@ func (sweepUnit *SweepUnit) Clock() (adjustPeriod bool) {
 }
 
 type Envelope struct {
-	Start bool
-	Loop  bool
-	Divider
+	Start   bool
+	Loop    bool
+	Divider Divider
 	Counter uint8
 }
 
