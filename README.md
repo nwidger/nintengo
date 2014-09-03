@@ -74,6 +74,12 @@ F12 - 25% FPS
 9 - Show/hide background
 0 - Show/hide sprites
 
+keypad 0 - toggle mute all channels
+keypad 1 - toggle mute pulse 1 channel
+keypad 2 - toggle mute pulse 2 channel
+keypad 3 - toggle mute triangle channel
+keypad 4 - toggle mute noise channel
+
 l - Save pattern tables to left/right.jpg
 
 o - Toggle CPU decoding
@@ -89,7 +95,8 @@ s - Save screenshot to frame.jpg
 
 ## Support
 
-Audio has not been implemented yet.
+Audio support is currently a work in progress.  All audio channels
+except the DMC channel are working in some capacity.
 
 Battery backed saves is implemented.
 
