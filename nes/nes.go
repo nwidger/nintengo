@@ -24,32 +24,35 @@ const (
 )
 
 type NES struct {
-	state       RunState
-	paused      chan bool
-	events      chan Event
-	cpu         *rp2ago3.RP2A03
-	cpuDivisor  float32
-	ppu         *rp2cgo2.RP2C02
-	controllers *Controllers
-	rom         ROM
-	audio       Audio
-	video       Video
-	fps         *FPS
-	recorder    Recorder
-	options     *Options
+	state         RunState
+	paused        chan bool
+	events        chan Event
+	cpu           *rp2ago3.RP2A03
+	cpuDivisor    float32
+	ppu           *rp2cgo2.RP2C02
+	controllers   *Controllers
+	rom           ROM
+	audio         Audio
+	video         Video
+	fps           *FPS
+	recorder      Recorder
+	audioRecorder AudioRecorder
+	options       *Options
 }
 
 type Options struct {
-	Recorder   string
-	CPUDecode  bool
-	CPUProfile string
-	MemProfile string
+	Recorder      string
+	AudioRecorder string
+	CPUDecode     bool
+	CPUProfile    string
+	MemProfile    string
 }
 
 func NewNES(filename string, options *Options) (nes *NES, err error) {
 	var audio Audio
 	var video Video
 	var recorder Recorder
+	var audioRecorder AudioRecorder
 	var cpuDivisor float32
 
 	cpu := rp2ago3.NewRP2A03()
@@ -105,6 +108,18 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		return
 	}
 
+	switch options.AudioRecorder {
+	case "none":
+		// none
+	case "wav":
+		audioRecorder, err = NewWAVRecorder()
+	}
+
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Error creating audio recorder: %v", err))
+		return
+	}
+
 	cpu.Memory.AddMappings(ppu, rp2ago3.CPU)
 	cpu.Memory.AddMappings(rom, rp2ago3.CPU)
 	cpu.Memory.AddMappings(ctrls, rp2ago3.CPU)
@@ -113,18 +128,19 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	ppu.Memory.AddTracer(rom)
 
 	nes = &NES{
-		paused:      make(chan bool),
-		events:      events,
-		cpu:         cpu,
-		cpuDivisor:  cpuDivisor,
-		ppu:         ppu,
-		rom:         rom,
-		audio:       audio,
-		video:       video,
-		fps:         NewFPS(DEFAULT_FPS),
-		recorder:    recorder,
-		controllers: ctrls,
-		options:     options,
+		paused:        make(chan bool),
+		events:        events,
+		cpu:           cpu,
+		cpuDivisor:    cpuDivisor,
+		ppu:           ppu,
+		rom:           rom,
+		audio:         audio,
+		video:         video,
+		fps:           NewFPS(DEFAULT_FPS),
+		recorder:      recorder,
+		audioRecorder: audioRecorder,
+		controllers:   ctrls,
+		options:       options,
 	}
 
 	return
@@ -359,6 +375,10 @@ func (nes *NES) Run() (err error) {
 		go nes.recorder.Run()
 	}
 
+	if nes.audioRecorder != nil {
+		go nes.audioRecorder.Run()
+	}
+
 	runtime.LockOSThread()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
@@ -377,6 +397,10 @@ func (nes *NES) Run() (err error) {
 
 	if nes.recorder != nil {
 		nes.recorder.Quit()
+	}
+
+	if nes.audioRecorder != nil {
+		nes.audioRecorder.Quit()
 	}
 
 	if nes.options.MemProfile != "" {

@@ -91,6 +91,10 @@ d - Stop recording
 
 with -recorder=jpeg:
 s - Save screenshot to frame.jpg
+
+with -audio-recorder=wav:
+keypad - (minus) - Start audio recording to audio.wav
+keypad + (plus) - Stop audio recording
 ```
 
 ## Support

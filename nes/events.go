@@ -39,6 +39,10 @@ func (e *SampleEvent) Process(nes *NES) {
 		return
 	}
 
+	if nes.audioRecorder != nil {
+		nes.audioRecorder.Input() <- e.sample
+	}
+
 	nes.audio.Input() <- e.sample
 }
 
@@ -119,6 +123,30 @@ func (e *StopEvent) String() string {
 func (e *StopEvent) Process(nes *NES) {
 	if nes.recorder != nil {
 		nes.recorder.Stop()
+	}
+}
+
+type AudioRecordEvent struct{}
+
+func (e *AudioRecordEvent) String() string {
+	return "AudioRecordEvent"
+}
+
+func (e *AudioRecordEvent) Process(nes *NES) {
+	if nes.audioRecorder != nil {
+		nes.audioRecorder.Record()
+	}
+}
+
+type AudioStopEvent struct{}
+
+func (e *AudioStopEvent) String() string {
+	return "AudioStopEvent"
+}
+
+func (e *AudioStopEvent) Process(nes *NES) {
+	if nes.audioRecorder != nil {
+		nes.audioRecorder.Stop()
 	}
 }
 

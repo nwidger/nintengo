@@ -293,6 +293,15 @@ func (video *SDLVideo) Run() {
 					if e.Type == sdl.KEYDOWN {
 						event = &StopEvent{}
 					}
+				case sdl.K_KP_PLUS:
+					if e.Type == sdl.KEYDOWN {
+						event = &AudioRecordEvent{}
+					}
+				case sdl.K_KP_MINUS:
+					if e.Type == sdl.KEYDOWN {
+						event = &AudioStopEvent{}
+					}
+
 				case sdl.K_o:
 					if e.Type == sdl.KEYDOWN {
 						event = &CPUDecodeEvent{}
