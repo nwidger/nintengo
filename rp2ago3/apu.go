@@ -241,9 +241,7 @@ func (apu *APU) Store(address uint16, value uint8) (oldValue uint8) {
 		switch address {
 		case 0x4009: // 0x4009 is not mapped
 			break
-		case 0x400b:
-			fallthrough
-		case 0x400a:
+		case 0x400a, 0x400b:
 			index--
 			fallthrough
 		case 0x4008:
@@ -256,9 +254,7 @@ func (apu *APU) Store(address uint16, value uint8) (oldValue uint8) {
 		switch address {
 		case 0x400d: // 0x400d is not mapped
 			break
-		case 0x400f:
-			fallthrough
-		case 0x400e:
+		case 0x400e, 0x400f:
 			index--
 			fallthrough
 		case 0x400c:
@@ -285,6 +281,7 @@ func (apu *APU) Store(address uint16, value uint8) (oldValue uint8) {
 			apu.ExecuteFrameCounter()
 		}
 
+		apu.status(FrameInterrupt, apu.FrameCounter.register(IRQInhibit) != 1)
 	}
 
 	return
@@ -295,9 +292,10 @@ func (apu *APU) FetchUpdatedStatus() (value uint8) {
 	apu.status(Pulse2LengthCounterNotZero, apu.Pulse2.LengthCounter > 0)
 	apu.status(NoiseLengthCounterNotZero, apu.Noise.LengthCounter > 0)
 	apu.status(TriangleLengthCounterNotZero, apu.Triangle.LengthCounter > 0)
-	apu.status(FrameInterrupt, false)
 
 	value = uint8(apu.Registers.Status)
+
+	apu.status(FrameInterrupt, false)
 
 	return
 }
@@ -365,72 +363,64 @@ func (apu *APU) status(flag StatusFlag, state ...bool) (value bool) {
 	return
 }
 
+func (apu *APU) ClockEnvelopes() {
+	apu.Pulse1.ClockEnvelope()
+	apu.Pulse2.ClockEnvelope()
+	apu.Noise.ClockEnvelope()
+}
+
+func (apu *APU) ClockLengthCounters() {
+	apu.Pulse1.ClockLengthCounter()
+	apu.Pulse2.ClockLengthCounter()
+	apu.Noise.ClockLengthCounter()
+}
+
+func (apu *APU) ClockSweepUnits() {
+	apu.Pulse1.ClockSweepUnit()
+	apu.Pulse2.ClockSweepUnit()
+}
+
 func (apu *APU) ExecuteFrameCounter() {
 	if changed, step := apu.FrameCounter.Clock(); changed {
 		switch step {
-		case 1:
+		case 1, 2, 3:
 			// clock env & tri's linear counter
-			apu.Pulse1.ClockEnvelope()
-			apu.Pulse2.ClockEnvelope()
-			apu.Noise.ClockEnvelope()
-			apu.Triangle.ClockLinearCounter()
-		case 2:
-			// clock env & tri's linear counter
-			apu.Pulse1.ClockEnvelope()
-			apu.Pulse2.ClockEnvelope()
-			apu.Noise.ClockEnvelope()
+			apu.ClockEnvelopes()
 			apu.Triangle.ClockLinearCounter()
 
-			// clock length counters & sweep units
-			apu.Pulse1.ClockLengthCounter()
-			apu.Pulse2.ClockLengthCounter()
-			apu.Noise.ClockLengthCounter()
-			apu.Pulse1.ClockSweepUnit()
-			apu.Pulse2.ClockSweepUnit()
-		case 3:
-			// clock env & tri's linear counter
-			apu.Pulse1.ClockEnvelope()
-			apu.Pulse2.ClockEnvelope()
-			apu.Noise.ClockEnvelope()
-			apu.Triangle.ClockLinearCounter()
+			if step == 2 {
+				// clock length counters & sweep units
+				apu.ClockLengthCounters()
+				apu.ClockSweepUnits()
+			}
 		case 4:
-			if apu.FrameCounter.NumSteps == 4 {
+			if apu.FrameCounter.register(Mode) == 4 {
 				// clock env & tri's linear counter
-				apu.Pulse1.ClockEnvelope()
-				apu.Pulse2.ClockEnvelope()
-				apu.Noise.ClockEnvelope()
+				apu.ClockEnvelopes()
 				apu.Triangle.ClockLinearCounter()
 
 				// clock length counters & sweep units
-				apu.Pulse1.ClockLengthCounter()
-				apu.Pulse2.ClockLengthCounter()
-				apu.Noise.ClockLengthCounter()
-				apu.Pulse1.ClockSweepUnit()
-				apu.Pulse2.ClockSweepUnit()
+				apu.ClockLengthCounters()
+				apu.ClockSweepUnits()
 
 				// set frame interrupt flag if interrupt inhibit is clear
-				if !apu.FrameCounter.IRQInhibit {
-					apu.Registers.Status |= Status(FrameInterrupt)
+				if apu.FrameCounter.register(IRQInhibit) == 0 {
+					apu.status(FrameInterrupt, true)
 				}
 			}
 		case 5:
-			if apu.FrameCounter.NumSteps == 5 {
+			if apu.FrameCounter.register(Mode) == 5 {
 				// clock env & tri's linear counter
-				apu.Pulse1.ClockEnvelope()
-				apu.Pulse2.ClockEnvelope()
-				apu.Noise.ClockEnvelope()
+				apu.ClockEnvelopes()
 				apu.Triangle.ClockLinearCounter()
 
 				// clock length counters & sweep units
-				apu.Pulse1.ClockLengthCounter()
-				apu.Pulse2.ClockLengthCounter()
-				apu.Noise.ClockLengthCounter()
-				apu.Pulse1.ClockSweepUnit()
-				apu.Pulse2.ClockSweepUnit()
+				apu.ClockLengthCounters()
+				apu.ClockSweepUnits()
 			}
 		}
 
-		if step == apu.FrameCounter.NumSteps {
+		if step == apu.FrameCounter.register(Mode) {
 			apu.FrameCounter.Reset()
 		}
 	}
@@ -836,10 +826,10 @@ func (noise *Noise) Store(index uint16, value uint8) (oldValue uint8) {
 	switch index {
 	// $400c
 	case 0:
+		noise.Envelope.Loop = noise.registers(NoiseEnvelopeLoopLengthCounterHalt) != 0
 		noise.Envelope.Divider.Period = int16(noise.registers(NoiseVolumeEnvelope))
 	// $400e
 	case 1:
-		noise.Envelope.Loop = noise.registers(LoopNoise) != 0
 		noise.Divider.Period = noise.PeriodLUT[noise.registers(NoisePeriod)]
 		noise.Divider.Reload()
 	// $400f
@@ -893,7 +883,7 @@ func (noise *Noise) registers(flag NoiseFlag, state ...uint8) (value uint8) {
 }
 
 func (noise *Noise) ClockLengthCounter() {
-	if noise.Enabled && noise.registers(NoiseEnvelopeLoopLengthCounterHalt) != 0 &&
+	if noise.Enabled && noise.registers(NoiseEnvelopeLoopLengthCounterHalt) == 0 &&
 		noise.LengthCounter > 0 {
 		noise.LengthCounter--
 	}
@@ -988,11 +978,9 @@ func (dmc *DMC) Sample() (sample int16) {
 }
 
 type FrameCounter struct {
-	Register   uint8
-	IRQInhibit bool
-	NumSteps   uint8
-	Step       uint8
-	Cycles     uint16
+	Register uint8
+	Step     uint8
+	Cycles   uint16
 }
 
 func (frameCounter *FrameCounter) Reset() {
@@ -1057,19 +1045,14 @@ func (frameCounter *FrameCounter) Clock() (changed bool, newStep uint8) {
 	// 2 CPU cycles = 1 APU cycle
 	frameCounter.Cycles++
 
-	oldStep := frameCounter.Step
-
 	switch frameCounter.Cycles {
 	case 3729 * 2, 7457 * 2, 11186 * 2,
 		14915 * 2, 18641 * 2:
 		frameCounter.Step++
+		changed = true
 	}
 
 	newStep = frameCounter.Step
-
-	if oldStep != newStep {
-		changed = true
-	}
 
 	return
 }
@@ -1151,7 +1134,7 @@ func (sweepUnit *SweepUnit) Clock() (adjustPeriod bool) {
 
 		sweepUnit.Divider.Reload()
 		sweepUnit.Reload = false
-	} else if !sweepUnit.Divider.Clock() && sweepUnit.Enabled {
+	} else if sweepUnit.Divider.Clock() && sweepUnit.Enabled {
 		sweepUnit.Divider.Reload()
 		// adjust pulse's period if in range
 		adjustPeriod = true

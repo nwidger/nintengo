@@ -73,9 +73,11 @@ func (e *PauseEvent) String() string {
 func (e *PauseEvent) Process(nes *NES) {
 	switch nes.state {
 	case Running:
+		nes.audio.TogglePaused()
 		nes.state = Paused
 		nes.paused <- true
 	case Paused:
+		nes.audio.TogglePaused()
 		nes.state = Running
 		nes.fps.Resumed()
 		nes.paused <- false

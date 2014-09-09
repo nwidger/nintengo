@@ -293,7 +293,7 @@ func (nes *NES) LoadState() {
 func (nes *NES) processEvents() {
 	for nes.state != Quitting {
 		e := <-nes.events
-		go e.Process(nes)
+		e.Process(nes)
 	}
 }
 
@@ -315,14 +315,14 @@ func (nes *NES) runProcessors() (err error) {
 
 			for quota += float32(cycles) * nes.cpuDivisor; quota >= 1.0; quota-- {
 				if colors := nes.ppu.Execute(); colors != nil {
-					go nes.frame(colors)
+					nes.frame(colors)
 					nes.fps.Delay()
 				}
 			}
 
 			for i := uint16(0); i < cycles; i++ {
 				if sample, haveSample := nes.cpu.APU.Execute(); haveSample {
-					go nes.sample(sample)
+					nes.sample(sample)
 				}
 			}
 		}

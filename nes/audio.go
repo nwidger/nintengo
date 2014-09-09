@@ -12,6 +12,7 @@ import (
 type Audio interface {
 	Input() chan int16
 	Run()
+	TogglePaused()
 }
 
 const (
@@ -30,6 +31,7 @@ var (
 )
 
 type SDLAudio struct {
+	paused  bool
 	spec    sdl_audio.AudioSpec
 	samples []int16
 	input   chan int16
@@ -69,6 +71,11 @@ func (audio *SDLAudio) Run() {
 			}
 		}
 	}
+}
+
+func (audio *SDLAudio) TogglePaused() {
+	audio.paused = !audio.paused
+	sdl_audio.PauseAudio(audio.paused)
 }
 
 func (audio *SDLAudio) Close() {
