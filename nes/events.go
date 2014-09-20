@@ -160,26 +160,6 @@ func (e *QuitEvent) Process(nes *NES) {
 	nes.state = Quitting
 }
 
-type SaveEvent struct{}
-
-func (e *SaveEvent) String() string {
-	return "SaveEvent"
-}
-
-func (e *SaveEvent) Process(nes *NES) {
-	nes.SaveState()
-}
-
-type LoadEvent struct{}
-
-func (e *LoadEvent) String() string {
-	return "LoadEvent"
-}
-
-func (e *LoadEvent) Process(nes *NES) {
-	nes.LoadState()
-}
-
 type ShowBackgroundEvent struct{}
 
 func (e *ShowBackgroundEvent) String() string {

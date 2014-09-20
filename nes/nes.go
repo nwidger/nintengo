@@ -1,7 +1,6 @@
 package nes
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"log"
@@ -55,7 +54,10 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	var audioRecorder AudioRecorder
 	var cpuDivisor float32
 
-	cpu := rp2ago3.NewRP2A03()
+	audioFrequency := 44100
+	audioSampleSize := 2048
+
+	cpu := rp2ago3.NewRP2A03(audioFrequency)
 
 	if options.CPUDecode {
 		cpu.EnableDecode()
@@ -87,7 +89,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		return
 	}
 
-	audio, err = NewSDLAudio()
+	audio, err = NewSDLAudio(audioFrequency, audioSampleSize)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error creating audio: %v", err))
@@ -150,160 +152,6 @@ func (nes *NES) Reset() {
 	nes.cpu.Reset()
 	nes.ppu.Reset()
 	nes.controllers.Reset()
-}
-
-func (nes *NES) SaveState() {
-	fo, err := os.Create(fmt.Sprintf("game.save"))
-
-	if err != nil {
-		fmt.Println("*** Error saving state:", err)
-	}
-
-	defer fo.Close()
-
-	w := bufio.NewWriter(fo)
-
-	fmt.Println("*** Saving state")
-
-	for i := uint32(0); i < 0x10000; i++ {
-		err = w.WriteByte(nes.cpu.M6502.Memory.Fetch(uint16(i)))
-
-		if err != nil {
-			fmt.Println("*** Error saving state: CPU byte:", i, err)
-		}
-	}
-
-	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.PC >> 8))
-
-	if err != nil {
-		fmt.Println("*** Error saving state: High PC:", err)
-	}
-
-	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.PC & 0xff))
-
-	if err != nil {
-		fmt.Println("*** Error saving state: Low PC:", err)
-	}
-
-	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.A))
-
-	if err != nil {
-		fmt.Println("*** Error saving state: A:", err)
-	}
-
-	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.X))
-
-	if err != nil {
-		fmt.Println("*** Error saving state: X:", err)
-	}
-
-	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.Y))
-
-	if err != nil {
-		fmt.Println("*** Error saving state: Y:", err)
-	}
-
-	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.P))
-
-	if err != nil {
-		fmt.Println("*** Error saving state: P:", err)
-	}
-
-	err = w.WriteByte(uint8(nes.cpu.M6502.Registers.SP))
-
-	if err != nil {
-		fmt.Println("*** Error saving state: SP:", err)
-	}
-
-	for i := uint32(0); i < 0x10000; i++ {
-		err = w.WriteByte(nes.ppu.Memory.Memory.Fetch(uint16(i)))
-
-		if err != nil {
-			fmt.Println("*** Error saving state: PPU byte:", i, err)
-		}
-	}
-
-	w.Flush()
-}
-
-func (nes *NES) LoadState() {
-	fo, err := os.Open(fmt.Sprintf("game.save"))
-
-	if err != nil {
-		fmt.Println("*** Error loading state: Opening game.save:", err)
-	}
-
-	defer fo.Close()
-
-	r := bufio.NewReader(fo)
-
-	fmt.Println("*** Loading state")
-
-	for i := uint32(0); i < 0x10000; i++ {
-		b, err := r.ReadByte()
-
-		if err != nil {
-			fmt.Println("*** Error loading state: CPU byte:", i, err)
-		}
-
-		nes.cpu.M6502.Memory.Store(uint16(i), b)
-	}
-
-	high, err := r.ReadByte()
-
-	if err != nil {
-		fmt.Println("*** Error loading state: High PC:", err)
-	}
-
-	low, err := r.ReadByte()
-
-	if err != nil {
-		fmt.Println("*** Error loading state: Low PC:", err)
-	}
-
-	nes.cpu.M6502.Registers.PC = (uint16(high) << 8) | uint16(low)
-
-	nes.cpu.M6502.Registers.A, err = r.ReadByte()
-
-	if err != nil {
-		fmt.Println("*** Error loading state: A:", err)
-	}
-
-	nes.cpu.M6502.Registers.X, err = r.ReadByte()
-
-	if err != nil {
-		fmt.Println("*** Error loading state: X:", err)
-	}
-
-	nes.cpu.M6502.Registers.Y, err = r.ReadByte()
-
-	if err != nil {
-		fmt.Println("*** Error loading state: Y:", err)
-	}
-
-	b, err := r.ReadByte()
-
-	nes.cpu.M6502.Registers.P = m65go2.Status(b)
-
-	if err != nil {
-		fmt.Println("*** Error loading state: P:", err)
-	}
-
-	nes.cpu.M6502.Registers.SP, err = r.ReadByte()
-
-	if err != nil {
-		fmt.Println("*** Error loading state: SP:", err)
-	}
-
-	for i := uint32(0); i < 0x10000; i++ {
-		b, err := r.ReadByte()
-
-		if err != nil {
-			fmt.Printf("*** Error loading state: PPU byte: %02x %v\n", i, err)
-		}
-
-		nes.cpu.Memory.Memory.Store(uint16(i), b)
-	}
 }
 
 func (nes *NES) processEvents() {
