@@ -12,7 +12,7 @@ type RP2A03 struct {
 	Memory *MappedMemory
 }
 
-func NewRP2A03() *RP2A03 {
+func NewRP2A03(apuFrequency int) *RP2A03 {
 	mem := NewMappedMemory(m65go2.NewBasicMemory(m65go2.DEFAULT_MEMORY_SIZE))
 	mirrors := make(map[uint32]uint32)
 
@@ -30,7 +30,7 @@ func NewRP2A03() *RP2A03 {
 
 	cpu := m65go2.NewM6502(mem)
 	cpu.DisableDecimalMode()
-	apu := NewAPU(cpu.InterruptLine(m65go2.Irq))
+	apu := NewAPU(uint64(1789773/apuFrequency), cpu.InterruptLine(m65go2.Irq))
 
 	// APU memory maps
 	mem.AddMappings(apu, CPU)

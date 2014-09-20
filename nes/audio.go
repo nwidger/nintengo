@@ -18,21 +18,6 @@ type Audio interface {
 	TogglePaused()
 }
 
-const (
-	SAMPLE_SIZE int = 2048
-)
-
-var (
-	spec sdl_audio.AudioSpec = sdl_audio.AudioSpec{
-		Freq:        44100,
-		Format:      sdl_audio.AUDIO_S16SYS,
-		Channels:    1,
-		Out_Silence: 0,
-		Samples:     uint16(SAMPLE_SIZE),
-		Out_Size:    0,
-	}
-)
-
 type SDLAudio struct {
 	paused  bool
 	spec    sdl_audio.AudioSpec
@@ -40,7 +25,16 @@ type SDLAudio struct {
 	input   chan int16
 }
 
-func NewSDLAudio() (audio *SDLAudio, err error) {
+func NewSDLAudio(frequency int, sampleSize int) (audio *SDLAudio, err error) {
+	spec := sdl_audio.AudioSpec{
+		Freq:        frequency,
+		Format:      sdl_audio.AUDIO_S16SYS,
+		Channels:    1,
+		Out_Silence: 0,
+		Samples:     uint16(sampleSize),
+		Out_Size:    0,
+	}
+
 	if sdl_audio.OpenAudio(&spec, nil) < 0 {
 		err = errors.New(sdl.GetError())
 		return
@@ -49,7 +43,7 @@ func NewSDLAudio() (audio *SDLAudio, err error) {
 	sdl_audio.PauseAudio(false)
 
 	audio = &SDLAudio{
-		samples: make([]int16, SAMPLE_SIZE),
+		samples: make([]int16, sampleSize),
 		input:   make(chan int16),
 	}
 
@@ -68,7 +62,7 @@ func (audio *SDLAudio) Run() {
 		case s := <-audio.input:
 			audio.samples[i] = s
 
-			if i++; i == SAMPLE_SIZE {
+			if i++; i == len(audio.samples) {
 				sdl_audio.SendAudio_int16(audio.samples)
 				i = 0
 			}

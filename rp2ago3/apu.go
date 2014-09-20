@@ -129,22 +129,23 @@ type APU struct {
 	Interrupt func(state bool)
 }
 
-func NewAPU(interrupt func(bool)) *APU {
-	cpuFrequency := uint64(1789773)
-	apuFrequency := uint64(44100)
-
+func NewAPU(targetCycles uint64, interrupt func(bool)) *APU {
 	apu := &APU{
-		TargetCycles: cpuFrequency / apuFrequency,
+		TargetCycles: targetCycles,
 		Interrupt:    interrupt,
 		Pulse1: Pulse{
 			minusOne: true,
 			Divider: Divider{
-				PlusOne: true,
+				PlusOne:  true,
+				TimesTwo: true,
 			},
 			SequencerLUT:     SequencerLUT,
 			LengthCounterLUT: LengthCounterLUT,
 		},
 		Pulse2: Pulse{
+			Divider: Divider{
+				TimesTwo: true,
+			},
 			SequencerLUT:     SequencerLUT,
 			LengthCounterLUT: LengthCounterLUT,
 		},
@@ -166,7 +167,8 @@ func NewAPU(interrupt func(bool)) *APU {
 		},
 		Triangle: Triangle{
 			Divider: Divider{
-				PlusOne: true,
+				PlusOne:  true,
+				TimesTwo: true,
 			},
 			Sequencer: Sequencer{
 				Values: []uint8{
@@ -372,6 +374,7 @@ func (apu *APU) ClockEnvelopes() {
 func (apu *APU) ClockLengthCounters() {
 	apu.Pulse1.ClockLengthCounter()
 	apu.Pulse2.ClockLengthCounter()
+	apu.Triangle.ClockLengthCounter()
 	apu.Noise.ClockLengthCounter()
 }
 
@@ -382,53 +385,37 @@ func (apu *APU) ClockSweepUnits() {
 
 func (apu *APU) ExecuteFrameCounter() {
 	if changed, step := apu.FrameCounter.Clock(); changed {
-		switch step {
-		case 1, 2, 3:
+		// mode 0:    mode 1:       function
+		// ---------  -----------  -----------------------------
+		//  - - - f    - - - - -    IRQ (if bit 6 is clear)
+		//  - l - l    l - l - -    Length counter and sweep
+		//  e e e e    e e e e -    Envelope and linear counter
+
+		if step != 5 {
 			// clock env & tri's linear counter
 			apu.ClockEnvelopes()
 			apu.Triangle.ClockLinearCounter()
+		}
 
-			if step == 2 {
-				// clock length counters & sweep units
-				apu.ClockLengthCounters()
-				apu.ClockSweepUnits()
-			}
-		case 4:
-			if apu.FrameCounter.register(Mode) == 4 {
-				// clock env & tri's linear counter
-				apu.ClockEnvelopes()
-				apu.Triangle.ClockLinearCounter()
-
-				// clock length counters & sweep units
-				apu.ClockLengthCounters()
-				apu.ClockSweepUnits()
-
-				// set frame interrupt flag if interrupt inhibit is clear
-				if apu.FrameCounter.register(IRQInhibit) == 0 {
-					apu.status(FrameInterrupt, true)
-				}
-			}
-		case 5:
-			if apu.FrameCounter.register(Mode) == 5 {
-				// clock env & tri's linear counter
-				apu.ClockEnvelopes()
-				apu.Triangle.ClockLinearCounter()
-
-				// clock length counters & sweep units
-				apu.ClockLengthCounters()
-				apu.ClockSweepUnits()
-			}
+		if (apu.FrameCounter.register(Mode) == 4 && (step == 2 || step == 4)) ||
+			(apu.FrameCounter.register(Mode) == 5 && (step == 1 || step == 3)) {
+			// clock length counters & sweep units
+			apu.ClockLengthCounters()
+			apu.ClockSweepUnits()
 		}
 
 		if step == apu.FrameCounter.register(Mode) {
+			// set frame interrupt flag if interrupt inhibit is clear
+			if step == 4 && apu.FrameCounter.register(IRQInhibit) == 0 {
+				apu.status(FrameInterrupt, true)
+			}
+
 			apu.FrameCounter.Reset()
 		}
 	}
 }
 
 func (apu *APU) Execute() (sample int16, haveSample bool) {
-	apu.ExecuteFrameCounter()
-
 	if apu.control(EnablePulseChannel1) {
 		apu.Pulse1.ClockDivider()
 	}
@@ -449,11 +436,13 @@ func (apu *APU) Execute() (sample int16, haveSample bool) {
 
 	}
 
+	apu.ExecuteFrameCounter()
+
 	if apu.Cycles++; apu.Cycles == apu.TargetCycles {
 		sample = apu.Sample()
 		haveSample = true
 
-		apu.Cycles = 0
+		apu.Cycles = 0.0
 		apu.TargetCycles ^= 0x1
 	}
 
@@ -980,7 +969,7 @@ func (dmc *DMC) Sample() (sample int16) {
 type FrameCounter struct {
 	Register uint8
 	Step     uint8
-	Cycles   uint16
+	Cycles   float64
 }
 
 func (frameCounter *FrameCounter) Reset() {
@@ -1042,12 +1031,13 @@ func (frameCounter *FrameCounter) register(flag FrameCounterFlag, state ...uint8
 }
 
 func (frameCounter *FrameCounter) Clock() (changed bool, newStep uint8) {
-	// 2 CPU cycles = 1 APU cycle
-	frameCounter.Cycles++
+	frameCounter.Cycles += 1.0
+
+	mod := 7457.0
 
 	switch frameCounter.Cycles {
-	case 3729 * 2, 7457 * 2, 11186 * 2,
-		14915 * 2, 18641 * 2:
+	//   1        2        3        4        5
+	case mod * 1, mod * 2, mod * 3, mod * 4, mod * 5:
 		frameCounter.Step++
 		changed = true
 	}
@@ -1172,9 +1162,10 @@ func (envelope *Envelope) Clock() {
 }
 
 type Divider struct {
-	Counter int16
-	Period  int16
-	PlusOne bool
+	Counter  int16
+	Period   int16
+	PlusOne  bool
+	TimesTwo bool
 }
 
 func (divider *Divider) Reset() {
@@ -1198,5 +1189,9 @@ func (divider *Divider) Reload() {
 
 	if divider.PlusOne {
 		divider.Counter++
+	}
+
+	if divider.TimesTwo {
+		divider.Counter *= 2
 	}
 }

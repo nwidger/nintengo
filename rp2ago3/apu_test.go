@@ -5,7 +5,7 @@ import "testing"
 var apu *APU
 
 func Setup() {
-	apu = NewAPU(nil)
+	apu = NewAPU(0, nil)
 	apu.Reset()
 }
 
