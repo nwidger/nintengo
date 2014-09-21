@@ -201,6 +201,11 @@ func (apu *APU) Reset() {
 	apu.Pulse2.Reset()
 	apu.Noise.Reset()
 	apu.Triangle.Reset()
+
+	apu.FrameCounter.Reset()
+
+	apu.HipassStrong = 0.0
+	apu.HipassWeak = 0.0
 }
 
 func (apu *APU) Mappings(which Mapping) (fetch, store []uint16) {
@@ -680,10 +685,7 @@ func (triangle *Triangle) Store(index uint16, value uint8) (oldValue uint8) {
 	case 0:
 		// C---.----: control flag (and length counter halt flag)
 		// -RRR.RRRR: counter reload value
-		if triangle.registers(LengthCounterHaltLinearCounterControl) == 0 {
-			triangle.LinearCounter.Control = false
-		}
-
+		triangle.LinearCounter.Control = triangle.registers(LengthCounterHaltLinearCounterControl) != 0
 		triangle.LinearCounter.ReloadValue = triangle.registers(LinearCounterLoad)
 	// $400a
 	case 1:
