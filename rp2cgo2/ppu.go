@@ -739,7 +739,7 @@ func (ppu *RP2C02) renderSprites() (spriteAddress, spriteIndex uint16, spritePri
 	for i := 0; i < 8; i++ {
 		s = &ppu.sprites[i]
 
-		if ppu.cycle >= uint16(s.XPosition) && ppu.cycle <= (uint16(s.XPosition)+7) {
+		if (ppu.cycle-1) >= uint16(s.XPosition) && (ppu.cycle-1) <= (uint16(s.XPosition)+7) {
 			high := s.TileHigh & 0x80
 			low := s.TileLow & 0x80
 
