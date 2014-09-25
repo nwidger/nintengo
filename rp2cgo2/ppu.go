@@ -724,7 +724,7 @@ func (ppu *RP2C02) renderBackground() (bgAddress, bgIndex uint16) {
 	if ppu.mask(ShowBackground) && (ppu.mask(ShowBackgroundLeft) || ppu.cycle > 8) {
 		scroll := 15 - ppu.Registers.Scroll
 		bgIndex = (((ppu.tilesHigh >> scroll) & 0x0001) << 1) | ((ppu.tilesLow >> scroll) & 0x0001)
-		bgAttribute := uint16((ppu.attributes>>(14-(2*ppu.Registers.Scroll)))&0x0003) << 2
+		bgAttribute := uint16((ppu.attributes>>(14-(ppu.Registers.Scroll<<1)))&0x0003) << 2
 		bgAddress = uint16(0x3f00 | bgAttribute | bgIndex)
 	}
 
@@ -739,7 +739,7 @@ func (ppu *RP2C02) renderSprites() (spriteAddress, spriteIndex uint16, spritePri
 	for i := 0; i < 8; i++ {
 		s = &ppu.sprites[i]
 
-		if (ppu.cycle-1) >= uint16(s.XPosition) && (ppu.cycle-1) <= (uint16(s.XPosition)+7) {
+		if s.XPosition != 0xff && (ppu.cycle-1) >= uint16(s.XPosition) && (ppu.cycle-1) <= (uint16(s.XPosition)+7) {
 			high := s.TileHigh & 0x80
 			low := s.TileLow & 0x80
 
@@ -859,7 +859,7 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		color := ppu.Memory.Fetch(address) & 0x3f
 
 		if ppu.scanline >= 0 && ppu.scanline <= 239 {
-			ppu.colors[(ppu.scanline*256)+(ppu.cycle-1)] = color
+			ppu.colors[(ppu.scanline<<8)+(ppu.cycle-1)] = color
 		}
 
 		if ppu.oam.SpriteEvaluation(ppu.scanline, ppu.cycle, ppu.controller(SpriteSize)) {
