@@ -199,6 +199,8 @@ type RP2C02 struct {
 	sprites        [8]Sprite
 	ShowBackground bool
 	ShowSprites    bool
+
+	cycleJumpTable [CYCLES_PER_SCANLINE]func(*RP2C02)
 }
 
 func NewRP2C02(interrupt func(bool)) *RP2C02 {
@@ -224,7 +226,7 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 	mem.AddMappings(nametable, rp2ago3.PPU)
 	mem.AddMirrors(mirrors)
 
-	return &RP2C02{
+	ppu := &RP2C02{
 		colors:         make([]uint8, 0xf000),
 		Memory:         mem,
 		Nametable:      nametable,
@@ -233,6 +235,10 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 		ShowBackground: true,
 		ShowSprites:    true,
 	}
+
+	ppu.initCycleJumpTable()
+
+	return ppu
 }
 
 func (ppu *RP2C02) SetTablesFunc() func(t0, t1, t2, t3 int) {
@@ -566,9 +572,11 @@ func (ppu *RP2C02) incrementAddress() {
 }
 
 func (ppu *RP2C02) reloadBackgroundTiles() {
-	switch ppu.cycle {
-	case 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121, 129, 137, 145, 153,
-		161, 169, 177, 185, 193, 201, 209, 217, 225, 233, 241, 249, 257, 329, 337:
+	// switch ppu.cycle {
+	// case 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121, 129, 137, 145, 153,
+	// 	161, 169, 177, 185, 193, 201, 209, 217, 225, 233, 241, 249, 257, 329, 337:
+	switch ppu.cycle & 0x07 {
+	case 0x01:
 		ppu.tilesLow = (ppu.tilesLow & 0xff00) | (ppu.tilesLatch & 0x00ff)
 		ppu.tilesHigh = (ppu.tilesHigh & 0xff00) | ((ppu.tilesLatch >> 8) & 0x00ff)
 		ppu.attributeLatch = ppu.attributeNext
@@ -586,8 +594,17 @@ func (ppu *RP2C02) shiftBackgroundTiles() {
 func (ppu *RP2C02) fetchSprites() {
 	var s *Sprite
 
-	switch ppu.cycle {
-	case 263, 271, 279, 287, 295, 303, 311, 319:
+	// 263 = 1'0000'0111
+	// 271 = 1'0000'1111
+	// 279 = 1'0001'0111
+	// 287 = 1'0001'1111
+	// 295 = 1'0010'0111
+	// 303 = 1'0010'1111
+	// 311 = 1'0011'0111
+	// 319 = 1'0011'1111
+	// switch ppu.cycle {
+	// case 263, 271, 279, 287, 295, 303, 311, 319:
+	if (ppu.cycle & 0x01c7) == 0x0107 {
 		index := uint8((ppu.cycle >> 3) & 0x07)
 		sprite := ppu.oam.Sprite(index)
 
@@ -763,83 +780,122 @@ func (ppu *RP2C02) renderSprites() (spriteAddress, spriteIndex uint16, spritePri
 	return
 }
 
+func openNTByte(ppu *RP2C02) {
+	ppu.addressLine = ppu.openName(ppu.Registers.Address)
+}
+
+func fetchNTByte(ppu *RP2C02) {
+	ppu.patternAddress = ppu.fetchName(ppu.addressLine)
+}
+
+func openATByte(ppu *RP2C02) {
+	ppu.addressLine = ppu.openAttribute(ppu.Registers.Address)
+}
+
+func fetchATByte(ppu *RP2C02) {
+	ppu.attributeNext = ppu.fetchAttribute(ppu.addressLine)
+}
+
+func openLowBGTileByte(ppu *RP2C02) {
+	// Fetch color bit 0 for next 8 dots
+	ppu.addressLine = ppu.patternAddress
+}
+
+func fetchLowBGTileByte(ppu *RP2C02) {
+	// Fetch color bit 0 for next 8 dots
+	ppu.tilesLatch = (ppu.tilesLatch & 0xff00) | uint16(ppu.Memory.Fetch(ppu.addressLine))
+}
+
+func openHighBGTileByte(ppu *RP2C02) {
+	// Fetch color bit 1 for next 8 dots
+	ppu.addressLine = ppu.patternAddress | 0x0008
+}
+
+func fetchHighBGTileByte(ppu *RP2C02) {
+	// Fetch color bit 1 for next 8 dots
+	ppu.tilesLatch = (ppu.tilesLatch & 0x00ff) | uint16(ppu.Memory.Fetch(ppu.addressLine))<<8
+
+	// inc hori(v)
+	ppu.incrementX()
+
+	// inc vert(v)
+	if ppu.cycle == 256 {
+		ppu.incrementY()
+	}
+}
+
+func setHoriV(ppu *RP2C02) {
+	ppu.transferX()
+}
+
+func setVertV(ppu *RP2C02) {
+	if ppu.scanline == 261 {
+		ppu.transferY()
+	}
+}
+
+func (ppu *RP2C02) initCycleJumpTable() {
+	for i := 0; i < int(CYCLES_PER_SCANLINE); i++ {
+		switch i {
+		// skipped on BG+odd
+		case 0:
+
+		// open NT byte
+		case 1, 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121, 129, 137,
+			145, 153, 161, 169, 177, 185, 193, 201, 209, 217, 225, 233, 241, 249,
+			321, 329, 337, 339:
+			ppu.cycleJumpTable[i] = openNTByte
+		// fetch NT byte
+		case 2, 10, 18, 26, 34, 42, 50, 58, 66, 74, 82, 90, 98, 106, 114, 122, 130, 138,
+			146, 154, 162, 170, 178, 186, 194, 202, 210, 218, 226, 234, 242, 250,
+			322, 330, 338, 340:
+			ppu.cycleJumpTable[i] = fetchNTByte
+		// open AT byte
+		case 3, 11, 19, 27, 35, 43, 51, 59, 67, 75, 83, 91, 99, 107, 115, 123, 131, 139,
+			147, 155, 163, 171, 179, 187, 195, 203, 211, 219, 227, 235, 243, 251,
+			323, 331:
+			ppu.cycleJumpTable[i] = openATByte
+		// fetch AT byte
+		case 4, 12, 20, 28, 36, 44, 52, 60, 68, 76, 84, 92, 100, 108, 116, 124, 132, 140,
+			148, 156, 164, 172, 180, 188, 196, 204, 212, 220, 228, 236, 244, 252,
+			324, 332:
+			ppu.cycleJumpTable[i] = fetchATByte
+		// open low BG tile byte (color bit 0)
+		case 5, 13, 21, 29, 37, 45, 53, 61, 69, 77, 85, 93, 101, 109, 117, 125, 133, 141,
+			149, 157, 165, 173, 181, 189, 197, 205, 213, 221, 229, 237, 245, 253,
+			325, 333:
+			ppu.cycleJumpTable[i] = openLowBGTileByte
+		// fetch BG tile byte (color bit 0)
+		case 6, 14, 22, 30, 38, 46, 54, 62, 70, 78, 86, 94, 102, 110, 118, 126, 134, 142,
+			150, 158, 166, 174, 182, 190, 198, 206, 214, 222, 230, 238, 246, 254,
+			326, 334:
+			ppu.cycleJumpTable[i] = fetchLowBGTileByte
+		// open high BG tile byte (color bit 1)
+		case 7, 15, 23, 31, 39, 47, 55, 63, 71, 79, 87, 95, 103, 111, 119, 127, 135, 143,
+			151, 159, 167, 175, 183, 191, 199, 207, 215, 223, 231, 239, 247, 255,
+			327, 335:
+			ppu.cycleJumpTable[i] = openHighBGTileByte
+		// fetch high BG tile byte (color bit 1)
+		case 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144,
+			152, 160, 168, 176, 184, 192, 200, 208, 216, 224, 232, 240, 248, 256,
+			328, 336:
+			ppu.cycleJumpTable[i] = fetchHighBGTileByte
+			// hori(v) = hori(t)
+		case 257:
+			ppu.cycleJumpTable[i] = setHoriV
+		// vert(v) = vert(t)
+		case 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292,
+			293, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304:
+			ppu.cycleJumpTable[i] = setVertV
+		}
+	}
+}
+
 func (ppu *RP2C02) renderVisibleScanline() {
 	ppu.reloadBackgroundTiles()
 
-	switch ppu.cycle {
-	// skipped on BG+odd
-	case 0:
-
-	// open NT byte
-	case 1, 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121, 129, 137,
-		145, 153, 161, 169, 177, 185, 193, 201, 209, 217, 225, 233, 241, 249,
-		321, 329, 337, 339:
-		ppu.addressLine = ppu.openName(ppu.Registers.Address)
-
-	// fetch NT byte
-	case 2, 10, 18, 26, 34, 42, 50, 58, 66, 74, 82, 90, 98, 106, 114, 122, 130, 138,
-		146, 154, 162, 170, 178, 186, 194, 202, 210, 218, 226, 234, 242, 250,
-		322, 330, 338, 340:
-		ppu.patternAddress = ppu.fetchName(ppu.addressLine)
-
-	// open AT byte
-	case 3, 11, 19, 27, 35, 43, 51, 59, 67, 75, 83, 91, 99, 107, 115, 123, 131, 139,
-		147, 155, 163, 171, 179, 187, 195, 203, 211, 219, 227, 235, 243, 251,
-		323, 331:
-		ppu.addressLine = ppu.openAttribute(ppu.Registers.Address)
-
-	// fetch AT byte
-	case 4, 12, 20, 28, 36, 44, 52, 60, 68, 76, 84, 92, 100, 108, 116, 124, 132, 140,
-		148, 156, 164, 172, 180, 188, 196, 204, 212, 220, 228, 236, 244, 252,
-		324, 332:
-		ppu.attributeNext = ppu.fetchAttribute(ppu.addressLine)
-
-	// open low BG tile byte (color bit 0)
-	case 5, 13, 21, 29, 37, 45, 53, 61, 69, 77, 85, 93, 101, 109, 117, 125, 133, 141,
-		149, 157, 165, 173, 181, 189, 197, 205, 213, 221, 229, 237, 245, 253,
-		325, 333:
-		// Fetch color bit 0 for next 8 dots
-		ppu.addressLine = ppu.patternAddress
-
-	// fetch BG tile byte (color bit 0)
-	case 6, 14, 22, 30, 38, 46, 54, 62, 70, 78, 86, 94, 102, 110, 118, 126, 134, 142,
-		150, 158, 166, 174, 182, 190, 198, 206, 214, 222, 230, 238, 246, 254,
-		326, 334:
-		// Fetch color bit 0 for next 8 dots
-		ppu.tilesLatch = (ppu.tilesLatch & 0xff00) | uint16(ppu.Memory.Fetch(ppu.addressLine))
-
-	// open high BG tile byte (color bit 1)
-	case 7, 15, 23, 31, 39, 47, 55, 63, 71, 79, 87, 95, 103, 111, 119, 127, 135, 143,
-		151, 159, 167, 175, 183, 191, 199, 207, 215, 223, 231, 239, 247, 255,
-		327, 335:
-		// Fetch color bit 1 for next 8 dots
-		ppu.addressLine = ppu.patternAddress | 0x0008
-
-	// fetch high BG tile byte (color bit 1)
-	case 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144,
-		152, 160, 168, 176, 184, 192, 200, 208, 216, 224, 232, 240, 248, 256,
-		328, 336:
-		// Fetch color bit 1 for next 8 dots
-		ppu.tilesLatch = (ppu.tilesLatch & 0x00ff) | uint16(ppu.Memory.Fetch(ppu.addressLine))<<8
-
-		// inc hori(v)
-		ppu.incrementX()
-
-		// inc vert(v)
-		if ppu.cycle == 256 {
-			ppu.incrementY()
-		}
-
-	// hori(v) = hori(t)
-	case 257:
-		ppu.transferX()
-
-	// vert(v) = vert(t)
-	case 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292,
-		293, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304:
-		if ppu.scanline == 261 {
-			ppu.transferY()
-		}
+	if f := ppu.cycleJumpTable[ppu.cycle]; f != nil {
+		f(ppu)
 	}
 
 	if ppu.cycle >= 1 && ppu.cycle <= 256 {
