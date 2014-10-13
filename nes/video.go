@@ -58,6 +58,10 @@ func NewSDLVideo(events chan Event) (video *SDLVideo, err error) {
 		overscan: true,
 	}
 
+	for i, _ := range video.palette {
+		video.palette[i] <<= 8
+	}
+
 	if sdl.Init(sdl.INIT_VIDEO|sdl.INIT_JOYSTICK|sdl.INIT_AUDIO) != 0 {
 		err = errors.New(sdl.GetError())
 		return
@@ -377,7 +381,7 @@ func (video *SDLVideo) Run() {
 
 			for _, c := range colors {
 				if pixelInFrame(x, y, video.overscan) {
-					frame[index] = video.palette[c] << 8
+					frame[index] = video.palette[c]
 					index++
 				}
 

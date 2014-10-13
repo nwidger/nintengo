@@ -165,6 +165,9 @@ type Sprite struct {
 	TileHigh  uint8
 	Sprite    uint32
 	XPosition uint8
+
+	Address  uint16
+	Priority uint8
 }
 
 type RP2C02 struct {
@@ -631,6 +634,11 @@ func (ppu *RP2C02) fetchSprites() {
 			s.TileLow = reverse(s.TileLow)
 			s.TileHigh = reverse(s.TileHigh)
 		}
+
+		attribute := uint16(ppu.sprite(s.Sprite, SpritePalette)) << 2
+
+		s.Address = uint16(0x3f10 | attribute)
+		s.Priority = ppu.sprite(s.Sprite, Priority)
 	}
 }
 
@@ -765,9 +773,8 @@ func (ppu *RP2C02) renderSprites() (spriteAddress, spriteIndex uint16, spritePri
 
 				if index != 0 {
 					spriteIndex = index
-					spriteAttribute := uint16(ppu.sprite(s.Sprite, SpritePalette)) << 2
-					spriteAddress = uint16(0x3f10 | spriteAttribute | spriteIndex)
-					spritePriority = ppu.sprite(s.Sprite, Priority)
+					spriteAddress = s.Address | index
+					spritePriority = s.Priority
 					spriteUnit = i
 				}
 			}
