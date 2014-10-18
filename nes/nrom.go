@@ -7,7 +7,7 @@ import (
 )
 
 type NROM struct {
-	*ROMFile
+	*ROMFile `json:"-"`
 }
 
 func NewNROM(romf *ROMFile) *NROM {

@@ -130,8 +130,8 @@ func TestStatus(t *testing.T) {
 	ppu := NewRP2C02(nil)
 
 	ppu.Registers.Status = 0xff
-	ppu.latch = true
-	ppu.latchValue = 0x00
+	ppu.Latch = true
+	ppu.LatchValue = 0x00
 
 	value := ppu.Fetch(0x2002)
 
@@ -143,7 +143,7 @@ func TestStatus(t *testing.T) {
 		t.Error("VBlankStarted flag is set")
 	}
 
-	if ppu.latch {
+	if ppu.Latch {
 		t.Error("Latch is true")
 	}
 
@@ -356,8 +356,8 @@ func TestOAMData(t *testing.T) {
 	}
 
 	for i := uint16(0x0000); i <= 0x00ff; i++ {
-		if ppu.oam.Fetch(uint16(i)) != uint8(i) {
-			t.Errorf("Memory is %02X not %02X\n", ppu.oam.Fetch(uint16(i)), uint8(i))
+		if ppu.OAM.Fetch(uint16(i)) != uint8(i) {
+			t.Errorf("Memory is %02X not %02X\n", ppu.OAM.Fetch(uint16(i)), uint8(i))
 		}
 	}
 }
@@ -555,7 +555,7 @@ func TestTransferX(t *testing.T) {
 	ppu := NewRP2C02(nil)
 
 	ppu.Registers.Address = 0x7be0
-	ppu.latchAddress = 0x041f
+	ppu.LatchAddress = 0x041f
 
 	ppu.transferX()
 
@@ -564,7 +564,7 @@ func TestTransferX(t *testing.T) {
 	}
 
 	ppu.Registers.Address = 0x7be0
-	ppu.latchAddress = 0xffff
+	ppu.LatchAddress = 0xffff
 
 	ppu.transferX()
 
@@ -573,7 +573,7 @@ func TestTransferX(t *testing.T) {
 	}
 
 	ppu.Registers.Address = 0xffff
-	ppu.latchAddress = 0x0000
+	ppu.LatchAddress = 0x0000
 
 	ppu.transferX()
 
@@ -582,7 +582,7 @@ func TestTransferX(t *testing.T) {
 	}
 
 	ppu.Registers.Address = 0x0000
-	ppu.latchAddress = 0xffff
+	ppu.LatchAddress = 0xffff
 
 	ppu.transferX()
 
@@ -655,7 +655,7 @@ func TestTransferY(t *testing.T) {
 	ppu := NewRP2C02(nil)
 
 	ppu.Registers.Address = 0x041f
-	ppu.latchAddress = 0x7be0
+	ppu.LatchAddress = 0x7be0
 
 	ppu.transferY()
 
@@ -664,7 +664,7 @@ func TestTransferY(t *testing.T) {
 	}
 
 	ppu.Registers.Address = 0x041f
-	ppu.latchAddress = 0xffff
+	ppu.LatchAddress = 0xffff
 
 	ppu.transferY()
 
@@ -673,7 +673,7 @@ func TestTransferY(t *testing.T) {
 	}
 
 	ppu.Registers.Address = 0xffff
-	ppu.latchAddress = 0x0000
+	ppu.LatchAddress = 0x0000
 
 	ppu.transferY()
 
@@ -682,7 +682,7 @@ func TestTransferY(t *testing.T) {
 	}
 
 	ppu.Registers.Address = 0x0000
-	ppu.latchAddress = 0xffff
+	ppu.LatchAddress = 0xffff
 
 	ppu.transferY()
 

@@ -19,13 +19,13 @@ func TestDisableReads(t *testing.T) {
 		t.Error("Memory is not 0x00")
 	}
 
-	oam.Buffer.DisableReads()
+	oam.Buffer.DisableReads = true
 
 	if oam.Buffer.Fetch(0) != 0xff {
 		t.Error("Memory is not 0xff")
 	}
 
-	oam.Buffer.EnableReads()
+	oam.Buffer.DisableReads = false
 
 	if oam.Buffer.Fetch(0) != 0x00 {
 		t.Error("Memory is not 0x00")
@@ -47,7 +47,7 @@ func TestDisableWrites(t *testing.T) {
 		t.Error("Memory is not 0x00")
 	}
 
-	oam.Buffer.DisableWrites()
+	oam.Buffer.DisableWrites = true
 
 	oam.Buffer.Store(0, 0xff)
 
@@ -55,7 +55,7 @@ func TestDisableWrites(t *testing.T) {
 		t.Error("Memory is not 0x00")
 	}
 
-	oam.Buffer.EnableWrites()
+	oam.Buffer.DisableWrites = false
 
 	oam.Buffer.Store(0, 0xff)
 

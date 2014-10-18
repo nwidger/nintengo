@@ -58,6 +58,7 @@ type ROM interface {
 	rp2ago3.MappableMemory
 	Region() Region
 	String() string
+	GameName() string
 	LoadBattery()
 	SaveBattery() (err error)
 	NeedTraces() bool
@@ -310,6 +311,10 @@ func (romf *ROMFile) String() string {
 		fmt.Sprintf("VS Cart: %v\n", romf.vsCart) +
 		fmt.Sprintf("RAM Banks: %v\n", romf.ramBanks) +
 		fmt.Sprintf("Region: %v\n", romf.region)
+}
+
+func (romf *ROMFile) GameName() string {
+	return romf.gamename
 }
 
 func (romf *ROMFile) LoadBattery() {

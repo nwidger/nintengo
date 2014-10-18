@@ -65,7 +65,7 @@ func TestDMA(t *testing.T) {
 	}
 
 	cpu.Memory.Store(0x4014, 0xff)
-	cpu.dma.PerformDMA()
+	cpu.DMA.PerformDMA()
 
 	for address := uint32(0x0000); address <= 0x00ff; address++ {
 		if ppu.memory[uint16(address)] != uint8(address) {

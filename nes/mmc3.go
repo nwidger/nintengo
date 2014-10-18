@@ -38,9 +38,9 @@ type MMC3Registers struct {
 }
 
 type MMC3 struct {
-	*ROMFile
+	*ROMFile  `json:"-"`
 	Registers MMC3Registers
-	lowA12    uint64
+	LowA12    uint64
 }
 
 func (reg *MMC3Registers) Reset() {
@@ -213,7 +213,7 @@ func (mmc3 *MMC3) Trace(which rp2ago3.TraceType, address uint16, value uint8) {
 
 func (mmc3 *MMC3) Reset() {
 	mmc3.Registers.Reset()
-	mmc3.lowA12 = 0
+	mmc3.LowA12 = 0
 }
 
 func (mmc3 *MMC3) Fetch(address uint16) (value uint8) {
@@ -381,9 +381,9 @@ func (mmc3 *MMC3) scanlineCounter(address uint16) {
 
 	switch a12 {
 	case 0x0000:
-		mmc3.lowA12++
+		mmc3.LowA12++
 	case 0x1000:
-		if mmc3.lowA12 == 1 {
+		if mmc3.LowA12 == 1 {
 			if mmc3.Registers.IRQCounter == 0x00 || mmc3.Registers.IRQReload {
 				mmc3.Registers.IRQCounter = mmc3.Registers.IRQLatch
 			} else {
@@ -397,7 +397,7 @@ func (mmc3 *MMC3) scanlineCounter(address uint16) {
 			mmc3.Registers.IRQReload = false
 		}
 
-		mmc3.lowA12 = 0
+		mmc3.LowA12 = 0
 	}
 }
 

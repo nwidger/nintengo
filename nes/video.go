@@ -322,6 +322,14 @@ func (video *SDLVideo) Run() {
 					if e.Type == sdl.KEYDOWN {
 						event = &ShowSpritesEvent{}
 					}
+				case sdl.K_F1:
+					if e.Type == sdl.KEYDOWN {
+						event = &SaveStateEvent{}
+					}
+				case sdl.K_F5:
+					if e.Type == sdl.KEYDOWN {
+						event = &LoadStateEvent{}
+					}
 				case sdl.K_F8:
 					if e.Type == sdl.KEYDOWN {
 						event = &FastForwardEvent{}

@@ -11,7 +11,7 @@ type CNROMRegisters struct {
 }
 
 type CNROM struct {
-	*ROMFile
+	*ROMFile  `json:"-"`
 	Registers CNROMRegisters
 }
 

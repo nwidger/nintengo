@@ -167,8 +167,8 @@ func (e *ShowBackgroundEvent) String() string {
 }
 
 func (e *ShowBackgroundEvent) Process(nes *NES) {
-	nes.ppu.ShowBackground = !nes.ppu.ShowBackground
-	fmt.Println("*** Toggling show background =", nes.ppu.ShowBackground)
+	nes.PPU.ShowBackground = !nes.PPU.ShowBackground
+	fmt.Println("*** Toggling show background =", nes.PPU.ShowBackground)
 }
 
 type ShowSpritesEvent struct{}
@@ -178,8 +178,8 @@ func (e *ShowSpritesEvent) String() string {
 }
 
 func (e *ShowSpritesEvent) Process(nes *NES) {
-	nes.ppu.ShowSprites = !nes.ppu.ShowSprites
-	fmt.Println("*** Toggling show sprites =", nes.ppu.ShowSprites)
+	nes.PPU.ShowSprites = !nes.PPU.ShowSprites
+	fmt.Println("*** Toggling show sprites =", nes.PPU.ShowSprites)
 }
 
 type CPUDecodeEvent struct{}
@@ -189,7 +189,7 @@ func (e *CPUDecodeEvent) String() string {
 }
 
 func (e *CPUDecodeEvent) Process(nes *NES) {
-	fmt.Println("*** Toggling CPU decode =", nes.cpu.ToggleDecode())
+	fmt.Println("*** Toggling CPU decode =", nes.CPU.ToggleDecode())
 }
 
 type PPUDecodeEvent struct{}
@@ -199,7 +199,49 @@ func (e *PPUDecodeEvent) String() string {
 }
 
 func (e *PPUDecodeEvent) Process(nes *NES) {
-	fmt.Println("*** Toggling PPU decode =", nes.ppu.ToggleDecode())
+	fmt.Println("*** Toggling PPU decode =", nes.PPU.ToggleDecode())
+}
+
+type SaveStateEvent struct{}
+
+func (e *SaveStateEvent) String() string {
+	return "SaveStateEvent"
+}
+
+func (e *SaveStateEvent) Process(nes *NES) {
+	pe := &PauseEvent{}
+	state := nes.state
+
+	if state == Running {
+		pe.Process(nes)
+	}
+
+	nes.SaveState()
+
+	if state == Running {
+		pe.Process(nes)
+	}
+}
+
+type LoadStateEvent struct{}
+
+func (e *LoadStateEvent) String() string {
+	return "LoadStateEvent"
+}
+
+func (e *LoadStateEvent) Process(nes *NES) {
+	pe := &PauseEvent{}
+	state := nes.state
+
+	if state == Running {
+		pe.Process(nes)
+	}
+
+	nes.LoadState()
+
+	if state == Running {
+		pe.Process(nes)
+	}
 }
 
 type FastForwardEvent struct{}
@@ -265,7 +307,7 @@ func (e *SavePatternTablesEvent) String() string {
 
 func (e *SavePatternTablesEvent) Process(nes *NES) {
 	fmt.Println("*** Saving PPU pattern tables")
-	nes.ppu.SavePatternTables()
+	nes.PPU.SavePatternTables()
 }
 
 type MuteEvent struct{}
@@ -275,8 +317,8 @@ func (e *MuteEvent) String() string {
 }
 
 func (e *MuteEvent) Process(nes *NES) {
-	nes.cpu.APU.Muted = !nes.cpu.APU.Muted
-	fmt.Println("*** Toggling mute =", nes.cpu.APU.Muted)
+	nes.CPU.APU.Muted = !nes.CPU.APU.Muted
+	fmt.Println("*** Toggling mute =", nes.CPU.APU.Muted)
 }
 
 type MuteNoiseEvent struct{}
@@ -286,8 +328,8 @@ func (e *MuteNoiseEvent) String() string {
 }
 
 func (e *MuteNoiseEvent) Process(nes *NES) {
-	nes.cpu.APU.Noise.Muted = !nes.cpu.APU.Noise.Muted
-	fmt.Println("*** Toggling mute noise =", nes.cpu.APU.Noise.Muted)
+	nes.CPU.APU.Noise.Muted = !nes.CPU.APU.Noise.Muted
+	fmt.Println("*** Toggling mute noise =", nes.CPU.APU.Noise.Muted)
 }
 
 type MuteTriangleEvent struct{}
@@ -297,8 +339,8 @@ func (e *MuteTriangleEvent) String() string {
 }
 
 func (e *MuteTriangleEvent) Process(nes *NES) {
-	nes.cpu.APU.Triangle.Muted = !nes.cpu.APU.Triangle.Muted
-	fmt.Println("*** Toggling mute triangle =", nes.cpu.APU.Triangle.Muted)
+	nes.CPU.APU.Triangle.Muted = !nes.CPU.APU.Triangle.Muted
+	fmt.Println("*** Toggling mute triangle =", nes.CPU.APU.Triangle.Muted)
 }
 
 type MutePulse1Event struct{}
@@ -308,8 +350,8 @@ func (e *MutePulse1Event) String() string {
 }
 
 func (e *MutePulse1Event) Process(nes *NES) {
-	nes.cpu.APU.Pulse1.Muted = !nes.cpu.APU.Pulse1.Muted
-	fmt.Println("*** Toggling mute pulse1 =", nes.cpu.APU.Pulse1.Muted)
+	nes.CPU.APU.Pulse1.Muted = !nes.CPU.APU.Pulse1.Muted
+	fmt.Println("*** Toggling mute pulse1 =", nes.CPU.APU.Pulse1.Muted)
 }
 
 type MutePulse2Event struct{}
@@ -319,6 +361,6 @@ func (e *MutePulse2Event) String() string {
 }
 
 func (e *MutePulse2Event) Process(nes *NES) {
-	nes.cpu.APU.Pulse2.Muted = !nes.cpu.APU.Pulse2.Muted
-	fmt.Println("*** Toggling mute pulse2 =", nes.cpu.APU.Pulse2.Muted)
+	nes.CPU.APU.Pulse2.Muted = !nes.CPU.APU.Pulse2.Muted
+	fmt.Println("*** Toggling mute pulse2 =", nes.CPU.APU.Pulse2.Muted)
 }

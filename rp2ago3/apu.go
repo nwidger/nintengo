@@ -108,7 +108,7 @@ type Registers struct {
 }
 
 type APU struct {
-	Muted     bool
+	Muted     bool `json:"-"`
 	Registers Registers
 
 	Pulse1       Pulse
@@ -126,7 +126,7 @@ type APU struct {
 	pulseLUT     [31]float64
 	tndLUT       [203]float64
 
-	Interrupt func(state bool)
+	Interrupt func(state bool) `json:"-"`
 }
 
 func NewAPU(targetCycles uint64, interrupt func(bool)) *APU {
@@ -134,7 +134,7 @@ func NewAPU(targetCycles uint64, interrupt func(bool)) *APU {
 		TargetCycles: targetCycles,
 		Interrupt:    interrupt,
 		Pulse1: Pulse{
-			minusOne: true,
+			MinusOne: true,
 			Divider: Divider{
 				PlusOne:  true,
 				TimesTwo: true,
@@ -455,18 +455,18 @@ func (apu *APU) Execute() (sample int16, haveSample bool) {
 }
 
 type Pulse struct {
-	Muted     bool
+	Muted     bool `json:"-"`
 	Enabled   bool
-	minusOne  bool
+	MinusOne  bool
 	Registers [4]uint8
 
 	Envelope         Envelope
 	SweepUnit        SweepUnit
 	Divider          Divider
 	Sequencer        Sequencer
-	SequencerLUT     [8][]uint8
+	SequencerLUT     [8][]uint8 `json:"-"`
 	LengthCounter    uint8
-	LengthCounterLUT [32]uint8
+	LengthCounterLUT [32]uint8 `json:"-"`
 }
 
 func (pulse *Pulse) Reset() {
@@ -587,7 +587,7 @@ func (pulse *Pulse) TargetPeriod() (target int16) {
 	if pulse.registers(SweepNegate) == 1 {
 		delta *= -1
 
-		if pulse.minusOne {
+		if pulse.MinusOne {
 			delta -= 1
 		}
 	}
@@ -646,7 +646,7 @@ func (pulse *Pulse) ClockSweepUnit() {
 }
 
 type Triangle struct {
-	Muted     bool
+	Muted     bool `json:"-"`
 	Enabled   bool
 	Registers [3]uint8
 
@@ -654,7 +654,7 @@ type Triangle struct {
 	LinearCounter    LinearCounter
 	Sequencer        Sequencer
 	LengthCounter    uint8
-	LengthCounterLUT [32]uint8
+	LengthCounterLUT [32]uint8 `json:"-"`
 }
 
 func (triangle *Triangle) Reset() {
@@ -778,7 +778,7 @@ func (triangle *Triangle) ClockSequencer() {
 }
 
 type Noise struct {
-	Muted     bool
+	Muted     bool `json:"-"`
 	Enabled   bool
 	Registers [3]uint8
 
@@ -786,8 +786,8 @@ type Noise struct {
 	Divider          Divider
 	Shift            uint16
 	LengthCounter    uint8
-	LengthCounterLUT [32]uint8
-	PeriodLUT        [16]int16
+	LengthCounterLUT [32]uint8 `json:"-"`
+	PeriodLUT        [16]int16 `json:"-"`
 }
 
 func (noise *Noise) Reset() {

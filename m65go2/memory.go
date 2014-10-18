@@ -15,48 +15,32 @@ type Memory interface {
 
 // Represents the 6502 CPU's memory using a static array of uint8's.
 type BasicMemory struct {
-	m             []uint8
-	disableReads  bool
-	disableWrites bool
+	M             []uint8
+	DisableReads  bool
+	DisableWrites bool
 }
 
 // Returns a pointer to a new BasicMemory with all memory initialized
 // to zero.
 func NewBasicMemory(size uint32) *BasicMemory {
 	return &BasicMemory{
-		m: make([]uint8, size),
+		M: make([]uint8, size),
 	}
-}
-
-func (mem *BasicMemory) DisableReads() {
-	mem.disableReads = true
-}
-
-func (mem *BasicMemory) EnableReads() {
-	mem.disableReads = false
-}
-
-func (mem *BasicMemory) DisableWrites() {
-	mem.disableWrites = true
-}
-
-func (mem *BasicMemory) EnableWrites() {
-	mem.disableWrites = false
 }
 
 // Resets all memory locations to zero
 func (mem *BasicMemory) Reset() {
-	for i := range mem.m {
-		mem.m[i] = 0xff
+	for i := range mem.M {
+		mem.M[i] = 0xff
 	}
 }
 
 // Returns the value stored at the given memory address
 func (mem *BasicMemory) Fetch(address uint16) (value uint8) {
-	if mem.disableReads {
+	if mem.DisableReads {
 		value = 0xff
 	} else {
-		value = mem.m[address]
+		value = mem.M[address]
 	}
 
 	return
@@ -64,9 +48,9 @@ func (mem *BasicMemory) Fetch(address uint16) (value uint8) {
 
 // Stores the value at the given memory address
 func (mem *BasicMemory) Store(address uint16, value uint8) (oldValue uint8) {
-	if !mem.disableWrites {
-		oldValue = mem.m[address]
-		mem.m[address] = value
+	if !mem.DisableWrites {
+		oldValue = mem.M[address]
+		mem.M[address] = value
 	}
 
 	return

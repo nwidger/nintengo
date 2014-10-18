@@ -19,7 +19,7 @@ type MMC2Registers struct {
 }
 
 type MMC2 struct {
-	*ROMFile
+	*ROMFile  `json:"-"`
 	Registers MMC2Registers
 }
 

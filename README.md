@@ -60,6 +60,9 @@ p - Pause/Unpause
 r - Reset
 q - Quit
 
+F1 - save state
+F5 - load state
+
 F8  - 200% FPS (2x fast forward)
 F9  - 100% FPS
 F10 - 75% FPS
@@ -104,7 +107,11 @@ keypad + (plus) - Stop audio recording
 Audio support is currently a work in progress.  All audio channels
 except the DMC channel are working in some capacity.
 
-Battery backed saves is implemented.
+Battery backed saves is implemented and are saved to disk with a
+`.sav` file extension.
+
+Save states are supported and are saved to disk with a `.nst` file
+extension.
 
 ### Mappers
 

@@ -173,35 +173,35 @@ type Sprite struct {
 type RP2C02 struct {
 	decode bool
 
-	frame    uint16
-	scanline uint16
-	cycle    uint16
+	Frame    uint16
+	Scanline uint16
+	Cycle    uint16
 
 	colors    []uint8
 	Registers Registers
 	Memory    *rp2ago3.MappedMemory
 	Nametable *Nametable
-	Interrupt func(state bool)
-	oam       *OAM
+	Interrupt func(state bool) `json:"-"`
+	OAM       *OAM
 
-	latch        bool
-	latchAddress uint16
-	latchValue   uint8
+	Latch        bool
+	LatchAddress uint16
+	LatchValue   uint8
 
-	addressLine    uint16
-	patternAddress uint16
+	AddressLine    uint16
+	PatternAddress uint16
 
-	attributeNext  uint8
-	attributeLatch uint8
-	attributes     uint16
+	AttributeNext  uint8
+	AttributeLatch uint8
+	Attributes     uint16
 
-	tilesLatch uint16
-	tilesLow   uint16
-	tilesHigh  uint16
+	TilesLatch uint16
+	TilesLow   uint16
+	TilesHigh  uint16
 
-	sprites        [8]Sprite
-	ShowBackground bool
-	ShowSprites    bool
+	Sprites        [8]Sprite
+	ShowBackground bool `json:"-"`
+	ShowSprites    bool `json:"-"`
 
 	cycleJumpTable [CYCLES_PER_SCANLINE]func(*RP2C02)
 }
@@ -234,7 +234,7 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 		Memory:         mem,
 		Nametable:      nametable,
 		Interrupt:      interrupt,
-		oam:            NewOAM(),
+		OAM:            NewOAM(),
 		ShowBackground: true,
 		ShowSprites:    true,
 	}
@@ -256,13 +256,13 @@ func (ppu *RP2C02) ToggleDecode() bool {
 }
 
 func (ppu *RP2C02) Reset() {
-	ppu.latch = false
+	ppu.Latch = false
 	ppu.Registers.Reset()
 	ppu.Memory.Reset()
 
-	ppu.frame = 0
-	ppu.cycle = 0
-	ppu.scanline = POWERUP_SCANLINE
+	ppu.Frame = 0
+	ppu.Cycle = 0
+	ppu.Scanline = POWERUP_SCANLINE
 }
 
 func (ppu *RP2C02) controller(flag ControllerFlag) (value uint16) {
@@ -415,15 +415,15 @@ func (ppu *RP2C02) Fetch(address uint16) (value uint8) {
 	switch address {
 	// Mask
 	case 0x2001:
-		value = ppu.latchValue
+		value = ppu.LatchValue
 	// Status
 	case 0x2002:
-		value = (ppu.Registers.Status & 0xe0) | (ppu.latchValue & 0x1f)
+		value = (ppu.Registers.Status & 0xe0) | (ppu.LatchValue & 0x1f)
 		ppu.Registers.Status &^= uint8(VBlankStarted)
-		ppu.latch = false
+		ppu.Latch = false
 	// OAMData
 	case 0x2004:
-		value = ppu.oam.Fetch(uint16(ppu.Registers.OAMAddress))
+		value = ppu.OAM.Fetch(uint16(ppu.Registers.OAMAddress))
 	// Data
 	case 0x2007:
 		value = ppu.Registers.Data
@@ -442,7 +442,7 @@ func (ppu *RP2C02) Fetch(address uint16) (value uint8) {
 }
 
 func (ppu *RP2C02) Store(address uint16, value uint8) (oldValue uint8) {
-	ppu.latchValue = value
+	ppu.LatchValue = value
 
 	switch address {
 	// Controller
@@ -450,7 +450,7 @@ func (ppu *RP2C02) Store(address uint16, value uint8) (oldValue uint8) {
 		// t: ...BA.. ........ = d: ......BA
 		oldValue = ppu.Registers.Controller
 		ppu.Registers.Controller = value
-		ppu.latchAddress = (ppu.latchAddress & 0x73ff) | uint16(value&0x03)<<10
+		ppu.LatchAddress = (ppu.LatchAddress & 0x73ff) | uint16(value&0x03)<<10
 	// Mask
 	case 0x2001:
 		oldValue = ppu.Registers.Mask
@@ -467,36 +467,36 @@ func (ppu *RP2C02) Store(address uint16, value uint8) (oldValue uint8) {
 		ppu.Registers.OAMAddress = value
 	// OAMData
 	case 0x2004:
-		oldValue = ppu.oam.Fetch(uint16(ppu.Registers.OAMAddress))
-		ppu.oam.Store(uint16(ppu.Registers.OAMAddress), value)
+		oldValue = ppu.OAM.Fetch(uint16(ppu.Registers.OAMAddress))
+		ppu.OAM.Store(uint16(ppu.Registers.OAMAddress), value)
 		ppu.Registers.OAMAddress++
 	// Scroll
 	case 0x2005:
-		if !ppu.latch {
+		if !ppu.Latch {
 			// t: ....... ...HGFED = d: HGFED...
 			// x:              CBA = d: .....CBA
-			ppu.latchAddress = (ppu.latchAddress & 0x7fe0) | uint16(value>>3)
+			ppu.LatchAddress = (ppu.LatchAddress & 0x7fe0) | uint16(value>>3)
 			ppu.Registers.Scroll = uint16(value & 0x07)
 		} else {
 			// t: CBA..HG FED..... = d: HGFEDCBA
-			ppu.latchAddress = (ppu.latchAddress & 0x0c1f) | ((uint16(value)<<2 | uint16(value)<<12) & 0x73e0)
+			ppu.LatchAddress = (ppu.LatchAddress & 0x0c1f) | ((uint16(value)<<2 | uint16(value)<<12) & 0x73e0)
 		}
 
-		ppu.latch = !ppu.latch
+		ppu.Latch = !ppu.Latch
 	// Address
 	case 0x2006:
-		if !ppu.latch {
+		if !ppu.Latch {
 			// t: .FEDCBA ........ = d: ..FEDCBA
 			// t: X...... ........ = 0
-			ppu.latchAddress = (ppu.latchAddress & 0x00ff) | (uint16(value&0x3f) << 8)
+			ppu.LatchAddress = (ppu.LatchAddress & 0x00ff) | (uint16(value&0x3f) << 8)
 		} else {
 			// t: ....... HGFEDCBA = d: HGFEDCBA
 			// v                   = t
-			ppu.latchAddress = (ppu.latchAddress & 0x7f00) | uint16(value)
-			ppu.Registers.Address = ppu.latchAddress
+			ppu.LatchAddress = (ppu.LatchAddress & 0x7f00) | uint16(value)
+			ppu.Registers.Address = ppu.LatchAddress
 		}
 
-		ppu.latch = !ppu.latch
+		ppu.Latch = !ppu.Latch
 	// Data
 	case 0x2007:
 		oldValue = ppu.Registers.Data
@@ -509,12 +509,12 @@ func (ppu *RP2C02) Store(address uint16, value uint8) (oldValue uint8) {
 
 func (ppu *RP2C02) transferX() {
 	// v: ....F.. ...EDCBA = t: ....F.. ...EDCBA
-	ppu.Registers.Address = (ppu.Registers.Address & 0x7be0) | (ppu.latchAddress & 0x041f)
+	ppu.Registers.Address = (ppu.Registers.Address & 0x7be0) | (ppu.LatchAddress & 0x041f)
 }
 
 func (ppu *RP2C02) transferY() {
 	// v: IHGF.ED CBA..... = t: IHGF.ED CBA.....
-	ppu.Registers.Address = (ppu.Registers.Address & 0x041f) | (ppu.latchAddress & 0x7be0)
+	ppu.Registers.Address = (ppu.Registers.Address & 0x041f) | (ppu.LatchAddress & 0x7be0)
 }
 
 func (ppu *RP2C02) incrementX() {
@@ -562,10 +562,10 @@ func (ppu *RP2C02) incrementY() {
 }
 
 func (ppu *RP2C02) incrementAddress() {
-	if (ppu.scanline > 239 && ppu.scanline != 261) || !ppu.rendering() {
+	if (ppu.Scanline > 239 && ppu.Scanline != 261) || !ppu.rendering() {
 		ppu.Registers.Address =
 			(ppu.Registers.Address + ppu.controller(VRAMAddressIncrement)) & 0x7fff
-	} else { // (ppu.scanline <= 239 || ppu.scanline == 261) && ppu.rendering()
+	} else { // (ppu.Scanline <= 239 || ppu.Scanline == 261) && ppu.rendering()
 		if ppu.controller(VRAMAddressIncrement) == 32 {
 			ppu.incrementY()
 		} else {
@@ -575,22 +575,22 @@ func (ppu *RP2C02) incrementAddress() {
 }
 
 func (ppu *RP2C02) reloadBackgroundTiles() {
-	// switch ppu.cycle {
+	// switch ppu.Cycle {
 	// case 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121, 129, 137, 145, 153,
 	// 	161, 169, 177, 185, 193, 201, 209, 217, 225, 233, 241, 249, 257, 329, 337:
-	switch ppu.cycle & 0x07 {
+	switch ppu.Cycle & 0x07 {
 	case 0x01:
-		ppu.tilesLow = (ppu.tilesLow & 0xff00) | (ppu.tilesLatch & 0x00ff)
-		ppu.tilesHigh = (ppu.tilesHigh & 0xff00) | ((ppu.tilesLatch >> 8) & 0x00ff)
-		ppu.attributeLatch = ppu.attributeNext
+		ppu.TilesLow = (ppu.TilesLow & 0xff00) | (ppu.TilesLatch & 0x00ff)
+		ppu.TilesHigh = (ppu.TilesHigh & 0xff00) | ((ppu.TilesLatch >> 8) & 0x00ff)
+		ppu.AttributeLatch = ppu.AttributeNext
 	}
 }
 
 func (ppu *RP2C02) shiftBackgroundTiles() {
-	if (ppu.cycle >= 2 && ppu.cycle <= 257) || (ppu.cycle >= 322 && ppu.cycle <= 337) {
-		ppu.tilesLow <<= 1
-		ppu.tilesHigh <<= 1
-		ppu.attributes = (ppu.attributes << 2) | uint16(ppu.attributeLatch)
+	if (ppu.Cycle >= 2 && ppu.Cycle <= 257) || (ppu.Cycle >= 322 && ppu.Cycle <= 337) {
+		ppu.TilesLow <<= 1
+		ppu.TilesHigh <<= 1
+		ppu.Attributes = (ppu.Attributes << 2) | uint16(ppu.AttributeLatch)
 	}
 }
 
@@ -605,13 +605,13 @@ func (ppu *RP2C02) fetchSprites() {
 	// 303 = 1'0010'1111
 	// 311 = 1'0011'0111
 	// 319 = 1'0011'1111
-	// switch ppu.cycle {
+	// switch ppu.Cycle {
 	// case 263, 271, 279, 287, 295, 303, 311, 319:
-	if (ppu.cycle & 0x01c7) == 0x0107 {
-		index := uint8((ppu.cycle >> 3) & 0x07)
-		sprite := ppu.oam.Sprite(index)
+	if (ppu.Cycle & 0x01c7) == 0x0107 {
+		index := uint8((ppu.Cycle >> 3) & 0x07)
+		sprite := ppu.OAM.Sprite(index)
 
-		s = &ppu.sprites[index]
+		s = &ppu.Sprites[index]
 
 		s.Sprite = sprite
 		s.XPosition = ppu.sprite(sprite, XPosition)
@@ -687,7 +687,7 @@ func (ppu *RP2C02) fetchAttribute(address uint16) uint8 {
 }
 
 func (ppu *RP2C02) spriteAddress(sprite uint32) (address uint16) {
-	comparitor := (ppu.scanline - uint16(ppu.sprite(sprite, YPosition)))
+	comparitor := (ppu.Scanline - uint16(ppu.sprite(sprite, YPosition)))
 
 	if ppu.sprite(sprite, FlipVertically) != 0 {
 		comparitor ^= 0x000f
@@ -746,10 +746,10 @@ func (ppu *RP2C02) priorityMultiplexer(bgAddress, spriteAddress uint16, spritePr
 }
 
 func (ppu *RP2C02) renderBackground() (bgAddress, bgIndex uint16) {
-	if ppu.mask(ShowBackground) && (ppu.mask(ShowBackgroundLeft) || ppu.cycle > 8) {
+	if ppu.mask(ShowBackground) && (ppu.mask(ShowBackgroundLeft) || ppu.Cycle > 8) {
 		scroll := 15 - ppu.Registers.Scroll
-		bgIndex = (((ppu.tilesHigh >> scroll) & 0x0001) << 1) | ((ppu.tilesLow >> scroll) & 0x0001)
-		bgAttribute := uint16((ppu.attributes>>(14-(ppu.Registers.Scroll<<1)))&0x0003) << 2
+		bgIndex = (((ppu.TilesHigh >> scroll) & 0x0001) << 1) | ((ppu.TilesLow >> scroll) & 0x0001)
+		bgAttribute := uint16((ppu.Attributes>>(14-(ppu.Registers.Scroll<<1)))&0x0003) << 2
 		bgAddress = uint16(0x3f00 | bgAttribute | bgIndex)
 	}
 
@@ -759,12 +759,12 @@ func (ppu *RP2C02) renderBackground() (bgAddress, bgIndex uint16) {
 func (ppu *RP2C02) renderSprites() (spriteAddress, spriteIndex uint16, spritePriority uint8, spriteUnit int) {
 	var s *Sprite
 
-	showSprites := ppu.mask(ShowSprites) && (ppu.mask(ShowSpritesLeft) || ppu.cycle > 8)
+	showSprites := ppu.mask(ShowSprites) && (ppu.mask(ShowSpritesLeft) || ppu.Cycle > 8)
 
 	for i := 0; i < 8; i++ {
-		s = &ppu.sprites[i]
+		s = &ppu.Sprites[i]
 
-		if s.XPosition != 0xff && (ppu.cycle-1) >= uint16(s.XPosition) && (ppu.cycle-1) <= (uint16(s.XPosition)+7) {
+		if s.XPosition != 0xff && (ppu.Cycle-1) >= uint16(s.XPosition) && (ppu.Cycle-1) <= (uint16(s.XPosition)+7) {
 			high := s.TileHigh & 0x80
 			low := s.TileLow & 0x80
 
@@ -788,45 +788,45 @@ func (ppu *RP2C02) renderSprites() (spriteAddress, spriteIndex uint16, spritePri
 }
 
 func openNTByte(ppu *RP2C02) {
-	ppu.addressLine = ppu.openName(ppu.Registers.Address)
+	ppu.AddressLine = ppu.openName(ppu.Registers.Address)
 }
 
 func fetchNTByte(ppu *RP2C02) {
-	ppu.patternAddress = ppu.fetchName(ppu.addressLine)
+	ppu.PatternAddress = ppu.fetchName(ppu.AddressLine)
 }
 
 func openATByte(ppu *RP2C02) {
-	ppu.addressLine = ppu.openAttribute(ppu.Registers.Address)
+	ppu.AddressLine = ppu.openAttribute(ppu.Registers.Address)
 }
 
 func fetchATByte(ppu *RP2C02) {
-	ppu.attributeNext = ppu.fetchAttribute(ppu.addressLine)
+	ppu.AttributeNext = ppu.fetchAttribute(ppu.AddressLine)
 }
 
 func openLowBGTileByte(ppu *RP2C02) {
 	// Fetch color bit 0 for next 8 dots
-	ppu.addressLine = ppu.patternAddress
+	ppu.AddressLine = ppu.PatternAddress
 }
 
 func fetchLowBGTileByte(ppu *RP2C02) {
 	// Fetch color bit 0 for next 8 dots
-	ppu.tilesLatch = (ppu.tilesLatch & 0xff00) | uint16(ppu.Memory.Fetch(ppu.addressLine))
+	ppu.TilesLatch = (ppu.TilesLatch & 0xff00) | uint16(ppu.Memory.Fetch(ppu.AddressLine))
 }
 
 func openHighBGTileByte(ppu *RP2C02) {
 	// Fetch color bit 1 for next 8 dots
-	ppu.addressLine = ppu.patternAddress | 0x0008
+	ppu.AddressLine = ppu.PatternAddress | 0x0008
 }
 
 func fetchHighBGTileByte(ppu *RP2C02) {
 	// Fetch color bit 1 for next 8 dots
-	ppu.tilesLatch = (ppu.tilesLatch & 0x00ff) | uint16(ppu.Memory.Fetch(ppu.addressLine))<<8
+	ppu.TilesLatch = (ppu.TilesLatch & 0x00ff) | uint16(ppu.Memory.Fetch(ppu.AddressLine))<<8
 
 	// inc hori(v)
 	ppu.incrementX()
 
 	// inc vert(v)
-	if ppu.cycle == 256 {
+	if ppu.Cycle == 256 {
 		ppu.incrementY()
 	}
 }
@@ -836,7 +836,7 @@ func setHoriV(ppu *RP2C02) {
 }
 
 func setVertV(ppu *RP2C02) {
-	if ppu.scanline == 261 {
+	if ppu.Scanline == 261 {
 		ppu.transferY()
 	}
 }
@@ -901,11 +901,11 @@ func (ppu *RP2C02) initCycleJumpTable() {
 func (ppu *RP2C02) renderVisibleScanline() {
 	ppu.reloadBackgroundTiles()
 
-	if f := ppu.cycleJumpTable[ppu.cycle]; f != nil {
+	if f := ppu.cycleJumpTable[ppu.Cycle]; f != nil {
 		f(ppu)
 	}
 
-	if ppu.cycle >= 1 && ppu.cycle <= 256 {
+	if ppu.Cycle >= 1 && ppu.Cycle <= 256 {
 		address := uint16(0)
 
 		bgAddress, bgIndex := ppu.renderBackground()
@@ -913,19 +913,19 @@ func (ppu *RP2C02) renderVisibleScanline() {
 
 		address = ppu.priorityMultiplexer(bgAddress, spriteAddress, spritePriority)
 
-		if spriteUnit == 0 && ppu.oam.SpriteZeroInBuffer && bgIndex != 0 && spriteIndex != 0 &&
-			(ppu.cycle > 8 || (ppu.mask(ShowBackgroundLeft) && ppu.mask(ShowSpritesLeft))) &&
-			ppu.cycle < 255 && (ppu.mask(ShowBackground) && ppu.mask(ShowSprites)) {
+		if spriteUnit == 0 && ppu.OAM.SpriteZeroInBuffer && bgIndex != 0 && spriteIndex != 0 &&
+			(ppu.Cycle > 8 || (ppu.mask(ShowBackgroundLeft) && ppu.mask(ShowSpritesLeft))) &&
+			ppu.Cycle < 255 && (ppu.mask(ShowBackground) && ppu.mask(ShowSprites)) {
 			ppu.Registers.Status |= uint8(Sprite0Hit)
 		}
 
 		color := ppu.Memory.Fetch(address) & 0x3f
 
-		if ppu.scanline >= 0 && ppu.scanline <= 239 {
-			ppu.colors[(ppu.scanline<<8)+(ppu.cycle-1)] = color
+		if ppu.Scanline >= 0 && ppu.Scanline <= 239 {
+			ppu.colors[(ppu.Scanline<<8)+(ppu.Cycle-1)] = color
 		}
 
-		if ppu.oam.SpriteEvaluation(ppu.scanline, ppu.cycle, ppu.controller(SpriteSize)) {
+		if ppu.OAM.SpriteEvaluation(ppu.Scanline, ppu.Cycle, ppu.controller(SpriteSize)) {
 			ppu.Registers.Status |= uint8(SpriteOverflow)
 		}
 	}
@@ -939,22 +939,22 @@ func (ppu *RP2C02) renderVisibleScanline() {
 func (ppu *RP2C02) Execute() (colors []uint8) {
 	switch {
 	// visible scanlines (0-239), pre-render scanline (261)
-	case (ppu.scanline >= 0 && ppu.scanline <= 239) || ppu.scanline == 261:
-		if ppu.cycle == 1 && ppu.scanline == 261 {
+	case (ppu.Scanline >= 0 && ppu.Scanline <= 239) || ppu.Scanline == 261:
+		if ppu.Cycle == 1 && ppu.Scanline == 261 {
 			ppu.Registers.Status &^= uint8(VBlankStarted | Sprite0Hit | SpriteOverflow)
 		}
 
 		if ppu.rendering() {
 			ppu.renderVisibleScanline()
 
-			if (ppu.frame&0x01) == 0x01 && ppu.scanline == 261 && ppu.cycle == 339 {
-				ppu.cycle++
+			if (ppu.Frame&0x01) == 0x01 && ppu.Scanline == 261 && ppu.Cycle == 339 {
+				ppu.Cycle++
 			}
 		}
 
 	// post-render scanline (240), vertical blanking scanlines (241-260)
 	default:
-		if ppu.scanline == 241 && ppu.cycle == 1 {
+		if ppu.Scanline == 241 && ppu.Cycle == 1 {
 			ppu.Registers.Status |= uint8(VBlankStarted)
 
 			if ppu.status(VBlankStarted) &&
@@ -965,16 +965,16 @@ func (ppu *RP2C02) Execute() (colors []uint8) {
 		}
 	}
 
-	if ppu.cycle++; ppu.cycle == CYCLES_PER_SCANLINE {
-		ppu.cycle = 0
+	if ppu.Cycle++; ppu.Cycle == CYCLES_PER_SCANLINE {
+		ppu.Cycle = 0
 
-		if ppu.scanline++; ppu.scanline == NUM_SCANLINES {
+		if ppu.Scanline++; ppu.Scanline == NUM_SCANLINES {
 			if ppu.rendering() {
 				colors = ppu.colors
 			}
 
-			ppu.scanline = 0
-			ppu.frame++
+			ppu.Scanline = 0
+			ppu.Frame++
 		}
 	}
 

@@ -11,7 +11,7 @@ type UNROMRegisters struct {
 }
 
 type UNROM struct {
-	*ROMFile
+	*ROMFile  `json:"-"`
 	Registers UNROMRegisters
 }
 
