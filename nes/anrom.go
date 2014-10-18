@@ -11,7 +11,7 @@ type ANROMRegisters struct {
 }
 
 type ANROM struct {
-	*ROMFile
+	*ROMFile  `json:"-"`
 	Registers ANROMRegisters
 }
 

@@ -1,6 +1,7 @@
 package nes
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"log"
@@ -8,6 +9,10 @@ import (
 
 	"os"
 	"runtime/pprof"
+
+	"encoding/json"
+
+	"archive/zip"
 
 	"github.com/nwidger/nintengo/m65go2"
 	"github.com/nwidger/nintengo/rp2ago3"
@@ -26,11 +31,11 @@ type NES struct {
 	state         RunState
 	paused        chan bool
 	events        chan Event
-	cpu           *rp2ago3.RP2A03
+	CPU           *rp2ago3.RP2A03
 	cpuDivisor    float32
-	ppu           *rp2cgo2.RP2C02
+	PPU           *rp2cgo2.RP2C02
 	controllers   *Controllers
-	rom           ROM
+	ROM           ROM
 	audio         Audio
 	video         Video
 	fps           *FPS
@@ -132,10 +137,10 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	nes = &NES{
 		paused:        make(chan bool),
 		events:        events,
-		cpu:           cpu,
+		CPU:           cpu,
 		cpuDivisor:    cpuDivisor,
-		ppu:           ppu,
-		rom:           rom,
+		PPU:           ppu,
+		ROM:           rom,
 		audio:         audio,
 		video:         video,
 		fps:           NewFPS(DEFAULT_FPS),
@@ -149,9 +154,100 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 }
 
 func (nes *NES) Reset() {
-	nes.cpu.Reset()
-	nes.ppu.Reset()
+	nes.CPU.Reset()
+	nes.PPU.Reset()
 	nes.controllers.Reset()
+}
+
+func (nes *NES) SaveState() {
+	name := nes.ROM.GameName() + ".nst"
+
+	fo, err := os.Create(name)
+	defer fo.Close()
+
+	if err != nil {
+		fmt.Printf("*** Error saving state: %s\n", err)
+		return
+	}
+
+	w := bufio.NewWriter(fo)
+	defer w.Flush()
+
+	zw := zip.NewWriter(w)
+	defer zw.Close()
+
+	vfw, err := zw.Create("meta.json")
+
+	if err != nil {
+		fmt.Printf("*** Error saving state: %s\n", err)
+		return
+	}
+
+	enc := json.NewEncoder(vfw)
+
+	if err = enc.Encode(struct{ Version string }{"0.1"}); err != nil {
+		fmt.Printf("*** Error saving state: %s\n", err)
+		return
+	}
+
+	zfw, err := zw.Create("state.json")
+
+	if err != nil {
+		fmt.Printf("*** Error saving state: %s\n", err)
+		return
+	}
+
+	enc = json.NewEncoder(zfw)
+
+	if err = enc.Encode(nes); err != nil {
+		fmt.Printf("*** Error saving state: %s\n", err)
+		return
+	}
+
+	fmt.Println("*** Saving state to", name)
+}
+
+func (nes *NES) LoadState() {
+	name := nes.ROM.GameName() + ".nst"
+
+	zr, err := zip.OpenReader(name)
+	defer zr.Close()
+
+	if err != nil {
+		fmt.Printf("*** Error loading state: %s\n", err)
+		return
+	}
+
+	loaded := false
+
+	for _, zf := range zr.File {
+		if zf.Name != "state.json" {
+			continue
+		}
+
+		zfr, err := zf.Open()
+		defer zfr.Close()
+
+		if err != nil {
+			fmt.Printf("*** Error loading state: %s\n", err)
+			return
+		}
+
+		dec := json.NewDecoder(zfr)
+
+		if err = dec.Decode(nes); err != nil {
+			fmt.Printf("*** Error loading state: %s\n", err)
+			return
+		}
+
+		loaded = true
+	}
+
+	if !loaded {
+		fmt.Printf("*** Error loading state: invalid save state file\n")
+	}
+
+	fmt.Println("*** Loading state from", name)
 }
 
 func (nes *NES) processEvents() {
@@ -173,19 +269,19 @@ func (nes *NES) runProcessors() (err error) {
 				<-nes.paused
 			}
 		default:
-			if cycles, err = nes.cpu.Execute(); err != nil {
+			if cycles, err = nes.CPU.Execute(); err != nil {
 				break
 			}
 
 			for quota += float32(cycles) * nes.cpuDivisor; quota >= 1.0; quota-- {
-				if colors := nes.ppu.Execute(); colors != nil {
+				if colors := nes.PPU.Execute(); colors != nil {
 					nes.frame(colors)
 					nes.fps.Delay()
 				}
 			}
 
 			for i := uint16(0); i < cycles; i++ {
-				if sample, haveSample := nes.cpu.APU.Execute(); haveSample {
+				if sample, haveSample := nes.CPU.APU.Execute(); haveSample {
 					nes.sample(sample)
 				}
 			}
@@ -208,9 +304,9 @@ func (nes *NES) sample(sample int16) {
 }
 
 func (nes *NES) Run() (err error) {
-	fmt.Println(nes.rom)
+	fmt.Println(nes.ROM)
 
-	nes.rom.LoadBattery()
+	nes.ROM.LoadBattery()
 	nes.Reset()
 
 	nes.state = Running
@@ -262,7 +358,7 @@ func (nes *NES) Run() (err error) {
 		f.Close()
 	}
 
-	err = nes.rom.SaveBattery()
+	err = nes.ROM.SaveBattery()
 
 	return
 }

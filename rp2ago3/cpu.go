@@ -8,7 +8,7 @@ const PAL_CPU_CLOCK_DIVISOR float32 = 3.2
 type RP2A03 struct {
 	*m65go2.M6502
 	*APU
-	dma    *DMA
+	DMA    *DMA
 	Memory *MappedMemory
 }
 
@@ -44,7 +44,7 @@ func NewRP2A03(apuFrequency int) *RP2A03 {
 		Memory: mem,
 		M6502:  cpu,
 		APU:    apu,
-		dma:    dma,
+		DMA:    dma,
 	}
 }
 
@@ -59,7 +59,7 @@ func (cpu *RP2A03) Execute() (cycles uint16, err error) {
 		return
 	}
 
-	cycles += cpu.dma.PerformDMA()
+	cycles += cpu.DMA.PerformDMA()
 
 	return
 }

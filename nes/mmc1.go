@@ -46,7 +46,7 @@ type MMC1Registers struct {
 }
 
 type MMC1 struct {
-	*ROMFile
+	*ROMFile  `json:"-"`
 	Registers MMC1Registers
 }
 
