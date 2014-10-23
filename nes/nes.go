@@ -87,7 +87,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	ctrls := NewControllers()
 
 	events := make(chan Event)
-	video, err = NewSDLVideo(events)
+	video, err = NewSDLVideo(rom.GameName(), events)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error creating video: %v", err))
@@ -135,7 +135,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	ppu.Memory.AddTracer(rom)
 
 	nes = &NES{
-		paused:        make(chan bool),
+		paused:        make(chan bool, 2),
 		events:        events,
 		CPU:           cpu,
 		cpuDivisor:    cpuDivisor,
@@ -190,6 +190,13 @@ func (nes *NES) SaveState() {
 		return
 	}
 
+	buf, err := json.MarshalIndent(nes, "", "  ")
+
+	if err = enc.Encode(nes); err != nil {
+		fmt.Printf("*** Error saving state: %s\n", err)
+		return
+	}
+
 	zfw, err := zw.Create("state.json")
 
 	if err != nil {
@@ -197,9 +204,7 @@ func (nes *NES) SaveState() {
 		return
 	}
 
-	enc = json.NewEncoder(zfw)
-
-	if err = enc.Encode(nes); err != nil {
+	if _, err = zfw.Write(buf); err != nil {
 		fmt.Printf("*** Error saving state: %s\n", err)
 		return
 	}
@@ -245,6 +250,7 @@ func (nes *NES) LoadState() {
 
 	if !loaded {
 		fmt.Printf("*** Error loading state: invalid save state file\n")
+		return
 	}
 
 	fmt.Println("*** Loading state from", name)

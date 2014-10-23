@@ -50,7 +50,7 @@ type SDLVideo struct {
 	overscan      bool
 }
 
-func NewSDLVideo(events chan Event) (video *SDLVideo, err error) {
+func NewSDLVideo(caption string, events chan Event) (video *SDLVideo, err error) {
 	video = &SDLVideo{
 		input:    make(chan []uint8),
 		events:   events,
@@ -75,7 +75,7 @@ func NewSDLVideo(events chan Event) (video *SDLVideo, err error) {
 		return
 	}
 
-	sdl.WM_SetCaption("nintengo", "")
+	sdl.WM_SetCaption("nintengo - "+caption, "")
 
 	video.initGL()
 	video.Reshape(int(video.screen.W), int(video.screen.H))
