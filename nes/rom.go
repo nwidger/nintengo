@@ -297,10 +297,6 @@ func (romf *ROMFile) Tables() (t0, t1, t2, t3 int) {
 	return
 }
 
-func (romf *ROMFile) RefreshTables() bool {
-	return false
-}
-
 func (romf *ROMFile) String() string {
 	return fmt.Sprintf("PRG Banks: %v\n", romf.prgBanks) +
 		fmt.Sprintf("CHR Banks: %v\n", romf.chrBanks) +

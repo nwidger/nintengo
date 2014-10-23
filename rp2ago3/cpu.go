@@ -51,6 +51,7 @@ func NewRP2A03(apuFrequency int) *RP2A03 {
 func (cpu *RP2A03) Reset() {
 	cpu.M6502.Reset()
 	cpu.APU.Reset()
+	cpu.DMA.Reset()
 	cpu.Memory.Reset()
 }
 

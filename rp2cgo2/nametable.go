@@ -3,9 +3,8 @@ package rp2cgo2
 import "github.com/nwidger/nintengo/rp2ago3"
 
 type Nametable struct {
-	Tables [4]*[0x0400]uint8
-	Table0 [0x0400]uint8
-	Table1 [0x0400]uint8
+	Tables [4]int
+	Memory [2][0x0400]uint8
 }
 
 func NewNametable() *Nametable {
@@ -33,20 +32,18 @@ func (nametable *Nametable) SetTables(t0, t1, t2, t3 int) {
 	for i, t := range []int{t0, t1, t2, t3} {
 		switch t & 0x01 {
 		case 0:
-			nametable.Tables[i] = &nametable.Table0
+			nametable.Tables[i] = 0
 		case 1:
-			nametable.Tables[i] = &nametable.Table1
+			nametable.Tables[i] = 1
 		}
 	}
 }
 
 func (nametable *Nametable) Reset() {
-	for i := range nametable.Table0 {
-		nametable.Table0[i] = 0xff
-	}
-
-	for i := range nametable.Table1 {
-		nametable.Table1[i] = 0xff
+	for i := range nametable.Memory {
+		for j := range nametable.Memory[i] {
+			nametable.Memory[i][j] = 0xff
+		}
 	}
 
 	nametable.SetTables(0, 0, 1, 1)
@@ -58,7 +55,8 @@ func (nametable *Nametable) Fetch(address uint16) (value uint8) {
 	case address >= 0x2000 && address <= 0x2fff:
 		table := (address >> 10) & 0x0003
 		index := address & 0x03ff
-		value = nametable.Tables[table][index]
+		i := nametable.Tables[table]
+		value = nametable.Memory[i][index]
 	}
 
 	return
@@ -71,8 +69,9 @@ func (nametable *Nametable) Store(address uint16, value uint8) (oldValue uint8) 
 		table := (address >> 10) & 0x0003
 		index := address & 0x03ff
 
-		oldValue = nametable.Tables[table][index]
-		nametable.Tables[table][index] = value
+		oldValue = nametable.Memory[nametable.Tables[table]][index]
+		i := nametable.Tables[table]
+		nametable.Memory[i][index] = value
 	}
 
 	return
