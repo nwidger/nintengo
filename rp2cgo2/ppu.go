@@ -454,13 +454,7 @@ func (ppu *RP2C02) Store(address uint16, value uint8) (oldValue uint8) {
 	// Mask
 	case 0x2001:
 		oldValue = ppu.Registers.Mask
-		old := ppu.rendering()
 		ppu.Registers.Mask = value
-		new := ppu.rendering()
-
-		if new != old && ppu.decode {
-			fmt.Printf("*** $2001 (mask) rendering switch from %v to %v: %08b -> %08b\n", old, new, oldValue, value)
-		}
 	// OAMAddress
 	case 0x2003:
 		oldValue = ppu.Registers.OAMAddress

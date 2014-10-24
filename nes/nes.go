@@ -34,6 +34,7 @@ type NES struct {
 	CPU           *rp2ago3.RP2A03
 	cpuDivisor    float32
 	PPU           *rp2cgo2.RP2C02
+	PPUQuota      float32
 	controllers   *Controllers
 	ROM           ROM
 	audio         Audio
@@ -156,6 +157,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 func (nes *NES) Reset() {
 	nes.CPU.Reset()
 	nes.PPU.Reset()
+	nes.PPUQuota = float32(0)
 	nes.controllers.Reset()
 }
 
@@ -266,8 +268,6 @@ func (nes *NES) processEvents() {
 func (nes *NES) runProcessors() (err error) {
 	var cycles uint16
 
-	quota := float32(0)
-
 	for nes.state != Quitting {
 		select {
 		case paused := <-nes.paused:
@@ -279,7 +279,7 @@ func (nes *NES) runProcessors() (err error) {
 				break
 			}
 
-			for quota += float32(cycles) * nes.cpuDivisor; quota >= 1.0; quota-- {
+			for nes.PPUQuota += float32(cycles) * nes.cpuDivisor; nes.PPUQuota >= 1.0; nes.PPUQuota-- {
 				if colors := nes.PPU.Execute(); colors != nil {
 					nes.frame(colors)
 					nes.fps.Delay()
