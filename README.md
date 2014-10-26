@@ -43,6 +43,7 @@ FILE can be a .nes file or a .nes file inside a .zip archive
   -audio-recorder="": recorder to use: none | wav
   -cpu-decode=false: decode CPU instructions
   -cpu-profile="": write CPU profile to file
+  -http="": HTTP service address (e.g., ':6060')
   -mem-profile="": write memory profile to file
   -recorder="": recorder to use: none | jpeg | gif
 ```

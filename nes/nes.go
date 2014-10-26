@@ -51,6 +51,7 @@ type Options struct {
 	CPUDecode     bool
 	CPUProfile    string
 	MemProfile    string
+	HTTPAddress   string
 }
 
 func NewNES(filename string, options *Options) (nes *NES, err error) {

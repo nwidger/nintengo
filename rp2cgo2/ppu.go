@@ -975,7 +975,7 @@ func (ppu *RP2C02) Execute() (colors []uint8) {
 	return
 }
 
-func (ppu *RP2C02) SavePatternTables() (left, right *image.RGBA) {
+func (ppu *RP2C02) GetPatternTables() (left, right *image.RGBA) {
 	left = image.NewRGBA(image.Rect(0, 0, 128, 128))
 	right = image.NewRGBA(image.Rect(0, 0, 128, 128))
 
@@ -1015,6 +1015,12 @@ func (ppu *RP2C02) SavePatternTables() (left, right *image.RGBA) {
 			y_base = (y_base + 8) % 128
 		}
 	}
+
+	return
+}
+
+func (ppu *RP2C02) SavePatternTables() (left, right *image.RGBA) {
+	left, right = ppu.GetPatternTables()
 
 	fo, _ := os.Create(fmt.Sprintf("left.jpg"))
 	w := bufio.NewWriter(fo)
