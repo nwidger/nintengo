@@ -276,6 +276,10 @@ func (video *SDLVideo) Run() {
 					if e.Type == sdl.KEYDOWN {
 						event = &PauseEvent{}
 					}
+				case sdl.K_n:
+					if e.Type == sdl.KEYDOWN {
+						event = &FrameStepEvent{}
+					}
 				case sdl.K_q:
 					if e.Type == sdl.KEYDOWN {
 						running = false

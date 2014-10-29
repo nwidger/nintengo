@@ -19,6 +19,15 @@ import (
 	"github.com/nwidger/nintengo/rp2cgo2"
 )
 
+type StepState uint8
+
+const (
+	NoStep StepState = 1 << iota
+	CycleStep
+	ScanlineStep
+	FrameStep
+)
+
 type RunState uint8
 
 const (
@@ -29,6 +38,7 @@ const (
 
 type NES struct {
 	state         RunState
+	frameStep     StepState
 	paused        chan bool
 	events        chan Event
 	CPU           *rp2ago3.RP2A03
@@ -137,6 +147,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	ppu.Memory.AddTracer(rom)
 
 	nes = &NES{
+		frameStep:     NoStep,
 		paused:        make(chan bool, 2),
 		events:        events,
 		CPU:           cpu,
@@ -276,20 +287,39 @@ func (nes *NES) runProcessors() (err error) {
 				<-nes.paused
 			}
 		default:
-			if cycles, err = nes.CPU.Execute(); err != nil {
-				break
+			if nes.PPUQuota < 1.0 {
+				if cycles, err = nes.CPU.Execute(); err != nil {
+					break
+				}
+
+				nes.PPUQuota += float32(cycles) * nes.cpuDivisor
 			}
 
-			for nes.PPUQuota += float32(cycles) * nes.cpuDivisor; nes.PPUQuota >= 1.0; nes.PPUQuota-- {
+			if nes.PPUQuota >= 1.0 {
+				scanline := nes.PPU.Scanline
+
 				if colors := nes.PPU.Execute(); colors != nil {
 					nes.frame(colors)
 					nes.fps.Delay()
+
+					if nes.frameStep == FrameStep {
+						nes.paused <- true
+					}
+				}
+
+				nes.PPUQuota--
+
+				if nes.frameStep == CycleStep ||
+					(nes.frameStep == ScanlineStep && nes.PPU.Scanline != scanline) {
+					nes.paused <- true
 				}
 			}
 
-			for i := uint16(0); i < cycles; i++ {
-				if sample, haveSample := nes.CPU.APU.Execute(); haveSample {
-					nes.sample(sample)
+			if nes.PPUQuota < 1.0 {
+				for i := uint16(0); i < cycles; i++ {
+					if sample, haveSample := nes.CPU.APU.Execute(); haveSample {
+						nes.sample(sample)
+					}
 				}
 			}
 		}

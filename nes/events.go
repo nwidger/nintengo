@@ -88,6 +88,29 @@ func (e *PauseEvent) Process(nes *NES) {
 	}
 }
 
+type FrameStepEvent struct{}
+
+func (e *FrameStepEvent) String() string {
+	return "FrameStepEvent"
+}
+
+func (e *FrameStepEvent) Process(nes *NES) {
+	switch nes.frameStep {
+	case NoStep:
+		fmt.Println("*** Press pause to step by cycle")
+		nes.frameStep = CycleStep
+	case CycleStep:
+		fmt.Println("*** Press pause to step by scanline")
+		nes.frameStep = ScanlineStep
+	case ScanlineStep:
+		fmt.Println("*** Press pause to step by frame")
+		nes.frameStep = FrameStep
+	case FrameStep:
+		fmt.Println("*** Stepping disabled, press pause to continue")
+		nes.frameStep = NoStep
+	}
+}
+
 type ResetEvent struct{}
 
 func (e *ResetEvent) String() string {
