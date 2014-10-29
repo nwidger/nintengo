@@ -58,6 +58,7 @@ Right Shift - Select
 Arrow keys - Up/Down/Left/Right
 
 p - Pause/Unpause
+n - Toggle stepping by cycle/scanline/frame with p
 r - Reset
 q - Quit
 

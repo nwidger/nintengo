@@ -17,11 +17,13 @@ import (
 )
 
 type Page struct {
-	NES       *nes.NES
-	PTLeft    string
-	PTRight   string
-	CPUMemory string
-	PPUMemory string
+	NES             *nes.NES
+	PTLeft          string
+	PTRight         string
+	CPUMemory       string
+	PPUMemory       string
+	OAMMemory       string
+	OAMBufferMemory string
 }
 
 type NEServer struct {
@@ -47,7 +49,7 @@ func (neserv *NEServer) Run() (err error) {
 		cpuMemory := make([]byte, m65go2.DEFAULT_MEMORY_SIZE)
 
 		for i := uint32(0); i < m65go2.DEFAULT_MEMORY_SIZE; i++ {
-			cpuMemory[i] = neserv.NES.CPU.Memory.Fetch(uint16(i))
+			cpuMemory[i] = neserv.NES.CPU.Memory.Memory.Fetch(uint16(i))
 		}
 
 		page.CPUMemory = hex.Dump(cpuMemory)
@@ -55,10 +57,26 @@ func (neserv *NEServer) Run() (err error) {
 		ppuMemory := make([]byte, m65go2.DEFAULT_MEMORY_SIZE)
 
 		for i := uint32(0); i < m65go2.DEFAULT_MEMORY_SIZE; i++ {
-			ppuMemory[i] = neserv.NES.PPU.Memory.Fetch(uint16(i))
+			ppuMemory[i] = neserv.NES.PPU.Memory.Memory.Fetch(uint16(i))
 		}
 
 		page.PPUMemory = hex.Dump(ppuMemory)
+
+		oamMemory := make([]byte, 256)
+
+		for i := uint32(0); i < 256; i++ {
+			oamMemory[i] = neserv.NES.PPU.OAM.BasicMemory.Fetch(uint16(i))
+		}
+
+		page.OAMMemory = hex.Dump(oamMemory)
+
+		oamBufferMemory := make([]byte, 32)
+
+		for i := uint32(0); i < 32; i++ {
+			oamBufferMemory[i] = neserv.NES.PPU.OAM.Buffer.Fetch(uint16(i))
+		}
+
+		page.OAMBufferMemory = hex.Dump(oamBufferMemory)
 
 		left, right := neserv.NES.PPU.GetPatternTables()
 

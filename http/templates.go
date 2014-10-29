@@ -94,6 +94,12 @@ var index = `
 	  <h4>PPU Memory</h4>
 	  <pre style='font-size: 11px' class='pre-scrollable'>{{.PPUMemory}}</pre>
 
+	  <h4>OAM Memory</h4>
+	  <pre style='font-size: 11px' class='pre-scrollable'>{{.OAMMemory}}</pre>
+
+	  <h4>OAM Buffer Memory</h4>
+	  <pre style='font-size: 11px' class='pre-scrollable'>{{.OAMBufferMemory}}</pre>
+
 	</div>
 	<div class='col-md-6'>
 
@@ -135,6 +141,17 @@ var index = `
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <!-- Latest compiled and minified JavaScript -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+
+    <script>
+     $('code').click(function() {
+       if ((match = $(this).text().match(/^\$(.*)$/)) != null) {
+	 $(this).attr('orig-value', $(this).text());
+	 $(this).text(parseInt(match[1], 16).toString(2).replace(/(....)/g, '$1 '));
+       } else if ($(this).is('[orig-value]')) {
+	 $(this).text($(this).attr('orig-value'));
+       }
+     });
+    </script>
   </body>
 </html>
 `
