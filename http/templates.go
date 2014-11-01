@@ -179,8 +179,14 @@ var index = `
      $('#run-state').load('/run-state');
      $('#run-state').show();
 
-     $('#step-state').load('/step-state');
      $('#step-state').show();
+     $('#step-state').load('/step-state', function() {
+       if ($('#step-state').text() == "NoStep") {
+	 $('#pause-link').text('Pause');
+       } else {
+	 $('#pause-link').text('Step');
+       }
+     });
 
      $('#toggle-stepping-link').click(function(e) {
        e.preventDefault();
