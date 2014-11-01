@@ -13,15 +13,46 @@ var index = `
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
 
     <!-- Optional theme -->
-    <!-- <link href="//maxcdn.bootstrapcdn.com/bootswatch/3.2.0/darkly/bootstrap.min.css" rel="stylesheet"> -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css">
+    <link href="//maxcdn.bootstrapcdn.com/bootswatch/3.2.0/darkly/bootstrap.min.css" rel="stylesheet">
+    <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css"> -->
+
+    <style>
+     body { padding-top: 70px; }
+    </style>
   </head>
   <body>
     <div class='container'>
       <div class='row'>
-	<div class="page-header">
-	  <h1>nintengo <small>{{.NES.ROM.GameName}}</small></h1>
-	</div>
+	<nav class="navbar navbar-default navbar-fixed-top" role="navigation">
+	  <div class="container-fluid">
+	    <!-- Brand and toggle get grouped for better mobile display -->
+	    <div class="navbar-header">
+	      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+		<span class="sr-only">Toggle navigation</span>
+		<span class="icon-bar"></span>
+		<span class="icon-bar"></span>
+		<span class="icon-bar"></span>
+	      </button>
+	      <a class="navbar-brand" href="#">nintengo</a>
+	    </div>
+
+	    <!-- Collect the nav links, forms, and other content for toggling -->
+	    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+	      <ul class="nav navbar-nav">
+	  	<li class='active'><a href='#'>{{.NES.ROM.GameName}}</a></li>
+	  	<li><a href='#' id='pause-link'>Pause</a></li>
+		<li><a href='#' id='toggle-stepping-link'>Toggle Stepping</a></li>
+		<li><a href='#' id='save-state-link'>Save State</a></li>
+		<li><a href='#' id='load-state-link'>Load State</a></li>
+		<li><a href='#' id='reset-link'>Reset</a></li>
+	      </ul>
+	      <ul class="nav navbar-nav navbar-right">
+		<li><a href='#' id='run-state'></a></li>
+		<li><a href='#' id='step-state'></a></li>
+	      </ul>
+	    </div><!-- /.navbar-collapse -->
+	  </div><!-- /.container-fluid -->
+	</nav>
 
 	<div class='col-md-6'>
 	  <table class='table table-striped'>
@@ -135,6 +166,8 @@ var index = `
 	</div>
 
       </div>
+
+      <div id='load-result' style='display: none'></div>
     </div>
 
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
@@ -143,6 +176,47 @@ var index = `
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
 
     <script>
+     $('#run-state').load('/run-state');
+     $('#run-state').show();
+
+     $('#step-state').load('/step-state');
+     $('#step-state').show();
+
+     $('#toggle-stepping-link').click(function(e) {
+       e.preventDefault();
+       $('#step-state').load('/toggle-step-state', function() {
+	 if ($('#step-state').text() == "NoStep") {
+	   $('#pause-link').text('Pause');
+	 } else {
+	   $('#pause-link').text('Step');
+	 }
+       });
+     });
+
+     $('#pause-link').click(function(e) {
+       e.preventDefault();
+       $('#run-state').load('/pause');
+
+       if ($('#step-state').text() != "NoStep") {
+	 location.reload();
+       }
+     });
+
+     $('#save-state-link').click(function(e) {
+       e.preventDefault();
+       $('#load-result').load('/save-state');
+     });
+
+     $('#load-state-link').click(function(e) {
+       e.preventDefault();
+       $('#load-result').load('/load-state');
+     });
+
+     $('#reset-link').click(function(e) {
+       e.preventDefault();
+       $('#load-result').load('/reset');
+     });
+
      $('code').click(function() {
        if ((match = $(this).text().match(/^\$(.*)$/)) != null) {
 	 $(this).attr('orig-value', $(this).text());

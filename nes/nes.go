@@ -28,6 +28,21 @@ const (
 	FrameStep
 )
 
+func (s StepState) String() string {
+	switch s {
+	case NoStep:
+		return "NoStep"
+	case CycleStep:
+		return "CycleStep"
+	case ScanlineStep:
+		return "ScanlineStep"
+	case FrameStep:
+		return "FrameStep"
+	default:
+		return "Unknown"
+	}
+}
+
 type RunState uint8
 
 const (
@@ -35,6 +50,19 @@ const (
 	Paused
 	Quitting
 )
+
+func (s RunState) String() string {
+	switch s {
+	case Running:
+		return "Running"
+	case Paused:
+		return "Paused"
+	case Quitting:
+		return "Quitting"
+	default:
+		return "Unknown"
+	}
+}
 
 type NES struct {
 	state         RunState
@@ -171,6 +199,21 @@ func (nes *NES) Reset() {
 	nes.PPU.Reset()
 	nes.PPUQuota = float32(0)
 	nes.controllers.Reset()
+}
+
+func (nes *NES) RunState() RunState {
+	return nes.state
+}
+
+func (nes *NES) StepState() StepState {
+	return nes.frameStep
+}
+
+func (nes *NES) Pause() RunState {
+	e := &PauseEvent{}
+	e.Process(nes)
+
+	return nes.state
 }
 
 func (nes *NES) SaveState() {

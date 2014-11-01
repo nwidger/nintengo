@@ -41,6 +41,36 @@ func NewNEServer(nes *nes.NES, addr string) *NEServer {
 func (neserv *NEServer) Run() (err error) {
 	var t *template.Template
 
+	http.HandleFunc("/reset", func(w http.ResponseWriter, req *http.Request) {
+		neserv.NES.Reset()
+	})
+
+	http.HandleFunc("/pause", func(w http.ResponseWriter, req *http.Request) {
+		w.Write([]byte(neserv.NES.Pause().String()))
+	})
+
+	http.HandleFunc("/run-state", func(w http.ResponseWriter, req *http.Request) {
+		w.Write([]byte(neserv.NES.RunState().String()))
+	})
+
+	http.HandleFunc("/step-state", func(w http.ResponseWriter, req *http.Request) {
+		w.Write([]byte(neserv.NES.StepState().String()))
+	})
+
+	http.HandleFunc("/toggle-step-state", func(w http.ResponseWriter, req *http.Request) {
+		e := &nes.FrameStepEvent{}
+		e.Process(neserv.NES)
+		w.Write([]byte(neserv.NES.StepState().String()))
+	})
+
+	http.HandleFunc("/load-state", func(w http.ResponseWriter, req *http.Request) {
+		neserv.NES.LoadState()
+	})
+
+	http.HandleFunc("/save-state", func(w http.ResponseWriter, req *http.Request) {
+		neserv.NES.SaveState()
+	})
+
 	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		page := Page{
 			NES: neserv.NES,
