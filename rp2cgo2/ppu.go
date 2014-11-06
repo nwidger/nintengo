@@ -182,6 +182,7 @@ type RP2C02 struct {
 	colors    []uint8
 	Registers Registers
 	Memory    *rp2ago3.MappedMemory
+	Palette   [32]uint8
 	Nametable *Nametable
 	Interrupt func(state bool) `json:"-"`
 	OAM       *OAM
@@ -244,6 +245,8 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 	}
 
 	ppu.initCycleJumpTable()
+
+	mem.AddMappings(ppu, rp2ago3.PPU)
 
 	return ppu
 }
@@ -386,6 +389,11 @@ func (ppu *RP2C02) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 	store = []uint16{}
 
 	switch which {
+	case rp2ago3.PPU:
+		for i := uint16(0x3f00); i <= 0x3f1f; i++ {
+			fetch = append(fetch, i)
+			store = append(store, i)
+		}
 	case rp2ago3.CPU:
 		for i := uint16(0x2000); i <= 0x2007; i++ {
 			switch i {
@@ -440,6 +448,11 @@ func (ppu *RP2C02) Fetch(address uint16) (value uint8) {
 		}
 
 		ppu.incrementAddress()
+	}
+
+	if (address & 0x3f00) == 0x3f00 {
+		index := address - 0x3f00
+		value = ppu.Palette[index]
 	}
 
 	return
@@ -500,6 +513,12 @@ func (ppu *RP2C02) Store(address uint16, value uint8) (oldValue uint8) {
 		oldValue = ppu.Registers.Data
 		ppu.Memory.Store(ppu.Registers.Address&0x3fff, value)
 		ppu.incrementAddress()
+	}
+
+	if (address & 0x3f00) == 0x3f00 {
+		index := address - 0x3f00
+		oldValue = ppu.Palette[index]
+		ppu.Palette[index] = value
 	}
 
 	return
@@ -950,7 +969,8 @@ func (ppu *RP2C02) renderVisibleScanline() {
 			ppu.Registers.Status |= uint8(Sprite0Hit)
 		}
 
-		color := ppu.Memory.Fetch(address) & 0x3f
+		index := address - 0x3f00
+		color := ppu.Palette[index] & 0x3f
 
 		if ppu.Scanline >= 0 && ppu.Scanline <= 239 {
 			ppu.colors[(ppu.Scanline<<8)+(ppu.Cycle-1)] = color
