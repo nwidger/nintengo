@@ -168,6 +168,8 @@ type Sprite struct {
 
 	Address  uint16
 	Priority uint8
+
+	Pixels [8]uint16
 }
 
 type RP2C02 struct {
@@ -198,6 +200,8 @@ type RP2C02 struct {
 	TilesLatch uint16
 	TilesLow   uint16
 	TilesHigh  uint16
+
+	Pixels [16]uint16
 
 	Sprites        [8]Sprite
 	ShowBackground bool `json:"-"`
@@ -577,6 +581,26 @@ func (ppu *RP2C02) reloadBackgroundTiles() {
 		ppu.TilesLow = (ppu.TilesLow & 0xff00) | (ppu.TilesLatch & 0x00ff)
 		ppu.TilesHigh = (ppu.TilesHigh & 0xff00) | ((ppu.TilesLatch >> 8) & 0x00ff)
 		ppu.AttributeLatch = ppu.AttributeNext
+
+		tilesLow := ppu.TilesLow
+		tilesHigh := ppu.TilesHigh
+
+		for i := 0; i < 16; i++ {
+			var bgAttribute uint16
+
+			bgIndex := ((tilesHigh & 0x8000) >> 14) | ((tilesLow & 0x8000) >> 15)
+
+			if i >= 8 {
+				bgAttribute = uint16(ppu.AttributeLatch) << 2
+			} else {
+				bgAttribute = uint16((ppu.Attributes>>(14-uint(i*2)))&0x0003) << 2
+			}
+
+			ppu.Pixels[i] = uint16(0x3f00 | bgAttribute | bgIndex)
+
+			tilesLow <<= 1
+			tilesHigh <<= 1
+		}
 	}
 }
 
@@ -633,6 +657,27 @@ func (ppu *RP2C02) fetchSprites() {
 
 		s.Address = uint16(0x3f10 | attribute)
 		s.Priority = ppu.sprite(s.Sprite, Priority)
+
+		tileLow := s.TileLow
+		tileHigh := s.TileHigh
+
+		for i := 0; i < 8; i++ {
+			s.Pixels[i] = s.Address
+
+			high := tileHigh & 0x80
+			low := tileLow & 0x80
+
+			if (high | low) != 0x00 {
+				index := uint16((high >> 6) | (low >> 7))
+
+				if index != 0 {
+					s.Pixels[i] |= index
+				}
+			}
+
+			tileLow <<= 1
+			tileHigh <<= 1
+		}
 	}
 }
 
@@ -741,10 +786,9 @@ func (ppu *RP2C02) priorityMultiplexer(bgAddress, spriteAddress uint16, spritePr
 
 func (ppu *RP2C02) renderBackground() (bgAddress, bgIndex uint16) {
 	if ppu.mask(ShowBackground) && (ppu.mask(ShowBackgroundLeft) || ppu.Cycle > 8) {
-		scroll := 15 - ppu.Registers.Scroll
-		bgIndex = (((ppu.TilesHigh >> scroll) & 0x0001) << 1) | ((ppu.TilesLow >> scroll) & 0x0001)
-		bgAttribute := uint16((ppu.Attributes>>(14-(ppu.Registers.Scroll<<1)))&0x0003) << 2
-		bgAddress = uint16(0x3f00 | bgAttribute | bgIndex)
+		scroll := ppu.Registers.Scroll
+		bgAddress = ppu.Pixels[((ppu.Cycle-1)%8)+scroll]
+		bgIndex = bgAddress & 0x0003
 	}
 
 	return
@@ -759,22 +803,15 @@ func (ppu *RP2C02) renderSprites() (spriteAddress, spriteIndex uint16, spritePri
 		s = &ppu.Sprites[i]
 
 		if s.XPosition != 0xff && (ppu.Cycle-1) >= uint16(s.XPosition) && (ppu.Cycle-1) <= (uint16(s.XPosition)+7) {
-			high := s.TileHigh & 0x80
-			low := s.TileLow & 0x80
+			a := s.Pixels[(ppu.Cycle-1)-uint16(s.XPosition)]
+			index := a & 0x0003
 
-			if (high|low) != 0x00 && spriteIndex == 0x0000 && showSprites {
-				index := uint16((high >> 6) | (low >> 7))
-
-				if index != 0 {
-					spriteIndex = index
-					spriteAddress = s.Address | index
-					spritePriority = s.Priority
-					spriteUnit = i
-				}
+			if index != 0x0000 && spriteIndex == 0x0000 && showSprites {
+				spriteIndex = index
+				spriteAddress = a
+				spritePriority = s.Priority
+				spriteUnit = i
 			}
-
-			s.TileLow <<= 1
-			s.TileHigh <<= 1
 		}
 	}
 
