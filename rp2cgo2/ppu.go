@@ -596,7 +596,7 @@ func (ppu *RP2C02) incrementAddress() {
 	}
 }
 
-func (ppu *RP2C02) reloadBackgroundTiles() {
+func (ppu *RP2C02) fetchBackground() {
 	// switch ppu.Cycle {
 	// case 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121, 129, 137, 145, 153,
 	// 	161, 169, 177, 185, 193, 201, 209, 217, 225, 233, 241, 249, 257, 329, 337:
@@ -617,7 +617,8 @@ func (ppu *RP2C02) reloadBackgroundTiles() {
 			if i >= 8 {
 				bgAttribute = uint16(ppu.AttributeLatch) << 2
 			} else {
-				bgAttribute = uint16((ppu.Attributes>>(14-uint(i*2)))&0x0003) << 2
+				bgAttribute = uint16(ppu.Attributes) << 2
+
 			}
 
 			ppu.TileData[i].Pixel = ppu.Palette[bgAttribute|bgIndex]
@@ -626,14 +627,11 @@ func (ppu *RP2C02) reloadBackgroundTiles() {
 			tilesLow <<= 1
 			tilesHigh <<= 1
 		}
-	}
-}
 
-func (ppu *RP2C02) shiftBackgroundTiles() {
-	if (ppu.Cycle >= 2 && ppu.Cycle <= 257) || (ppu.Cycle >= 322 && ppu.Cycle <= 337) {
-		ppu.TilesLow <<= 1
-		ppu.TilesHigh <<= 1
-		ppu.Attributes = (ppu.Attributes << 2) | uint16(ppu.AttributeLatch)
+		ppu.TilesLow <<= 8
+		ppu.TilesHigh <<= 8
+
+		ppu.Attributes = uint16(ppu.AttributeLatch)
 	}
 }
 
@@ -803,8 +801,7 @@ func (ppu *RP2C02) priorityMultiplexer(bgPixel, bgIndex, spritePixel, spriteInde
 
 func (ppu *RP2C02) renderBackground() (bgPixel, bgIndex uint8) {
 	if ppu.mask(ShowBackground) && (ppu.mask(ShowBackgroundLeft) || ppu.Cycle > 8) {
-		scroll := ppu.Registers.Scroll
-		td := &ppu.TileData[((ppu.Cycle-1)%8)+scroll]
+		td := &ppu.TileData[((ppu.Cycle-1)%8)+ppu.Registers.Scroll]
 
 		bgPixel = td.Pixel
 		bgIndex = td.Index
@@ -816,23 +813,22 @@ func (ppu *RP2C02) renderBackground() (bgPixel, bgIndex uint8) {
 func (ppu *RP2C02) renderSprites() (spritePixel, spriteIndex, spritePriority uint8, spriteUnit int) {
 	var s *Sprite
 
-	showSprites := ppu.mask(ShowSprites) && (ppu.mask(ShowSpritesLeft) || ppu.Cycle > 8)
+	if ppu.mask(ShowSprites) && (ppu.mask(ShowSpritesLeft) || ppu.Cycle > 8) {
+		for i := 0; i < 8; i++ {
+			s = &ppu.Sprites[i]
 
-	for i := 0; i < 8; i++ {
-		s = &ppu.Sprites[i]
+			if s.XPosition != 0xff && (ppu.Cycle-1) >= uint16(s.XPosition) && (ppu.Cycle-1) <= (uint16(s.XPosition)+7) {
+				td := &s.TileData[(ppu.Cycle-1)-uint16(s.XPosition)]
 
-		if s.XPosition != 0xff && (ppu.Cycle-1) >= uint16(s.XPosition) && (ppu.Cycle-1) <= (uint16(s.XPosition)+7) {
-			td := &s.TileData[(ppu.Cycle-1)-uint16(s.XPosition)]
+				index := td.Index
 
-			pixel := td.Pixel
-			index := td.Index
-
-			if index != 0x00 && showSprites {
-				spriteIndex = index
-				spritePixel = pixel
-				spritePriority = s.Priority
-				spriteUnit = i
-				break
+				if index != 0x00 {
+					spriteIndex = index
+					spritePixel = td.Pixel
+					spritePriority = s.Priority
+					spriteUnit = i
+					break
+				}
 			}
 		}
 	}
@@ -952,7 +948,7 @@ func (ppu *RP2C02) initCycleJumpTable() {
 }
 
 func (ppu *RP2C02) renderVisibleScanline() {
-	ppu.reloadBackgroundTiles()
+	ppu.fetchBackground()
 
 	if f := ppu.cycleJumpTable[ppu.Cycle]; f != nil {
 		f(ppu)
@@ -979,7 +975,6 @@ func (ppu *RP2C02) renderVisibleScanline() {
 		}
 	}
 
-	ppu.shiftBackgroundTiles()
 	ppu.fetchSprites()
 
 	return

@@ -79,7 +79,6 @@ func (e *PauseEvent) Process(nes *NES) {
 	case Running:
 		nes.audio.TogglePaused()
 		nes.state = Paused
-		nes.paused <- true
 	case Paused:
 		nes.audio.TogglePaused()
 		nes.state = Running
