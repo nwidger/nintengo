@@ -324,48 +324,46 @@ func (nes *NES) runProcessors() (err error) {
 	var cycles uint16
 
 	for nes.state != Quitting {
-		select {
-		case paused := <-nes.paused:
-			if paused {
-				<-nes.paused
-			}
-		default:
-			if nes.PPUQuota < 1.0 {
-				if cycles, err = nes.CPU.Execute(); err != nil {
-					break
-				}
-
-				nes.PPUQuota += float32(cycles) * nes.cpuDivisor
+		if nes.PPUQuota < 1.0 {
+			if cycles, err = nes.CPU.Execute(); err != nil {
+				break
 			}
 
-			if nes.PPUQuota >= 1.0 {
-				scanline := nes.PPU.Scanline
+			nes.PPUQuota += float32(cycles) * nes.cpuDivisor
+		}
 
-				if colors := nes.PPU.Execute(); colors != nil {
-					nes.frame(colors)
-					nes.fps.Delay()
+		if nes.PPUQuota >= 1.0 {
+			scanline := nes.PPU.Scanline
 
-					if nes.frameStep == FrameStep {
-						nes.paused <- true
-					}
-				}
+			if colors := nes.PPU.Execute(); colors != nil {
+				nes.frame(colors)
+				nes.fps.Delay()
 
-				nes.PPUQuota--
-
-				if nes.frameStep == CycleStep ||
-					(nes.frameStep == ScanlineStep && nes.PPU.Scanline != scanline) {
-					nes.paused <- true
+				if nes.frameStep == FrameStep {
+					nes.state = Paused
 				}
 			}
 
-			if nes.PPUQuota < 1.0 {
-				for i := uint16(0); i < cycles; i++ {
-					if sample, haveSample := nes.CPU.APU.Execute(); haveSample {
-						nes.sample(sample)
-					}
+			nes.PPUQuota--
+
+			if nes.frameStep == CycleStep ||
+				(nes.frameStep == ScanlineStep && nes.PPU.Scanline != scanline) {
+				nes.state = Paused
+			}
+		}
+
+		if nes.PPUQuota < 1.0 {
+			for i := uint16(0); i < cycles; i++ {
+				if sample, haveSample := nes.CPU.APU.Execute(); haveSample {
+					nes.sample(sample)
 				}
 			}
 		}
+
+		if nes.state == Paused {
+			<-nes.paused
+		}
+
 	}
 
 	return
