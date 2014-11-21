@@ -203,9 +203,10 @@ type RP2C02 struct {
 	AttributeLatch uint8
 	Attributes     uint16
 
-	TilesLatch uint16
-	TilesLow   uint16
-	TilesHigh  uint16
+	TilesLow       uint8
+	TilesHigh      uint8
+	TilesLatchLow  uint8
+	TilesLatchHigh uint8
 
 	TileData [16]TileData
 
@@ -602,34 +603,39 @@ func (ppu *RP2C02) fetchBackground() {
 	// 	161, 169, 177, 185, 193, 201, 209, 217, 225, 233, 241, 249, 257, 329, 337:
 	switch ppu.Cycle & 0x07 {
 	case 0x01:
-		ppu.TilesLow = (ppu.TilesLow & 0xff00) | (ppu.TilesLatch & 0x00ff)
-		ppu.TilesHigh = (ppu.TilesHigh & 0xff00) | ((ppu.TilesLatch >> 8) & 0x00ff)
-		ppu.AttributeLatch = ppu.AttributeNext
-
-		tilesLow := ppu.TilesLow
-		tilesHigh := ppu.TilesHigh
+		ppu.AttributeLatch = ppu.AttributeNext << 2
+		bgAttribute := uint16(ppu.Attributes)
 
 		for i := 0; i < 16; i++ {
-			var bgAttribute uint16
+			var bgIndex uint16
 
-			bgIndex := ((tilesHigh & 0x8000) >> 14) | ((tilesLow & 0x8000) >> 15)
-
-			if i >= 8 {
-				bgAttribute = uint16(ppu.AttributeLatch) << 2
-			} else {
-				bgAttribute = uint16(ppu.Attributes) << 2
-
+			if i == 8 {
+				bgAttribute = uint16(ppu.AttributeLatch)
+				ppu.TilesLow = ppu.TilesLatchLow
+				ppu.TilesHigh = ppu.TilesLatchHigh
 			}
 
-			ppu.TileData[i].Pixel = ppu.Palette[bgAttribute|bgIndex]
-			ppu.TileData[i].Index = uint8(bgIndex)
+			bgIndex = 0
 
-			tilesLow <<= 1
-			tilesHigh <<= 1
+			if (ppu.TilesHigh & 0x80) != 0 {
+				bgIndex |= 2
+			}
+
+			if (ppu.TilesLow & 0x80) != 0 {
+				bgIndex |= 1
+			}
+
+			td := &ppu.TileData[i]
+
+			td.Pixel = ppu.Palette[bgAttribute|bgIndex]
+			td.Index = uint8(bgIndex)
+
+			ppu.TilesLow <<= 1
+			ppu.TilesHigh <<= 1
 		}
 
-		ppu.TilesLow <<= 8
-		ppu.TilesHigh <<= 8
+		ppu.TilesLow = ppu.TilesLatchLow
+		ppu.TilesHigh = ppu.TilesLatchHigh
 
 		ppu.Attributes = uint16(ppu.AttributeLatch)
 	}
@@ -859,7 +865,7 @@ func openLowBGTileByte(ppu *RP2C02) {
 
 func fetchLowBGTileByte(ppu *RP2C02) {
 	// Fetch color bit 0 for next 8 dots
-	ppu.TilesLatch = (ppu.TilesLatch & 0xff00) | uint16(ppu.Memory.Fetch(ppu.AddressLine))
+	ppu.TilesLatchLow = ppu.Memory.Fetch(ppu.AddressLine)
 }
 
 func openHighBGTileByte(ppu *RP2C02) {
@@ -869,7 +875,7 @@ func openHighBGTileByte(ppu *RP2C02) {
 
 func fetchHighBGTileByte(ppu *RP2C02) {
 	// Fetch color bit 1 for next 8 dots
-	ppu.TilesLatch = (ppu.TilesLatch & 0x00ff) | uint16(ppu.Memory.Fetch(ppu.AddressLine))<<8
+	ppu.TilesLatchHigh = ppu.Memory.Fetch(ppu.AddressLine)
 
 	// inc hori(v)
 	ppu.incrementX()
