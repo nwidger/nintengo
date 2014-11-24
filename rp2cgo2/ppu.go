@@ -804,7 +804,7 @@ func (ppu *RP2C02) priorityMultiplexer(bgPixel, bgIndex, spritePixel, spriteInde
 
 func (ppu *RP2C02) renderBackground() (bgPixel, bgIndex uint8) {
 	if ppu.mask(ShowBackground) && (ppu.mask(ShowBackgroundLeft) || ppu.Cycle > 8) {
-		td := &ppu.TileData[((ppu.Cycle-1)%8)+ppu.Registers.Scroll]
+		td := &ppu.TileData[((ppu.Cycle-1)&0x0007)+ppu.Registers.Scroll]
 
 		bgPixel = td.Pixel
 		bgIndex = td.Index

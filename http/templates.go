@@ -106,9 +106,10 @@ var index = `
 	      <tr><td><kbd>AttributeLatch</kbd></td> <td><code>{{printf "$%02x" .NES.PPU.AttributeLatch}}</code></td></tr>
 	      <tr><td><kbd>Attributes</kbd></td>     <td><code>{{printf "$%04x" .NES.PPU.Attributes}}</code></td></tr>
 
-	      <tr><td><kbd>TilesLatch</kbd></td> <td><code>{{printf "$%04x" .NES.PPU.TilesLatch}}</code></td></tr>
-	      <tr><td><kbd>TilesLow</kbd></td>   <td><code>{{printf "$%04x" .NES.PPU.TilesLow}}</code></td></tr>
-	      <tr><td><kbd>TilesHigh</kbd></td>  <td><code>{{printf "$%04x" .NES.PPU.TilesHigh}}</code></td></tr>
+	      <tr><td><kbd>TilesLow</kbd></td>       <td><code>{{printf "$%02x" .NES.PPU.TilesLow}}</code></td></tr>
+	      <tr><td><kbd>TilesHigh</kbd></td>      <td><code>{{printf "$%02x" .NES.PPU.TilesHigh}}</code></td></tr>
+	      <tr><td><kbd>TilesLatchLow</kbd></td>  <td><code>{{printf "$%02x" .NES.PPU.TilesLatchLow}}</code></td></tr>
+	      <tr><td><kbd>TilesLatchHigh</kbd></td> <td><code>{{printf "$%02x" .NES.PPU.TilesLatchHigh}}</code></td></tr>
 
 	    <thead><tr><td><strong>OAM Variable</strong></td><td><strong>Value</strong></td></tr></thead>
 	    <tbody>
