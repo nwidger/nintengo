@@ -641,6 +641,13 @@ func (ppu *RP2C02) fetchBackground() {
 	}
 }
 
+func reverseSprite(x uint8) uint8 {
+	x = (x&0x55)<<1 | (x&0xaa)>>1
+	x = (x&0x33)<<2 | (x&0xcc)>>2
+	x = (x&0x0f)<<4 | (x&0xf0)>>4
+	return x
+}
+
 func (ppu *RP2C02) fetchSprites() {
 	var s *Sprite
 
@@ -663,23 +670,13 @@ func (ppu *RP2C02) fetchSprites() {
 		s.Sprite = sprite
 		s.XPosition = ppu.sprite(sprite, XPosition)
 
-		s.TileLow = 0x00
-		s.TileHigh = 0x00
-
 		address := ppu.spriteAddress(sprite)
 		s.TileLow = ppu.Memory.Fetch(address)
 		s.TileHigh = ppu.Memory.Fetch(address | 0x0008)
 
 		if ppu.sprite(sprite, FlipHorizontally) != 0 {
-			reverse := func(x uint8) uint8 {
-				x = (x&0x55)<<1 | (x&0xaa)>>1
-				x = (x&0x33)<<2 | (x&0xcc)>>2
-				x = (x&0x0f)<<4 | (x&0xf0)>>4
-				return x
-			}
-
-			s.TileLow = reverse(s.TileLow)
-			s.TileHigh = reverse(s.TileHigh)
+			s.TileLow = reverseSprite(s.TileLow)
+			s.TileHigh = reverseSprite(s.TileHigh)
 		}
 
 		attribute := uint16(ppu.sprite(s.Sprite, SpritePalette)) << 2
@@ -819,13 +816,16 @@ func (ppu *RP2C02) renderBackground() (bgPixel, bgIndex uint8) {
 func (ppu *RP2C02) renderSprites() (spritePixel, spriteIndex, spritePriority uint8, spriteUnit int) {
 	var s *Sprite
 
+	x := uint16(0)
+	c := ppu.Cycle - 1
+
 	if ppu.mask(ShowSprites) && (ppu.mask(ShowSpritesLeft) || ppu.Cycle > 8) {
 		for i := 0; i < 8; i++ {
 			s = &ppu.Sprites[i]
+			x = c - uint16(s.XPosition)
 
-			if s.XPosition != 0xff && (ppu.Cycle-1) >= uint16(s.XPosition) && (ppu.Cycle-1) <= (uint16(s.XPosition)+7) {
-				td := &s.TileData[(ppu.Cycle-1)-uint16(s.XPosition)]
-
+			if x <= 7 {
+				td := &s.TileData[x]
 				index := td.Index
 
 				if index != 0x00 {
