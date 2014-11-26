@@ -15,6 +15,10 @@ An NES emulator written in Go
 
 ![Punch-Out!](http://i.imgur.com/UbIroEM.gif "Punch-Out!")
 
+![Super Mario Bros. 3](http://i.imgur.com/bdXDNiY.gif "Super Mario Bros. 3")
+
+![Mega Man 2](http://i.imgur.com/nZTU4i4.gif "Mega Man 2")
+
 ## Build
 
 Requires Go 1.1.
