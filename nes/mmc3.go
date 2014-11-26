@@ -40,7 +40,6 @@ type MMC3Registers struct {
 type MMC3 struct {
 	*ROMFile  `json:"-"`
 	Registers MMC3Registers
-	LowA12    uint64
 }
 
 func (reg *MMC3Registers) Reset() {
@@ -55,13 +54,13 @@ func (reg *MMC3Registers) Reset() {
 	reg.IRQCounter = 0x00
 
 	reg.CHRBank1 = 0x00
-	reg.CHRBank2 = 0x01
-	reg.CHRBank3 = 0x02
-	reg.CHRBank4 = 0x03
-	reg.CHRBank5 = 0x04
-	reg.CHRBank6 = 0x05
+	reg.CHRBank2 = 0x02
+	reg.CHRBank3 = 0x04
+	reg.CHRBank4 = 0x05
+	reg.CHRBank5 = 0x06
+	reg.CHRBank6 = 0x07
 	reg.PRGBankLow = 0x00
-	reg.PRGBankHigh = 0x3e
+	reg.PRGBankHigh = 0x01
 }
 
 func NewMMC3(romf *ROMFile) *MMC3 {
@@ -203,17 +202,8 @@ func (mmc3 *MMC3) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 	return
 }
 
-func (mmc3 *MMC3) NeedTraces() bool {
-	return true
-}
-
-func (mmc3 *MMC3) Trace(which rp2ago3.TraceType, address uint16, value uint8) {
-	mmc3.scanlineCounter(address)
-}
-
 func (mmc3 *MMC3) Reset() {
 	mmc3.Registers.Reset()
-	mmc3.LowA12 = 0
 }
 
 func (mmc3 *MMC3) Fetch(address uint16) (value uint8) {
@@ -252,8 +242,10 @@ func (mmc3 *MMC3) Fetch(address uint16) (value uint8) {
 		}
 	// CPU only
 	case address >= 0x6000 && address <= 0x7fff:
-		index := address & 0x1fff
-		value = mmc3.ROMFile.wramBanks[0][index]
+		if chipEnable, _ := mmc3.prgRAMProtect(); chipEnable {
+			index := address & 0x1fff
+			value = mmc3.ROMFile.wramBanks[0][index]
+		}
 	case address >= 0x8000 && address <= 0xffff:
 		index := address & 0x1fff
 		bank1, bank2, bank3, bank4 := mmc3.prgBanks()
@@ -314,9 +306,9 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 	// CPU only
 	// PRG RAM bank
 	case address >= 0x6000 && address <= 0x7fff:
-		if _, allowWrites := mmc3.prgRAMProtect(); !allowWrites {
+		if _, allowWrites := mmc3.prgRAMProtect(); allowWrites {
 			index := address & 0x1fff
-			value = mmc3.ROMFile.wramBanks[0][index]
+			mmc3.ROMFile.wramBanks[0][index] = value
 		}
 	// Bank select (even) / Bank data (odd)
 	case address >= 0x8000 && address <= 0x9fff:
@@ -376,29 +368,18 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 	return
 }
 
-func (mmc3 *MMC3) scanlineCounter(address uint16) {
-	a12 := address & 0x1000
-
-	switch a12 {
-	case 0x0000:
-		mmc3.LowA12++
-	case 0x1000:
-		if mmc3.LowA12 == 1 {
-			if mmc3.Registers.IRQCounter == 0x00 || mmc3.Registers.IRQReload {
-				mmc3.Registers.IRQCounter = mmc3.Registers.IRQLatch
-			} else {
-				mmc3.Registers.IRQCounter--
-			}
-
-			if mmc3.Registers.IRQCounter == 0x00 && mmc3.Registers.IRQEnable {
-				mmc3.ROMFile.irq(true)
-			}
-
-			mmc3.Registers.IRQReload = false
-		}
-
-		mmc3.LowA12 = 0
+func (mmc3 *MMC3) scanlineCounter() {
+	if mmc3.Registers.IRQCounter == 0x00 || mmc3.Registers.IRQReload {
+		mmc3.Registers.IRQCounter = mmc3.Registers.IRQLatch
+	} else {
+		mmc3.Registers.IRQCounter--
 	}
+
+	if mmc3.Registers.IRQCounter == 0x00 && mmc3.Registers.IRQEnable {
+		mmc3.ROMFile.irq(true)
+	}
+
+	mmc3.Registers.IRQReload = false
 }
 
 func (mmc3 *MMC3) bankSelect(flag MMC3BankSelectFlag) (value uint8) {
@@ -442,16 +423,16 @@ func (mmc3 *MMC3) prgBanks() (bank1, bank2, bank3, bank4 uint16) {
 	// $8000-$9fff swappable,
 	// $c000-$dfff fixed to second-last bank
 	case 0:
-		bank1 = uint16(mmc3.Registers.PRGBankLow)
-		bank2 = uint16(mmc3.Registers.PRGBankHigh)
+		bank1 = uint16(mmc3.Registers.PRGBankLow) & 0x003f
+		bank2 = uint16(mmc3.Registers.PRGBankHigh) & 0x003f
 		bank3 = mmc3.ROMFile.prgBanks - 2
 		bank4 = mmc3.ROMFile.prgBanks - 1
 	// $c000-$dfff swappable,
 	// $8000-$9fff fixed to second-last bank
 	case 1:
 		bank1 = mmc3.ROMFile.prgBanks - 2
-		bank2 = uint16(mmc3.Registers.PRGBankHigh)
-		bank3 = uint16(mmc3.Registers.PRGBankLow)
+		bank2 = uint16(mmc3.Registers.PRGBankHigh) & 0x003f
+		bank3 = uint16(mmc3.Registers.PRGBankLow) & 0x003f
 		bank4 = mmc3.ROMFile.prgBanks - 1
 	}
 

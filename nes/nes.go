@@ -110,7 +110,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 
 	ppu := rp2cgo2.NewRP2C02(cpu.InterruptLine(m65go2.Nmi))
 
-	rom, err := NewROM(filename, cpu.InterruptLine(m65go2.Irq), ppu.SetTablesFunc())
+	rom, err := NewROM(filename, cpu.InterruptLine(m65go2.Irq), ppu.Nametable.SetTables)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error loading ROM: %v", err))
@@ -172,7 +172,6 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	cpu.Memory.AddMappings(ctrls, rp2ago3.CPU)
 
 	ppu.Memory.AddMappings(rom, rp2ago3.PPU)
-	ppu.Memory.AddTracer(rom)
 
 	nes = &NES{
 		frameStep:     NoStep,
@@ -323,6 +322,8 @@ func (nes *NES) processEvents() {
 func (nes *NES) runProcessors() (err error) {
 	var cycles uint16
 
+	mmc3, _ := nes.ROM.(*MMC3)
+
 	for nes.state != Quitting {
 		if nes.PPUQuota < 1.0 {
 			if cycles, err = nes.CPU.Execute(); err != nil {
@@ -342,6 +343,10 @@ func (nes *NES) runProcessors() (err error) {
 				if nes.frameStep == FrameStep {
 					nes.state = Paused
 				}
+			}
+
+			if mmc3 != nil && nes.PPU.TriggerScanlineCounter() {
+				mmc3.scanlineCounter()
 			}
 
 			nes.PPUQuota--
