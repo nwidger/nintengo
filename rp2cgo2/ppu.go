@@ -257,10 +257,18 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 	return ppu
 }
 
-func (ppu *RP2C02) SetTablesFunc() func(t0, t1, t2, t3 int) {
-	return func(t0, t1, t2, t3 int) {
-		ppu.Nametable.SetTables(t0, t1, t2, t3)
+func (ppu *RP2C02) TriggerScanlineCounter() (trigger bool) {
+	if ((ppu.Scanline >= 0 && ppu.Scanline <= 239) || ppu.Scanline == 261) && ppu.rendering() {
+		spriteAddress := ppu.controller(SpritePatternAddress)
+		bgAddress := ppu.controller(BackgroundPatternAddress)
+
+		if (ppu.Cycle == 260 && spriteAddress == 0x1000 && bgAddress == 0x0000) ||
+			(ppu.Cycle == 324 && spriteAddress == 0x0000 && bgAddress == 0x1000) {
+			trigger = true
+		}
 	}
+
+	return
 }
 
 func (ppu *RP2C02) ToggleDecode() bool {

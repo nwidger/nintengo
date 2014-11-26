@@ -61,8 +61,6 @@ type ROM interface {
 	GameName() string
 	LoadBattery()
 	SaveBattery() (err error)
-	NeedTraces() bool
-	Trace(which rp2ago3.TraceType, address uint16, value uint8)
 }
 
 func getBuf(filename string) (buf []byte, suffix string, err error) {
@@ -358,12 +356,4 @@ func (romf *ROMFile) SaveBattery() (err error) {
 	err = ioutil.WriteFile(savename, buf.Bytes(), 0644)
 
 	return
-}
-
-func (romf *ROMFile) NeedTraces() bool {
-	return false
-}
-
-func (romf *ROMFile) Trace(which rp2ago3.TraceType, address uint16, value uint8) {
-
 }
