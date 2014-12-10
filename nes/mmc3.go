@@ -353,7 +353,7 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 		if (address & 0x0001) == 0x0000 { // even
 			mmc3.Registers.IRQLatch = value
 		} else { // odd
-			mmc3.Registers.IRQCounter = 0
+			mmc3.Registers.IRQReload = true
 		}
 	// IRQ enable (odd) / IRQ disable (even)
 	case address >= 0xe000 && address <= 0xffff:
@@ -369,7 +369,10 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 }
 
 func (mmc3 *MMC3) scanlineCounter() {
-	if mmc3.Registers.IRQCounter == 0x00 || mmc3.Registers.IRQReload {
+	if mmc3.Registers.IRQReload {
+		mmc3.Registers.IRQReload = false
+		mmc3.Registers.IRQCounter = mmc3.Registers.IRQLatch
+	} else if mmc3.Registers.IRQCounter == 0x00 {
 		mmc3.Registers.IRQCounter = mmc3.Registers.IRQLatch
 	} else {
 		mmc3.Registers.IRQCounter--
@@ -378,8 +381,6 @@ func (mmc3 *MMC3) scanlineCounter() {
 	if mmc3.Registers.IRQCounter == 0x00 && mmc3.Registers.IRQEnable {
 		mmc3.ROMFile.irq(true)
 	}
-
-	mmc3.Registers.IRQReload = false
 }
 
 func (mmc3 *MMC3) bankSelect(flag MMC3BankSelectFlag) (value uint8) {
