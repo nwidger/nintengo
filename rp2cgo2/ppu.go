@@ -464,7 +464,7 @@ func (ppu *RP2C02) Fetch(address uint16) (value uint8) {
 	}
 
 	if (address & 0x3f00) == 0x3f00 {
-		index := address - 0x3f00
+		index := address & 0x00ff
 		value = ppu.Palette[index]
 	}
 
@@ -529,7 +529,7 @@ func (ppu *RP2C02) Store(address uint16, value uint8) (oldValue uint8) {
 	}
 
 	if (address & 0x3f00) == 0x3f00 {
-		index := address - 0x3f00
+		index := address & 0x00ff
 		oldValue = ppu.Palette[index]
 		ppu.Palette[index] = value
 	}
