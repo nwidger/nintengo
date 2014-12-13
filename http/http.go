@@ -22,6 +22,7 @@ type Page struct {
 	PTRight         string
 	CPUMemory       string
 	PPUMemory       string
+	PPUPalette      string
 	OAMMemory       string
 	OAMBufferMemory string
 }
@@ -91,6 +92,14 @@ func (neserv *NEServer) Run() (err error) {
 		}
 
 		page.PPUMemory = hex.Dump(ppuMemory)
+
+		ppuPalette := make([]byte, 32)
+
+		for i := uint32(0); i < 32; i++ {
+			ppuPalette[i] = neserv.NES.PPU.Palette[int(i)]
+		}
+
+		page.PPUPalette = hex.Dump(ppuPalette)
 
 		oamMemory := make([]byte, 256)
 

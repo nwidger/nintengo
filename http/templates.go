@@ -126,6 +126,9 @@ var index = `
 	  <h4>PPU Memory</h4>
 	  <pre style='font-size: 11px' class='pre-scrollable'>{{.PPUMemory}}</pre>
 
+	  <h4>PPU Palette</h4>
+	  <pre style='font-size: 11px' class='pre-scrollable'>{{.PPUPalette}}</pre>
+
 	  <h4>OAM Memory</h4>
 	  <pre style='font-size: 11px' class='pre-scrollable'>{{.OAMMemory}}</pre>
 
