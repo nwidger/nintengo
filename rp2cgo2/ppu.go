@@ -985,7 +985,7 @@ func (ppu *RP2C02) Execute() (colors []uint8) {
 	switch {
 	// visible scanlines (0-239), pre-render scanline (261)
 	case (ppu.Scanline >= 0 && ppu.Scanline <= 239) || ppu.Scanline == 261:
-		if ppu.Cycle == 1 && ppu.Scanline == 261 {
+		if ppu.Cycle == 0 && ppu.Scanline == 261 {
 			ppu.Registers.Status &^= uint8(VBlankStarted | Sprite0Hit | SpriteOverflow)
 		}
 
