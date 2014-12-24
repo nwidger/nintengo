@@ -90,7 +90,7 @@ type AudioRecorder interface {
 
 type WAVRecorder struct {
 	file      *os.File
-	wavWriter *wav.WavWriter
+	wavWriter *wav.Writer
 	input     chan int16
 	stop      chan uint8
 }
@@ -118,7 +118,7 @@ func (wr *WAVRecorder) Record() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 	}
 
-	meta := wav.WavFile{
+	meta := wav.File{
 		Channels:        1,
 		SampleRate:      44100 * 2,
 		SignificantBits: 16,
@@ -132,7 +132,7 @@ func (wr *WAVRecorder) Record() {
 func (wr *WAVRecorder) Stop() {
 	var err error
 
-	if err = wr.wavWriter.CloseFile(); err != nil {
+	if err = wr.wavWriter.Close(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 	}
 
