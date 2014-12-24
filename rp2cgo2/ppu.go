@@ -12,6 +12,7 @@ import (
 	"github.com/nwidger/nintengo/rp2ago3"
 )
 
+//go:generate stringer -type=Mirroring
 type Mirroring uint8
 
 const (
@@ -19,19 +20,6 @@ const (
 	Vertical
 	FourScreen
 )
-
-func (m Mirroring) String() string {
-	switch m {
-	case Horizontal:
-		return "Horizontal"
-	case Vertical:
-		return "Vertical"
-	case FourScreen:
-		return "FourScreen"
-	}
-
-	return "Unknown"
-}
 
 type ControllerFlag uint8
 

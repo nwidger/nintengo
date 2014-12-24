@@ -11,6 +11,7 @@ Nintengo.app:
 	Nintengo.app/Contents/MacOS/nintengo
 
 nintengo:
+	go generate ./...
 	go build
 
 libSDL_image-1.2.0.dylib:

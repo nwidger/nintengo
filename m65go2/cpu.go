@@ -64,6 +64,7 @@ const (
 	Rst
 )
 
+//go:generate stringer -type=Index
 type Index uint8
 
 const (
@@ -511,17 +512,6 @@ func (cpu *M6502) IndexToRegister(which Index) uint8 {
 	}
 
 	return index
-}
-
-func (which Index) String() string {
-	switch which {
-	case X:
-		return "X"
-	case Y:
-		return "Y"
-	default:
-		return "?"
-	}
 }
 
 func (cpu *M6502) zeroPageIndexedAddress(index Index) (result uint16) {

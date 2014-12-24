@@ -2,42 +2,11 @@ package nes
 
 import "github.com/nwidger/nintengo/rp2ago3"
 
+//go:generate stringer -type=Button
 type Button uint8
 
-func (btn Button) String() string {
-	switch btn {
-	case A:
-		return "A"
-	case B:
-		return "B"
-	case Select:
-		return "Select"
-	case Start:
-		return "Start"
-	case Up:
-		return "Up"
-	case Down:
-		return "Down"
-	case Left:
-		return "Left"
-	case Right:
-		return "Right"
-	default:
-		return "Unknown"
-	}
-}
-
-func (btn Button) Valid() bool {
-	switch btn {
-	case A, B, Select, Start, Up, Down, Left, Right:
-		return true
-	}
-
-	return false
-}
-
 const (
-	A = iota
+	A Button = iota
 	B
 	Select
 	Start
@@ -47,6 +16,15 @@ const (
 	Right
 	One
 )
+
+func (btn Button) Valid() bool {
+	switch btn {
+	case A, B, Select, Start, Up, Down, Left, Right:
+		return true
+	}
+
+	return false
+}
 
 type Controller struct {
 	strobe  Button

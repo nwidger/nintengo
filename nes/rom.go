@@ -15,18 +15,8 @@ import (
 	"github.com/nwidger/nintengo/rp2cgo2"
 )
 
+//go:generate stringer -type=Region
 type Region uint8
-
-func (r Region) String() string {
-	switch r {
-	case NTSC:
-		return "NTSC"
-	case PAL:
-		return "PAL"
-	}
-
-	return "Unknown"
-}
 
 const (
 	NTSC Region = iota
