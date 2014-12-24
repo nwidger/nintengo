@@ -19,6 +19,7 @@ import (
 	"github.com/nwidger/nintengo/rp2cgo2"
 )
 
+//go:generate stringer -type=StepState
 type StepState uint8
 
 const (
@@ -28,21 +29,7 @@ const (
 	FrameStep
 )
 
-func (s StepState) String() string {
-	switch s {
-	case NoStep:
-		return "NoStep"
-	case CycleStep:
-		return "CycleStep"
-	case ScanlineStep:
-		return "ScanlineStep"
-	case FrameStep:
-		return "FrameStep"
-	default:
-		return "Unknown"
-	}
-}
-
+//go:generate stringer -type=RunState
 type RunState uint8
 
 const (
@@ -50,19 +37,6 @@ const (
 	Paused
 	Quitting
 )
-
-func (s RunState) String() string {
-	switch s {
-	case Running:
-		return "Running"
-	case Paused:
-		return "Paused"
-	case Quitting:
-		return "Quitting"
-	default:
-		return "Unknown"
-	}
-}
 
 type NES struct {
 	state         RunState
