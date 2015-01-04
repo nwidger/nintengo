@@ -338,6 +338,8 @@ func (video *Azul3DVideo) Run() {
 			// Render the whole frame.
 			r.Render()
 		}
+
+		w.Close()
 	}
 
 	props := window.NewProps()
