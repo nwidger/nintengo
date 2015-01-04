@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"runtime"
 
 	"os"
+	"runtime"
 	"runtime/pprof"
 
 	"encoding/json"
@@ -101,14 +101,14 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	ctrls := NewControllers()
 
 	events := make(chan Event)
-	video, err = NewSDLVideo(rom.GameName(), events)
+	video, err = NewVideo(rom.GameName(), events)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error creating video: %v", err))
 		return
 	}
 
-	audio, err = NewSDLAudio(audioFrequency, audioSampleSize)
+	audio, err = NewAudio(audioFrequency, audioSampleSize)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error creating audio: %v", err))
@@ -380,7 +380,7 @@ func (nes *NES) Run() (err error) {
 		go nes.audioRecorder.Run()
 	}
 
-	runtime.LockOSThread()
+	// runtime.LockOSThread()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	if nes.options.CPUProfile != "" {
