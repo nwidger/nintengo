@@ -34,7 +34,7 @@ func NewAudio(frequency int, sampleSize int) (audio *Azul3DAudio, err error) {
 		frequency:  frequency,
 		device:     device,
 		sampleSize: sampleSize,
-		buffers:    make([]uint32, 4),
+		buffers:    make([]uint32, 2),
 		input:      make(chan int16),
 	}
 
@@ -67,20 +67,31 @@ func (audio *Azul3DAudio) Input() chan int16 {
 	return audio.input
 }
 
-func (audio *Azul3DAudio) stream(done chan bool) (samples []int16) {
-	for i := 0; i < audio.sampleSize; i++ {
+func (audio *Azul3DAudio) stream(flush chan bool, schan chan []int16) {
+	samples := []int16{}
+	doFlush := false
+
+	for {
 		select {
-		case <-done:
-			return
 		case s := <-audio.input:
 			samples = append(samples, s)
+		case <-flush:
+			doFlush = true
+		}
+
+		if doFlush || len(samples) == audio.sampleSize {
+			if len(samples) == 0 {
+				samples = append(samples, <-audio.input)
+			}
+
+			schan <- samples
+			samples = []int16{}
+			doFlush = false
 		}
 	}
-
-	return
 }
 
-func (audio *Azul3DAudio) buffer(buffer uint32, samples []int16) (err error) {
+func (audio *Azul3DAudio) bufferData(buffer uint32, samples []int16) (err error) {
 	al.SetErrorHandler(func(e error) {
 		err = e
 	})
@@ -94,15 +105,23 @@ func (audio *Azul3DAudio) buffer(buffer uint32, samples []int16) (err error) {
 func (audio *Azul3DAudio) Run() {
 	running := true
 
-	al.SetErrorHandler(func(e error) {
-		fmt.Fprintf(os.Stderr, "%v\n", e)
-		running = false
-	})
+	handler := func(e error) {
+		if e != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", e)
+			running = false
+		}
+	}
 
-	done := make(chan bool)
+	al.SetErrorHandler(handler)
+
+	flush := make(chan bool)
+	schan := make(chan []int16, 256)
+	empty := []int16{0, 0}
+
+	go audio.stream(flush, schan)
 
 	for i := range audio.buffers {
-		audio.buffer(audio.buffers[i], audio.stream(done))
+		handler(audio.bufferData(audio.buffers[i], empty))
 	}
 
 	audio.device.SourceQueueBuffers(audio.source, audio.buffers)
@@ -110,42 +129,37 @@ func (audio *Azul3DAudio) Run() {
 
 	state := al.PLAYING
 	processed := int32(0)
-	empty := make([]int16, audio.sampleSize)
-	schan := make(chan []int16, len(audio.buffers)*2)
-
-	go func() {
-		for {
-			schan <- audio.stream(done)
-		}
-	}()
+	samples := []int16{0}
 
 	for running {
 		if audio.device.GetSourcei(audio.source, al.BUFFERS_PROCESSED, &processed); processed > 0 {
 			pbuffers := make([]uint32, processed)
+
 			audio.device.SourceUnqueueBuffers(audio.source, pbuffers)
 
 			for i := range pbuffers {
-				var s []int16
-
-				select {
-				case s = <-schan:
-				default:
-					done <- true
-					s = <-schan
+				if samples == nil {
+					select {
+					case samples = <-schan:
+					default:
+						flush <- true
+						samples = <-schan
+					}
 				}
 
-				if s == nil || len(s) == 0 {
-					s = empty
-				}
-
-				audio.buffer(pbuffers[i], s)
+				handler(audio.bufferData(pbuffers[i], samples))
+				samples = nil
 			}
 
 			audio.device.SourceQueueBuffers(audio.source, pbuffers)
+
+			if audio.device.GetSourcei(audio.source, al.SOURCE_STATE, &state); state != al.PLAYING {
+				audio.device.SourcePlay(audio.source)
+			}
 		}
 
-		if audio.device.GetSourcei(audio.source, al.SOURCE_STATE, &state); state != al.PLAYING {
-			audio.device.SourcePlay(audio.source)
+		if samples == nil {
+			samples = <-schan
 		}
 	}
 }
