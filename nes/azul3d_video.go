@@ -78,14 +78,12 @@ var glslVert = []byte(`
 attribute vec3 Vertex;
 attribute vec2 TexCoord0;
 
-uniform mat4 MVP;
-
 varying vec2 tc0;
 
 void main()
 {
 	tc0 = TexCoord0;
-	gl_Position = MVP * vec4(Vertex, 1.0);
+	gl_Position = vec4(Vertex, 1.0);
 }
 `)
 
@@ -95,14 +93,10 @@ var glslFrag = []byte(`
 varying vec2 tc0;
 
 uniform sampler2D Texture0;
-uniform bool BinaryAlpha;
 
 void main()
 {
 	gl_FragColor = texture2D(Texture0, tc0);
-	if(BinaryAlpha && gl_FragColor.a < 0.5) {
-		discard;
-	}
 }
 `)
 
@@ -271,9 +265,9 @@ func (video *Azul3DVideo) Run() {
 		card.Textures = []*gfx.Texture{nil}
 		card.Meshes = []*gfx.Mesh{cardMesh}
 
-		img := image.NewPaletted(image.Rect(0, 0, 256, 240), video.palette)
-
 		updateTex := func() {
+			img := image.NewPaletted(image.Rect(0, 0, 256, 240), video.palette)
+
 			x, y := 0, 0
 
 			for _, c := range colors {
