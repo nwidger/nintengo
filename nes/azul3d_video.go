@@ -265,9 +265,9 @@ func (video *Azul3DVideo) Run() {
 		card.Textures = []*gfx.Texture{nil}
 		card.Meshes = []*gfx.Mesh{cardMesh}
 
-		updateTex := func() {
-			img := image.NewPaletted(image.Rect(0, 0, 256, 240), video.palette)
+		img := image.NewPaletted(image.Rect(0, 0, 256, 240), video.palette)
 
+		updateTex := func() {
 			x, y := 0, 0
 
 			for _, c := range colors {
