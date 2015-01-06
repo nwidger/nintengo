@@ -35,7 +35,7 @@ func NewAudio(frequency int, sampleSize int) (audio *Azul3DAudio, err error) {
 		device:     device,
 		sampleSize: sampleSize,
 		buffers:    make([]uint32, 2),
-		input:      make(chan int16),
+		input:      make(chan int16, sampleSize),
 	}
 
 	al.SetErrorHandler(func(e error) {
@@ -67,26 +67,15 @@ func (audio *Azul3DAudio) Input() chan int16 {
 	return audio.input
 }
 
-func (audio *Azul3DAudio) stream(flush chan bool, schan chan []int16) {
+func (audio *Azul3DAudio) stream(schan chan []int16) {
 	samples := []int16{}
-	doFlush := false
 
 	for {
-		select {
-		case s := <-audio.input:
-			samples = append(samples, s)
-		case <-flush:
-			doFlush = true
-		}
+		samples = append(samples, <-audio.input)
 
-		if doFlush || len(samples) == audio.sampleSize {
-			if len(samples) == 0 {
-				samples = append(samples, <-audio.input)
-			}
-
+		if len(samples) == audio.sampleSize {
 			schan <- samples
 			samples = []int16{}
-			doFlush = false
 		}
 	}
 }
@@ -114,52 +103,61 @@ func (audio *Azul3DAudio) Run() {
 
 	al.SetErrorHandler(handler)
 
-	flush := make(chan bool)
-	schan := make(chan []int16, 256)
-	empty := []int16{0, 0}
+	schan := make(chan []int16, len(audio.buffers))
 
-	go audio.stream(flush, schan)
-
-	for i := range audio.buffers {
-		handler(audio.bufferData(audio.buffers[i], empty))
-	}
+	go audio.stream(schan)
 
 	audio.device.SourceQueueBuffers(audio.source, audio.buffers)
 	audio.device.SourcePlay(audio.source)
 
 	state := al.PLAYING
 	processed := int32(0)
-	samples := []int16{0}
+	var samples []int16
 
 	for running {
-		if audio.device.GetSourcei(audio.source, al.BUFFERS_PROCESSED, &processed); processed > 0 {
-			pbuffers := make([]uint32, processed)
+		// Wait for one audio buffer to be prepared.
+		samples = <-schan
 
-			audio.device.SourceUnqueueBuffers(audio.source, pbuffers)
-
-			for i := range pbuffers {
-				if samples == nil {
-					select {
-					case samples = <-schan:
-					default:
-						flush <- true
-						samples = <-schan
-					}
-				}
-
-				handler(audio.bufferData(pbuffers[i], samples))
-				samples = nil
-			}
-
-			audio.device.SourceQueueBuffers(audio.source, pbuffers)
-
-			if audio.device.GetSourcei(audio.source, al.SOURCE_STATE, &state); state != al.PLAYING {
-				audio.device.SourcePlay(audio.source)
+		// Wait for at least one buffer to be processed by OpenAL, so we can refill
+		// it.
+		for {
+			audio.device.GetSourcei(audio.source, al.BUFFERS_PROCESSED, &processed)
+			if processed > 0 {
+				break
 			}
 		}
 
-		if samples == nil {
+		// In situations where OpenAL runs out of buffers to play (e.g. if the app
+		// stalled because the user's system was doing a lot of work), OpenAL will
+		// stop the audio source from playing.
+		//
+		// We wait until each of the buffers are done playing in this case, so that
+		// we may keep are playhead at the first buffer to keep our double
+		// buffering.
+		if audio.device.GetSourcei(audio.source, al.SOURCE_STATE, &state); state != al.PLAYING {
+			fmt.Println("nes: Failed to feed audio to OpenAL fast enough; resynching...")
+			for {
+				audio.device.GetSourcei(audio.source, al.BUFFERS_PROCESSED, &processed)
+				if int(processed) == len(audio.buffers) {
+					break
+				}
+			}
+		}
+
+		// Dequeue the buffers that were processed by OpenAL.
+		pbuffers := make([]uint32, processed)
+		audio.device.SourceUnqueueBuffers(audio.source, pbuffers)
+
+		// Fill each buffer with data and queue them again.
+		for i := range pbuffers {
+			handler(audio.bufferData(pbuffers[i], samples))
 			samples = <-schan
+		}
+		audio.device.SourceQueueBuffers(audio.source, pbuffers)
+
+		// Begin playing the source now that we've filled all the buffers.
+		if audio.device.GetSourcei(audio.source, al.SOURCE_STATE, &state); state != al.PLAYING {
+			audio.device.SourcePlay(audio.source)
 		}
 	}
 }
