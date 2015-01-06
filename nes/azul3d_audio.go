@@ -1,4 +1,4 @@
-// +build !sdl
+// +build !sdl,!apudebug
 
 package nes
 
