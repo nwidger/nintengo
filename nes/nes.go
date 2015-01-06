@@ -380,7 +380,7 @@ func (nes *NES) Run() (err error) {
 		go nes.audioRecorder.Run()
 	}
 
-	// runtime.LockOSThread()
+	runtime.LockOSThread()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	if nes.options.CPUProfile != "" {
