@@ -1,4 +1,4 @@
-// +build sdl
+// +build sdl,!apudebug
 
 // adapted from github.com/scottferg/Fergulator/audio.go
 
