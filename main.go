@@ -13,10 +13,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func LoadConfig(filename string) (options *nes.Options, err error) {
+func LoadConfig(options *nes.Options, filename string) (err error) {
 	var buf []byte
-
-	options = &nes.Options{}
 
 	if buf, err = ioutil.ReadFile(filename); err != nil {
 		return
@@ -47,9 +45,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 	} else {
 		if _, err = os.Stat(filename); !os.IsNotExist(err) {
-			options, err = LoadConfig(filename)
-
-			if err != nil {
+			if err = LoadConfig(options, filename); err != nil {
 				fmt.Fprintf(os.Stderr, "%v\n", err)
 			}
 		}
@@ -69,6 +65,7 @@ func main() {
 
 	if options.HTTPAddress != "" {
 		neserv := http.NewNEServer(nes, options.HTTPAddress)
+		fmt.Println(options.HTTPAddress)
 		go neserv.Run()
 	}
 
