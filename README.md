@@ -21,23 +21,11 @@ An NES emulator written in Go
 
 ## Build
 
-Requires Go 1.1.
+1. Install Azul3D by following the official
+   [installion instructions](http://azul3d.org/doc/install) for your
+   platform.
 
-- Linux
-
-    ```
-    $ sudo apt-get install libsdl1.2-dev libsdl-gfx1.2-dev libsdl-image1.2-dev libglew1.6-dev libxrandr-dev
-    $ go get github.com/nwidger/nintengo
-    ```
-
-- Mac OS X
-
-    ```
-    $ brew install sdl --with-x11-driver
-    $ brew install sdl_gfx sdl_image glew
-    $ brew edit sdl
-    $ go get github.com/nwidger/nintengo
-    ```
+2. `go get github.com/nwidger/nintengo`
 
 ## Usage
 
