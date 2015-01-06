@@ -8,7 +8,7 @@ import (
 	"os"
 	"unsafe"
 
-	"azul3d.org/native/al.v1"
+	"azul3d.org/native/al.v1-dev"
 )
 
 type Azul3DAudio struct {
