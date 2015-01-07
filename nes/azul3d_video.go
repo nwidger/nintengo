@@ -95,11 +95,15 @@ var glslFrag = []byte(`
 
 varying vec2 tc0;
 
+uniform vec3 scale;
+uniform vec3 shift;
 uniform sampler2D Texture0;
 
 void main()
 {
-	gl_FragColor = texture2D(Texture0, tc0);
+	vec2 tc = scale.xy * tc0;
+	tc += shift.xy;
+	gl_FragColor = texture2D(Texture0, tc);
 }
 `)
 
@@ -295,6 +299,26 @@ func (video *Azul3DVideo) Run() {
 					x++
 				}
 			}
+
+			scale := gfx.Vec3{1.0, 1.0, 0.0}
+			shift := gfx.Vec3{0, 0, 0}
+			if video.overscan {
+				var cropPx float32 = 8.0
+
+				nx := 1.0 / float32(img.Bounds().Dx())
+				ny := 1.0 / float32(img.Bounds().Dy())
+
+				scale = gfx.Vec3{
+					X: 1.0 - (nx * cropPx * 2),
+					Y: 1.0 - (ny * cropPx * 2),
+				}
+				shift = gfx.Vec3{
+					X: nx * cropPx,
+					Y: ny * cropPx,
+				}
+			}
+			shader.Inputs["scale"] = scale
+			shader.Inputs["shift"] = shift
 
 			// Create new texture and ask the renderer to load it. We don't use DXT
 			// compression because those textures cannot be downloaded.
