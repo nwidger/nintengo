@@ -10,6 +10,7 @@ import (
 	"azul3d.org/gfx.v1"
 	"azul3d.org/gfx/window.v2"
 	"azul3d.org/keyboard.v1"
+	"azul3d.org/lmath.v1"
 )
 
 type Azul3DVideo struct {
@@ -78,12 +79,14 @@ var glslVert = []byte(`
 attribute vec3 Vertex;
 attribute vec2 TexCoord0;
 
+uniform mat4 MVP;
+
 varying vec2 tc0;
 
 void main()
 {
 	tc0 = TexCoord0;
-	gl_Position = vec4(Vertex, 1.0);
+	gl_Position = MVP * vec4(Vertex, 1.0);
 }
 `)
 
@@ -227,19 +230,28 @@ func (video *Azul3DVideo) Run() {
 		shader.GLSLVert = glslVert
 		shader.GLSLFrag = glslFrag
 
+		// Setup a camera using an orthographic projection.
+		camera := gfx.NewCamera()
+		camNear := 0.01
+		camFar := 1000.0
+		camera.SetOrtho(r.Bounds(), camNear, camFar)
+
+		// Move the camera back two units away from the card.
+		camera.SetPos(lmath.Vec3{0, -2, 0})
+
 		// Create a card mesh.
 		cardMesh := gfx.NewMesh()
 
 		cardMesh.Vertices = []gfx.Vec3{
 			// Left triangle.
-			{-1, 1, 0},  // Left-Top
-			{-1, -1, 0}, // Left-Bottom
-			{1, -1, 0},  // Right-Bottom
+			{-1, 0, 1},  // Left-Top
+			{-1, 0, -1}, // Left-Bottom
+			{1, 0, -1},  // Right-Bottom
 
 			// Right triangle.
-			{-1, 1, 0}, // Left-Top
-			{1, -1, 0}, // Right-Bottom
-			{1, 1, 0},  // Right-Top
+			{-1, 0, 1}, // Left-Top
+			{1, 0, -1}, // Right-Bottom
+			{1, 0, 1},  // Right-Top
 		}
 
 		cardMesh.TexCoords = []gfx.TexCoordSet{
@@ -328,12 +340,21 @@ func (video *Azul3DVideo) Run() {
 		}()
 
 		for running {
+			// Center the card in the window.
+			b := r.Bounds()
+			camera.SetOrtho(b, camNear, camFar)
+			card.SetPos(lmath.Vec3{float64(b.Dx()) / 2.0, 0, float64(b.Dy()) / 2.0})
+
+			// Scale the card to fit the window.
+			s := float64(b.Dy()) / 2.0 // Card is two units wide, so divide by two.
+			card.SetScale(lmath.Vec3{s, s, s})
+
 			// clear the entire area (empty rectangle means "the whole area").
-			r.Clear(image.Rect(0, 0, 0, 0), gfx.Color{1, 1, 1, 1})
+			r.Clear(image.Rect(0, 0, 0, 0), gfx.Color{0, 0, 0, 1})
 			r.ClearDepth(image.Rect(0, 0, 0, 0), 1.0)
 
 			// Draw the card to the screen.
-			r.Draw(image.Rect(0, 0, 0, 0), card, nil)
+			r.Draw(image.Rect(0, 0, 0, 0), card, camera)
 
 			// Render the whole frame.
 			r.Render()
