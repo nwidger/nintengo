@@ -123,15 +123,15 @@ func (video *Azul3DVideo) handleInput(ev keyboard.StateEvent, w *window.Window) 
 		case keyboard.Tilde:
 			video.overscan = !video.overscan
 		case keyboard.One:
-			setSize(256, 240)
+			setSize(240, 256)
 		case keyboard.Two:
-			setSize(512, 480)
+			setSize(480, 512)
 		case keyboard.Three:
-			setSize(768, 720)
+			setSize(720, 768)
 		case keyboard.Four:
-			setSize(1024, 960)
+			setSize(960, 1024)
 		case keyboard.Five:
-			setSize(2560, 1440)
+			setSize(1440, 2560)
 		case keyboard.P:
 			event = &PauseEvent{}
 		case keyboard.N:
@@ -389,7 +389,7 @@ func (video *Azul3DVideo) Run() {
 
 	props := window.NewProps()
 
-	props.SetSize(512, 480)
+	props.SetSize(480, 512)
 	props.SetTitle("nintengo - " + video.caption + " - {FPS}")
 
 	window.Run(gfxLoop, props)
