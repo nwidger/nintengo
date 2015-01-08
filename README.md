@@ -116,3 +116,19 @@ extension.
 - MMC3
 - ANROM
 - MMC2
+
+## Acknowledgments
+
+This project would not have been possible without the amazing treasure
+trove of information that is the
+[NESdev Wiki](http://wiki.nesdev.com/w/index.php/NES_reference_guide)
+and the fine folks at `#nesdev` on EFnet.
+
+Being able to read the source code of other NES emulators was also
+extremely helpful.  The following is a short list of the ones I
+consulted most often, although it is probably not the complete list:
+
+- Fergulator: https://github.com/scottferg/Fergulator/
+- Nintendulator: http://www.qmtpro.com/~nes/nintendulator/
+- Nestopia: http://nestopia.sourceforge.net/
+- Nesalizer (by Ulf Magnusson): https://github.com/ulfalizer/nesalizer
