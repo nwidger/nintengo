@@ -155,9 +155,9 @@ func (audio *Azul3DAudio) Run() {
 			}
 
 			handler(audio.bufferData(pbuffers[i], samples))
+			audio.device.SourceQueueBuffers(audio.source, []uint32{pbuffers[i]})
 			samples = nil
 		}
-		audio.device.SourceQueueBuffers(audio.source, pbuffers)
 
 		// Begin playing the source now that we've filled all the buffers.
 		if audio.device.GetSourcei(audio.source, al.SOURCE_STATE, &state); state != al.PLAYING {
