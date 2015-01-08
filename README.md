@@ -22,7 +22,7 @@ An NES emulator written in Go
 ## Build
 
 1. Install Azul3D by following the official
-   [installion instructions](http://azul3d.org/doc/install) for your
+   [installation instructions](http://azul3d.org/doc/install) for your
    platform.
 
 2. `go get github.com/nwidger/nintengo`
