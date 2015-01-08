@@ -24,7 +24,7 @@ type Azul3DVideo struct {
 
 func NewVideo(caption string, events chan Event) (video *Azul3DVideo, err error) {
 	video = &Azul3DVideo{
-		input:    make(chan []uint8),
+		input:    make(chan []uint8, 128),
 		events:   events,
 		palette:  RGBAPalette,
 		overscan: true,
@@ -351,7 +351,21 @@ func (video *Azul3DVideo) Run() {
 			for running {
 				select {
 				case colors = <-video.input:
+					// We drop any pending frames and grab the most recent one. This is
+					// because frame display is tied to the runProcessors loop and can
+					// cause audio stuttering.
+				frameDrop:
+					for {
+						select {
+						case colors = <-video.input:
+						default:
+							break frameDrop
+						}
+					}
+
+					// Update the texture using the most recent frame.
 					updateTex()
+
 				case e := <-events:
 					switch ev := e.(type) {
 					case keyboard.StateEvent:
