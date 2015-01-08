@@ -134,8 +134,10 @@ func (audio *Azul3DAudio) Run() {
 		// We wait until each of the buffers are done playing in this case, so that
 		// we may keep are playhead at the first buffer to keep our double
 		// buffering.
+		resynched := false
 		if audio.device.GetSourcei(audio.source, al.SOURCE_STATE, &state); state != al.PLAYING {
 			fmt.Println("nes: Failed to feed audio to OpenAL fast enough; resynching...")
+			resynched = true
 			for {
 				audio.device.GetSourcei(audio.source, al.BUFFERS_PROCESSED, &processed)
 				if int(processed) == len(audio.buffers) {
@@ -155,8 +157,9 @@ func (audio *Azul3DAudio) Run() {
 		}
 		audio.device.SourceQueueBuffers(audio.source, pbuffers)
 
-		// Begin playing the source now that we've filled all the buffers.
-		if audio.device.GetSourcei(audio.source, al.SOURCE_STATE, &state); state != al.PLAYING {
+		// If resynching did occur, then OpenAL stopped playing and we need to
+		// ask it to begin playing now that we've filled all the buffers up.
+		if resynched {
 			audio.device.SourcePlay(audio.source)
 		}
 	}
