@@ -150,8 +150,12 @@ func (audio *Azul3DAudio) Run() {
 
 		// Fill each buffer with data and queue them again.
 		for i := range pbuffers {
+			if samples == nil {
+				samples = <-schan
+			}
+
 			handler(audio.bufferData(pbuffers[i], samples))
-			samples = <-schan
+			samples = nil
 		}
 		audio.device.SourceQueueBuffers(audio.source, pbuffers)
 

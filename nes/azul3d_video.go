@@ -287,9 +287,7 @@ func (video *Azul3DVideo) Run() {
 			x, y := 0, 0
 
 			for _, c := range colors {
-				if pixelInFrame(x, y, video.overscan) {
-					img.Set(x, y, video.palette[c])
-				}
+				img.Set(x, y, video.palette[c])
 
 				switch x {
 				case 255:
