@@ -381,8 +381,14 @@ func (video *Azul3DVideo) Run() {
 			camera.SetOrtho(b, camNear, camFar)
 			card.SetPos(lmath.Vec3{float64(b.Dx()) / 2.0, 0, float64(b.Dy()) / 2.0})
 
-			// Scale the card to fit the window.
-			s := float64(b.Dy()) / 2.0 // Card is two units wide, so divide by two.
+			// Scale the card to fit the window, we divide by two because the
+			// card is two units wide.
+			var s float64
+			if b.Dy() > b.Dx() {
+				s = float64(b.Dx()) / 2.0
+			} else {
+				s = float64(b.Dy()) / 2.0
+			}
 			card.SetScale(lmath.Vec3{s, s, s})
 
 			// clear the entire area (empty rectangle means "the whole area").
