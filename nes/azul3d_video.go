@@ -215,7 +215,7 @@ func (video *Azul3DVideo) handleInput(ev keyboard.StateEvent, w *window.Window) 
 	}
 
 	if event != nil {
-		go func() { video.events <- event }()
+		video.events <- event
 	}
 
 	return
@@ -287,7 +287,7 @@ func (video *Azul3DVideo) Run() {
 			x, y := 0, 0
 
 			for _, c := range colors {
-				img.Set(x, y, video.palette[c])
+				img.SetColorIndex(x, y, c)
 
 				switch x {
 				case 255:
