@@ -167,7 +167,6 @@ func (audio *Azul3DAudio) Run() {
 }
 
 func (audio *Azul3DAudio) TogglePaused() {
-	audio.device.SourcePause(audio.source)
 	audio.paused = !audio.paused
 }
 
