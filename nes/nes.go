@@ -34,7 +34,6 @@ type RunState uint8
 
 const (
 	Running RunState = 1 << iota
-	Paused
 	Quitting
 )
 
@@ -149,7 +148,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 
 	nes = &NES{
 		frameStep:     NoStep,
-		paused:        make(chan bool, 2),
+		paused:        make(chan bool),
 		events:        events,
 		CPU:           cpu,
 		cpuDivisor:    cpuDivisor,
@@ -296,6 +295,7 @@ func (nes *NES) processEvents() {
 func (nes *NES) runProcessors() (err error) {
 	var cycles uint16
 
+	isPaused := false
 	mmc3, _ := nes.ROM.(*MMC3)
 
 	for nes.state != Quitting {
@@ -315,7 +315,8 @@ func (nes *NES) runProcessors() (err error) {
 				nes.fps.Delay()
 
 				if nes.frameStep == FrameStep {
-					nes.state = Paused
+					isPaused = true
+					fmt.Println("*** Paused at frame", nes.PPU.Frame)
 				}
 			}
 
@@ -327,7 +328,13 @@ func (nes *NES) runProcessors() (err error) {
 
 			if nes.frameStep == CycleStep ||
 				(nes.frameStep == ScanlineStep && nes.PPU.Scanline != scanline) {
-				nes.state = Paused
+				isPaused = true
+
+				if nes.frameStep == CycleStep {
+					fmt.Println("*** Paused at cycle", nes.PPU.Cycle)
+				} else {
+					fmt.Println("*** Paused at scanline", nes.PPU.Scanline)
+				}
 			}
 		}
 
@@ -339,25 +346,35 @@ func (nes *NES) runProcessors() (err error) {
 			}
 		}
 
-		if nes.state == Paused {
-			<-nes.paused
+		select {
+		case <-nes.paused:
+			isPaused = true
+		default:
 		}
 
+		if isPaused {
+			<-nes.paused
+			isPaused = false
+		}
 	}
 
 	return
 }
 
 func (nes *NES) frame(colors []uint8) {
-	nes.events <- &FrameEvent{
+	e := &FrameEvent{
 		colors: colors,
 	}
+
+	e.Process(nes)
 }
 
 func (nes *NES) sample(sample int16) {
-	nes.events <- &SampleEvent{
+	e := &SampleEvent{
 		sample: sample,
 	}
+
+	e.Process(nes)
 }
 
 func (nes *NES) Run() (err error) {
