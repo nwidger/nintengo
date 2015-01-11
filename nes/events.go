@@ -68,7 +68,10 @@ func (e *ControllerEvent) Process(nes *NES) {
 	}
 }
 
-type PauseEvent struct{}
+type PauseEvent struct {
+	request PauseRequest
+	changed chan bool
+}
 
 func (e *PauseEvent) String() string {
 	return "PauseEvent"
@@ -76,7 +79,7 @@ func (e *PauseEvent) String() string {
 
 func (e *PauseEvent) Process(nes *NES) {
 	nes.audio.TogglePaused()
-	nes.paused <- true // send pause request
+	nes.paused <- e
 }
 
 type FrameStepEvent struct{}
@@ -223,16 +226,20 @@ func (e *SaveStateEvent) String() string {
 }
 
 func (e *SaveStateEvent) Process(nes *NES) {
-	pe := &PauseEvent{}
-	state := nes.state
-
-	if state == Running {
-		pe.Process(nes)
+	pe := &PauseEvent{
+		changed: make(chan bool),
 	}
+
+	pe.request = Pause
+	pe.Process(nes)
+	changed := <-pe.changed
 
 	nes.SaveState()
 
-	if state == Running {
+	if changed {
+		pe.changed = nil
+
+		pe.request = Unpause
 		pe.Process(nes)
 	}
 }
@@ -244,16 +251,20 @@ func (e *LoadStateEvent) String() string {
 }
 
 func (e *LoadStateEvent) Process(nes *NES) {
-	pe := &PauseEvent{}
-	state := nes.state
-
-	if state == Running {
-		pe.Process(nes)
+	pe := &PauseEvent{
+		changed: make(chan bool),
 	}
+
+	pe.request = Pause
+	pe.Process(nes)
+	changed := <-pe.changed
 
 	nes.LoadState()
 
-	if state == Running {
+	if changed {
+		pe.changed = nil
+
+		pe.request = Unpause
 		pe.Process(nes)
 	}
 }

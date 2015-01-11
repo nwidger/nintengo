@@ -9,9 +9,8 @@ const _RunState_name = "RunningQuitting"
 var _RunState_index = [...]uint8{7, 15}
 
 func (i RunState) String() string {
-	i -= 1
 	if i >= RunState(len(_RunState_index)) {
-		return fmt.Sprintf("RunState(%d)", i+1)
+		return fmt.Sprintf("RunState(%d)", i)
 	}
 	hi := _RunState_index[i]
 	lo := uint8(0)
