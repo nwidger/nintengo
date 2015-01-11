@@ -214,14 +214,7 @@ func (nes *NES) SaveState() {
 
 	enc := json.NewEncoder(vfw)
 
-	if err = enc.Encode(struct{ Version string }{"0.1"}); err != nil {
-		fmt.Printf("*** Error saving state: %s\n", err)
-		return
-	}
-
-	buf, err := json.MarshalIndent(nes, "", "  ")
-
-	if err = enc.Encode(nes); err != nil {
+	if err = enc.Encode(struct{ Version string }{"0.2"}); err != nil {
 		fmt.Printf("*** Error saving state: %s\n", err)
 		return
 	}
@@ -232,6 +225,8 @@ func (nes *NES) SaveState() {
 		fmt.Printf("*** Error saving state: %s\n", err)
 		return
 	}
+
+	buf, err := json.MarshalIndent(nes, "", "  ")
 
 	if _, err = zfw.Write(buf); err != nil {
 		fmt.Printf("*** Error saving state: %s\n", err)
@@ -255,26 +250,47 @@ func (nes *NES) LoadState() {
 	loaded := false
 
 	for _, zf := range zr.File {
-		if zf.Name != "state.json" {
-			continue
+		switch zf.Name {
+		case "meta.json":
+			zfr, err := zf.Open()
+			defer zfr.Close()
+
+			if err != nil {
+				fmt.Printf("*** Error loading state: %s\n", err)
+				return
+			}
+
+			dec := json.NewDecoder(zfr)
+
+			v := struct{ Version string }{}
+
+			if err = dec.Decode(&v); err != nil {
+				fmt.Printf("*** Error loading state: %s\n", err)
+				return
+			}
+
+			if v.Version != "0.2" {
+				fmt.Printf("*** Error loading state: Invalid save state format version '%s'\n", v.Version)
+				return
+			}
+		case "state.json":
+			zfr, err := zf.Open()
+			defer zfr.Close()
+
+			if err != nil {
+				fmt.Printf("*** Error loading state: %s\n", err)
+				return
+			}
+
+			dec := json.NewDecoder(zfr)
+
+			if err = dec.Decode(nes); err != nil {
+				fmt.Printf("*** Error loading state: %s\n", err)
+				return
+			}
+
+			loaded = true
 		}
-
-		zfr, err := zf.Open()
-		defer zfr.Close()
-
-		if err != nil {
-			fmt.Printf("*** Error loading state: %s\n", err)
-			return
-		}
-
-		dec := json.NewDecoder(zfr)
-
-		if err = dec.Decode(nes); err != nil {
-			fmt.Printf("*** Error loading state: %s\n", err)
-			return
-		}
-
-		loaded = true
 	}
 
 	if !loaded {
@@ -386,8 +402,14 @@ func (nes *NES) Run() (err error) {
 	nes.state = Running
 
 	go nes.audio.Run()
-	go nes.runProcessors()
 	go nes.processEvents()
+
+	go func() {
+		if err := nes.runProcessors(); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	}()
 
 	if nes.recorder != nil {
 		go nes.recorder.Run()

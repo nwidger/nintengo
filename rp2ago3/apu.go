@@ -108,8 +108,8 @@ type Registers struct {
 }
 
 type APU struct {
-	Muted     bool `json:"-"`
-	Registers Registers
+	Muted     bool      `json:"-"`
+	Registers Registers `json:"APURegisters"`
 
 	Pulse1       Pulse
 	Pulse2       Pulse

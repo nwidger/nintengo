@@ -68,6 +68,10 @@ func (audio *SDLAudio) TogglePaused() {
 	sdl_audio.PauseAudio(audio.paused)
 }
 
+func (audio *SDLAudio) SetSpeed(speed float32) {
+
+}
+
 func (audio *SDLAudio) Close() {
 	sdl_audio.PauseAudio(true)
 	sdl_audio.CloseAudio()

@@ -94,8 +94,8 @@ type M6502 struct {
 	Nmi          bool
 	Irq          bool
 	Rst          bool
-	Registers    Registers
-	Memory       Memory
+	Registers    Registers        `json:"M6502Registers"`
+	Memory       Memory           `json:"M6502Memory"`
 	Instructions InstructionTable `json:"-"`
 	decimalMode  bool
 	breakError   bool

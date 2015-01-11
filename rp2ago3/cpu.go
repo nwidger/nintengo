@@ -9,7 +9,7 @@ type RP2A03 struct {
 	*m65go2.M6502
 	*APU
 	DMA    *DMA
-	Memory *MappedMemory
+	Memory *MappedMemory `json:"RP2A03Memory"`
 }
 
 func NewRP2A03(apuFrequency int) *RP2A03 {
