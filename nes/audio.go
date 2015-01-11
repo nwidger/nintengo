@@ -13,6 +13,7 @@ type Audio interface {
 	Input() chan int16
 	Run()
 	TogglePaused()
+	SetSpeed(speed float32)
 }
 
 type AudioRecorder interface {

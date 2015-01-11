@@ -14,6 +14,7 @@ import (
 type Azul3DAudio struct {
 	paused     bool
 	frequency  int
+	speed      float32
 	device     *al.Device
 	source     uint32
 	buffers    []uint32
@@ -32,6 +33,7 @@ func NewAudio(frequency int, sampleSize int) (audio *Azul3DAudio, err error) {
 
 	audio = &Azul3DAudio{
 		frequency:  frequency,
+		speed:      1.0,
 		device:     device,
 		sampleSize: sampleSize,
 		buffers:    make([]uint32, 2),
@@ -86,7 +88,7 @@ func (audio *Azul3DAudio) bufferData(buffer uint32, samples []int16) (err error)
 	})
 
 	audio.device.BufferData(buffer, al.FORMAT_MONO16, unsafe.Pointer(&samples[0]),
-		int32(int(unsafe.Sizeof(samples[0]))*len(samples)), int32(audio.frequency))
+		int32(int(unsafe.Sizeof(samples[0]))*len(samples)), int32(float32(audio.frequency)*audio.speed))
 
 	return
 }
@@ -168,6 +170,10 @@ func (audio *Azul3DAudio) Run() {
 
 func (audio *Azul3DAudio) TogglePaused() {
 	audio.paused = !audio.paused
+}
+
+func (audio *Azul3DAudio) SetSpeed(speed float32) {
+	audio.speed = speed
 }
 
 func (audio *Azul3DAudio) Close() {
