@@ -228,7 +228,7 @@ func (cpu *M6502) ToggleDecode() bool {
 type BadOpCodeError OpCode
 
 func (b BadOpCodeError) Error() string {
-	return fmt.Sprintf("No such opcode %#02x", b)
+	return fmt.Sprintf("No such opcode %#02x", OpCode(b))
 }
 
 // Error type used to indicate that the CPU executed a BRK instruction
