@@ -23,7 +23,7 @@ import (
 type StepState uint8
 
 const (
-	NoStep StepState = 1 << iota
+	NoStep StepState = iota
 	CycleStep
 	ScanlineStep
 	FrameStep
@@ -33,14 +33,22 @@ const (
 type RunState uint8
 
 const (
-	Running RunState = 1 << iota
+	Running RunState = iota
 	Quitting
+)
+
+type PauseRequest uint8
+
+const (
+	Toggle PauseRequest = iota
+	Pause
+	Unpause
 )
 
 type NES struct {
 	state         RunState
 	frameStep     StepState
-	paused        chan bool
+	paused        chan *PauseEvent
 	events        chan Event
 	CPU           *rp2ago3.RP2A03
 	cpuDivisor    float32
@@ -148,7 +156,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 
 	nes = &NES{
 		frameStep:     NoStep,
-		paused:        make(chan bool),
+		paused:        make(chan *PauseEvent),
 		events:        events,
 		CPU:           cpu,
 		cpuDivisor:    cpuDivisor,
@@ -363,15 +371,31 @@ func (nes *NES) runProcessors() (err error) {
 		}
 
 		select {
-		case <-nes.paused:
-			isPaused = true
+		case pr := <-nes.paused:
+			isPaused = nes.isPaused(pr, isPaused)
 		default:
 		}
 
-		if isPaused {
-			<-nes.paused
-			isPaused = false
+		for isPaused {
+			isPaused = nes.isPaused(<-nes.paused, isPaused)
 		}
+	}
+
+	return
+}
+
+func (nes *NES) isPaused(pr *PauseEvent, oldPaused bool) (isPaused bool) {
+	switch pr.request {
+	case Pause:
+		isPaused = true
+	case Unpause:
+		isPaused = false
+	case Toggle:
+		isPaused = !oldPaused
+	}
+
+	if pr.changed != nil {
+		pr.changed <- (isPaused != oldPaused)
 	}
 
 	return
