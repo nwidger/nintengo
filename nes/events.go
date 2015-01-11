@@ -75,16 +75,8 @@ func (e *PauseEvent) String() string {
 }
 
 func (e *PauseEvent) Process(nes *NES) {
-	switch nes.state {
-	case Running:
-		nes.audio.TogglePaused()
-		nes.state = Paused
-	case Paused:
-		nes.audio.TogglePaused()
-		nes.state = Running
-		nes.fps.Resumed()
-		nes.paused <- false
-	}
+	nes.audio.TogglePaused()
+	nes.paused <- true // send pause request
 }
 
 type FrameStepEvent struct{}
