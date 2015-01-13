@@ -148,29 +148,32 @@ attribute vec2 TexCoord0;
 
 uniform mat4 MVP;
 
-varying vec2 tc0;
+uniform vec3 shift;
+uniform vec3 scale;
+
+varying vec2 tc;
 
 void main()
 {
-	tc0 = TexCoord0;
+	tc = scale.xy * TexCoord0;
+	tc += shift.xy;
+
 	gl_Position = MVP * vec4(Vertex, 1.0);
 }
 `)
 
 var glslFrag = []byte(`
 #version 120
+ 
+varying vec2 tc;
 
-varying vec2 tc0;
-
-uniform vec3 scale;
-uniform vec3 shift;
 uniform sampler2D Texture0;
+uniform vec4 palette[64];
 
-void main()
-{
-	vec2 tc = scale.xy * tc0;
-	tc += shift.xy;
-	gl_FragColor = texture2D(Texture0, tc);
+void main() {
+	vec4 t = texture2D(Texture0, tc);
+	int i = int(t.r * 256.0);
+	gl_FragColor = palette[i];
 }
 `)
 
@@ -350,23 +353,20 @@ func (video *Azul3DVideo) Run() {
 
 		img := image.NewRGBA(image.Rect(0, 0, 256, 240))
 
+		palette := []gfx.Color{}
+
+		for _, c := range Azul3DPalette {
+			palette = append(palette, gfx.ColorModel.Convert(c).(gfx.Color))
+		}
+
 		updateTex := func() {
-			x, y := 0, 0
-
-			for _, c := range colors {
-				img.SetRGBA(x, y, video.palette[c])
-
-				switch x {
-				case 255:
-					x = 0
-					y++
-				default:
-					x++
-				}
+			for i, c := range colors {
+				img.Pix[i<<2] = c
 			}
 
 			scale := gfx.Vec3{1.0, 1.0, 0.0}
 			shift := gfx.Vec3{0, 0, 0}
+
 			if video.overscan {
 				var cropPx float32 = 8.0
 
@@ -384,6 +384,7 @@ func (video *Azul3DVideo) Run() {
 			}
 			shader.Inputs["scale"] = scale
 			shader.Inputs["shift"] = shift
+			shader.Inputs["palette"] = palette
 
 			// Create new texture and ask the renderer to load it. We don't use DXT
 			// compression because those textures cannot be downloaded.

@@ -23,7 +23,7 @@ import (
 type StepState uint8
 
 const (
-	NoStep StepState = 1 << iota
+	NoStep StepState = iota
 	CycleStep
 	ScanlineStep
 	FrameStep
@@ -33,15 +33,22 @@ const (
 type RunState uint8
 
 const (
-	Running RunState = 1 << iota
-	Paused
+	Running RunState = iota
 	Quitting
+)
+
+type PauseRequest uint8
+
+const (
+	Toggle PauseRequest = iota
+	Pause
+	Unpause
 )
 
 type NES struct {
 	state         RunState
 	frameStep     StepState
-	paused        chan bool
+	paused        chan *PauseEvent
 	events        chan Event
 	CPU           *rp2ago3.RP2A03
 	cpuDivisor    float32
@@ -149,7 +156,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 
 	nes = &NES{
 		frameStep:     NoStep,
-		paused:        make(chan bool, 2),
+		paused:        make(chan *PauseEvent),
 		events:        events,
 		CPU:           cpu,
 		cpuDivisor:    cpuDivisor,
@@ -215,14 +222,7 @@ func (nes *NES) SaveState() {
 
 	enc := json.NewEncoder(vfw)
 
-	if err = enc.Encode(struct{ Version string }{"0.1"}); err != nil {
-		fmt.Printf("*** Error saving state: %s\n", err)
-		return
-	}
-
-	buf, err := json.MarshalIndent(nes, "", "  ")
-
-	if err = enc.Encode(nes); err != nil {
+	if err = enc.Encode(struct{ Version string }{"0.2"}); err != nil {
 		fmt.Printf("*** Error saving state: %s\n", err)
 		return
 	}
@@ -233,6 +233,8 @@ func (nes *NES) SaveState() {
 		fmt.Printf("*** Error saving state: %s\n", err)
 		return
 	}
+
+	buf, err := json.MarshalIndent(nes, "", "  ")
 
 	if _, err = zfw.Write(buf); err != nil {
 		fmt.Printf("*** Error saving state: %s\n", err)
@@ -256,26 +258,47 @@ func (nes *NES) LoadState() {
 	loaded := false
 
 	for _, zf := range zr.File {
-		if zf.Name != "state.json" {
-			continue
+		switch zf.Name {
+		case "meta.json":
+			zfr, err := zf.Open()
+			defer zfr.Close()
+
+			if err != nil {
+				fmt.Printf("*** Error loading state: %s\n", err)
+				return
+			}
+
+			dec := json.NewDecoder(zfr)
+
+			v := struct{ Version string }{}
+
+			if err = dec.Decode(&v); err != nil {
+				fmt.Printf("*** Error loading state: %s\n", err)
+				return
+			}
+
+			if v.Version != "0.2" {
+				fmt.Printf("*** Error loading state: Invalid save state format version '%s'\n", v.Version)
+				return
+			}
+		case "state.json":
+			zfr, err := zf.Open()
+			defer zfr.Close()
+
+			if err != nil {
+				fmt.Printf("*** Error loading state: %s\n", err)
+				return
+			}
+
+			dec := json.NewDecoder(zfr)
+
+			if err = dec.Decode(nes); err != nil {
+				fmt.Printf("*** Error loading state: %s\n", err)
+				return
+			}
+
+			loaded = true
 		}
-
-		zfr, err := zf.Open()
-		defer zfr.Close()
-
-		if err != nil {
-			fmt.Printf("*** Error loading state: %s\n", err)
-			return
-		}
-
-		dec := json.NewDecoder(zfr)
-
-		if err = dec.Decode(nes); err != nil {
-			fmt.Printf("*** Error loading state: %s\n", err)
-			return
-		}
-
-		loaded = true
 	}
 
 	if !loaded {
@@ -296,6 +319,7 @@ func (nes *NES) processEvents() {
 func (nes *NES) runProcessors() (err error) {
 	var cycles uint16
 
+	isPaused := false
 	mmc3, _ := nes.ROM.(*MMC3)
 
 	for nes.state != Quitting {
@@ -315,7 +339,8 @@ func (nes *NES) runProcessors() (err error) {
 				nes.fps.Delay()
 
 				if nes.frameStep == FrameStep {
-					nes.state = Paused
+					isPaused = true
+					fmt.Println("*** Paused at frame", nes.PPU.Frame)
 				}
 			}
 
@@ -327,7 +352,13 @@ func (nes *NES) runProcessors() (err error) {
 
 			if nes.frameStep == CycleStep ||
 				(nes.frameStep == ScanlineStep && nes.PPU.Scanline != scanline) {
-				nes.state = Paused
+				isPaused = true
+
+				if nes.frameStep == CycleStep {
+					fmt.Println("*** Paused at cycle", nes.PPU.Cycle)
+				} else {
+					fmt.Println("*** Paused at scanline", nes.PPU.Scanline)
+				}
 			}
 		}
 
@@ -339,25 +370,51 @@ func (nes *NES) runProcessors() (err error) {
 			}
 		}
 
-		if nes.state == Paused {
-			<-nes.paused
+		select {
+		case pr := <-nes.paused:
+			isPaused = nes.isPaused(pr, isPaused)
+		default:
 		}
 
+		for isPaused {
+			isPaused = nes.isPaused(<-nes.paused, isPaused)
+		}
+	}
+
+	return
+}
+
+func (nes *NES) isPaused(pr *PauseEvent, oldPaused bool) (isPaused bool) {
+	switch pr.request {
+	case Pause:
+		isPaused = true
+	case Unpause:
+		isPaused = false
+	case Toggle:
+		isPaused = !oldPaused
+	}
+
+	if pr.changed != nil {
+		pr.changed <- (isPaused != oldPaused)
 	}
 
 	return
 }
 
 func (nes *NES) frame(colors []uint8) {
-	nes.events <- &FrameEvent{
+	e := &FrameEvent{
 		colors: colors,
 	}
+
+	e.Process(nes)
 }
 
 func (nes *NES) sample(sample int16) {
-	nes.events <- &SampleEvent{
+	e := &SampleEvent{
 		sample: sample,
 	}
+
+	e.Process(nes)
 }
 
 func (nes *NES) Run() (err error) {
@@ -369,8 +426,14 @@ func (nes *NES) Run() (err error) {
 	nes.state = Running
 
 	go nes.audio.Run()
-	go nes.runProcessors()
 	go nes.processEvents()
+
+	go func() {
+		if err := nes.runProcessors(); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	}()
 
 	if nes.recorder != nil {
 		go nes.recorder.Run()

@@ -4,32 +4,18 @@ package nes
 
 import "fmt"
 
-const (
-	_StepState_name_0 = "NoStepCycleStep"
-	_StepState_name_1 = "ScanlineStep"
-	_StepState_name_2 = "FrameStep"
-)
+const _StepState_name = "NoStepCycleStepScanlineStepFrameStep"
 
-var (
-	_StepState_index_0 = [...]uint8{6, 15}
-	_StepState_index_1 = [...]uint8{12}
-	_StepState_index_2 = [...]uint8{9}
-)
+var _StepState_index = [...]uint8{6, 15, 27, 36}
 
 func (i StepState) String() string {
-	switch {
-	case 1 <= i && i <= 2:
-		i -= 1
-		lo := uint8(0)
-		if i > 0 {
-			lo = _StepState_index_0[i-1]
-		}
-		return _StepState_name_0[lo:_StepState_index_0[i]]
-	case i == 4:
-		return _StepState_name_1
-	case i == 8:
-		return _StepState_name_2
-	default:
+	if i >= StepState(len(_StepState_index)) {
 		return fmt.Sprintf("StepState(%d)", i)
 	}
+	hi := _StepState_index[i]
+	lo := uint8(0)
+	if i > 0 {
+		lo = _StepState_index[i-1]
+	}
+	return _StepState_name[lo:hi]
 }

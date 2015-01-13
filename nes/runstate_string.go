@@ -4,28 +4,18 @@ package nes
 
 import "fmt"
 
-const (
-	_RunState_name_0 = "RunningPaused"
-	_RunState_name_1 = "Quitting"
-)
+const _RunState_name = "RunningQuitting"
 
-var (
-	_RunState_index_0 = [...]uint8{7, 13}
-	_RunState_index_1 = [...]uint8{8}
-)
+var _RunState_index = [...]uint8{7, 15}
 
 func (i RunState) String() string {
-	switch {
-	case 1 <= i && i <= 2:
-		i -= 1
-		lo := uint8(0)
-		if i > 0 {
-			lo = _RunState_index_0[i-1]
-		}
-		return _RunState_name_0[lo:_RunState_index_0[i]]
-	case i == 4:
-		return _RunState_name_1
-	default:
+	if i >= RunState(len(_RunState_index)) {
 		return fmt.Sprintf("RunState(%d)", i)
 	}
+	hi := _RunState_index[i]
+	lo := uint8(0)
+	if i > 0 {
+		lo = _RunState_index[i-1]
+	}
+	return _RunState_name[lo:hi]
 }

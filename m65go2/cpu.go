@@ -94,8 +94,8 @@ type M6502 struct {
 	Nmi          bool
 	Irq          bool
 	Rst          bool
-	Registers    Registers
-	Memory       Memory
+	Registers    Registers        `json:"M6502Registers"`
+	Memory       Memory           `json:"M6502Memory"`
 	Instructions InstructionTable `json:"-"`
 	decimalMode  bool
 	breakError   bool
@@ -228,7 +228,7 @@ func (cpu *M6502) ToggleDecode() bool {
 type BadOpCodeError OpCode
 
 func (b BadOpCodeError) Error() string {
-	return fmt.Sprintf("No such opcode %#02x", b)
+	return fmt.Sprintf("No such opcode %#02x", OpCode(b))
 }
 
 // Error type used to indicate that the CPU executed a BRK instruction

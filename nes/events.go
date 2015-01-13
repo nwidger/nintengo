@@ -68,23 +68,18 @@ func (e *ControllerEvent) Process(nes *NES) {
 	}
 }
 
-type PauseEvent struct{}
+type PauseEvent struct {
+	request PauseRequest
+	changed chan bool
+}
 
 func (e *PauseEvent) String() string {
 	return "PauseEvent"
 }
 
 func (e *PauseEvent) Process(nes *NES) {
-	switch nes.state {
-	case Running:
-		nes.audio.TogglePaused()
-		nes.state = Paused
-	case Paused:
-		nes.audio.TogglePaused()
-		nes.state = Running
-		nes.fps.Resumed()
-		nes.paused <- false
-	}
+	nes.audio.TogglePaused()
+	nes.paused <- e
 }
 
 type FrameStepEvent struct{}
@@ -231,16 +226,20 @@ func (e *SaveStateEvent) String() string {
 }
 
 func (e *SaveStateEvent) Process(nes *NES) {
-	pe := &PauseEvent{}
-	state := nes.state
-
-	if state == Running {
-		pe.Process(nes)
+	pe := &PauseEvent{
+		changed: make(chan bool),
 	}
+
+	pe.request = Pause
+	pe.Process(nes)
+	changed := <-pe.changed
 
 	nes.SaveState()
 
-	if state == Running {
+	if changed {
+		pe.changed = nil
+
+		pe.request = Unpause
 		pe.Process(nes)
 	}
 }
@@ -252,16 +251,20 @@ func (e *LoadStateEvent) String() string {
 }
 
 func (e *LoadStateEvent) Process(nes *NES) {
-	pe := &PauseEvent{}
-	state := nes.state
-
-	if state == Running {
-		pe.Process(nes)
+	pe := &PauseEvent{
+		changed: make(chan bool),
 	}
+
+	pe.request = Pause
+	pe.Process(nes)
+	changed := <-pe.changed
 
 	nes.LoadState()
 
-	if state == Running {
+	if changed {
+		pe.changed = nil
+
+		pe.request = Unpause
 		pe.Process(nes)
 	}
 }
@@ -274,6 +277,7 @@ func (e *FastForwardEvent) String() string {
 
 func (e *FastForwardEvent) Process(nes *NES) {
 	nes.fps.SetRate(DEFAULT_FPS * 2.00)
+	nes.audio.SetSpeed(2.00)
 	fmt.Println("*** Setting fps to fast forward (2x)")
 }
 
@@ -285,6 +289,7 @@ func (e *FPS100Event) String() string {
 
 func (e *FPS100Event) Process(nes *NES) {
 	nes.fps.SetRate(DEFAULT_FPS * 1.00)
+	nes.audio.SetSpeed(1.00)
 	fmt.Println("*** Setting fps to 4/4")
 }
 
@@ -296,6 +301,7 @@ func (e *FPS75Event) String() string {
 
 func (e *FPS75Event) Process(nes *NES) {
 	nes.fps.SetRate(DEFAULT_FPS * 0.75)
+	nes.audio.SetSpeed(0.70)
 	fmt.Println("*** Setting fps to 3/4")
 }
 
@@ -307,6 +313,7 @@ func (e *FPS50Event) String() string {
 
 func (e *FPS50Event) Process(nes *NES) {
 	nes.fps.SetRate(DEFAULT_FPS * 0.50)
+	nes.audio.SetSpeed(0.50)
 	fmt.Println("*** Setting fps to 2/4")
 }
 
@@ -318,6 +325,7 @@ func (e *FPS25Event) String() string {
 
 func (e *FPS25Event) Process(nes *NES) {
 	nes.fps.SetRate(DEFAULT_FPS * 0.25)
+	nes.audio.SetSpeed(0.25)
 	fmt.Println("*** Setting fps to 1/4")
 }
 
