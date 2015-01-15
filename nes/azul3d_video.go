@@ -351,7 +351,7 @@ func (video *Azul3DVideo) Run() {
 		card.Textures = []*gfx.Texture{nil}
 		card.Meshes = []*gfx.Mesh{cardMesh}
 
-		img := image.NewRGBA(image.Rect(0, 0, 256, 240))
+		img := image.NewRGBA(image.Rect(0, 0, 256, 256))
 
 		palette := []gfx.Color{}
 
@@ -364,24 +364,26 @@ func (video *Azul3DVideo) Run() {
 				img.Pix[i<<2] = c
 			}
 
-			scale := gfx.Vec3{1.0, 1.0, 0.0}
-			shift := gfx.Vec3{0, 0, 0}
+			var cropPx float32 = 0.0
 
 			if video.overscan {
-				var cropPx float32 = 8.0
-
-				nx := 1.0 / float32(img.Bounds().Dx())
-				ny := 1.0 / float32(img.Bounds().Dy())
-
-				scale = gfx.Vec3{
-					X: 1.0 - (nx * cropPx * 2),
-					Y: 1.0 - (ny * cropPx * 2),
-				}
-				shift = gfx.Vec3{
-					X: nx * cropPx,
-					Y: ny * cropPx,
-				}
+				cropPx = 8.0
 			}
+
+			var btmPx float32 = (16.0 - cropPx) / 256.0
+
+			nx := 1.0 / float32(img.Bounds().Dx())
+			ny := 1.0 / float32(img.Bounds().Dy())
+
+			scale := gfx.Vec3{
+				X: 1.0 - (nx * cropPx * 2),
+				Y: 1.0 - (ny * cropPx * 2) - btmPx,
+			}
+			shift := gfx.Vec3{
+				X: nx * cropPx,
+				Y: ny * cropPx,
+			}
+
 			shader.Inputs["scale"] = scale
 			shader.Inputs["shift"] = shift
 			shader.Inputs["palette"] = palette

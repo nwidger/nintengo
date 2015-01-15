@@ -58,15 +58,11 @@ func getBuf(filename string) (buf []byte, suffix string, err error) {
 	var rc io.ReadCloser
 
 	switch {
-	case strings.HasSuffix(filename, ".nes"):
-		suffix = ".nes"
-
-		if strings.HasSuffix(filename, suffix) {
-			buf, err = ioutil.ReadFile(filename)
-			return
-		}
-	case strings.HasSuffix(filename, ".zip"):
-		suffix = ".zip"
+	case strings.HasSuffix(filename, ".nes") || strings.HasSuffix(filename, ".NES"):
+		suffix = filename[len(filename)-len(".nes"):]
+		buf, err = ioutil.ReadFile(filename)
+	case strings.HasSuffix(filename, ".zip") || strings.HasSuffix(filename, ".ZIP"):
+		suffix = filename[len(filename)-len(".zip"):]
 
 		// Open a zip archive for reading.
 		r, err = zip.OpenReader(filename)
@@ -80,7 +76,7 @@ func getBuf(filename string) (buf []byte, suffix string, err error) {
 		// Iterate through the files in the archive,
 		// printing some of their contents.
 		for _, f := range r.File {
-			if !strings.HasSuffix(f.Name, ".nes") {
+			if !strings.HasSuffix(f.Name, ".nes") && !strings.HasSuffix(f.Name, ".NES") {
 				continue
 			}
 
@@ -100,7 +96,7 @@ func getBuf(filename string) (buf []byte, suffix string, err error) {
 			break
 		}
 	default:
-		err = errors.New("Unknown filetype, must be .nes or .zip")
+		err = errors.New("Unknown filetype, must be .nes, .NES, .zip or .ZIP")
 	}
 
 	return
