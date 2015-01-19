@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 	"unsafe"
 
 	"azul3d.org/native/al.v1-unstable"
@@ -67,6 +68,12 @@ func NewAudio(frequency int, sampleSize int) (audio *Azul3DAudio, err error) {
 
 func (audio *Azul3DAudio) Input() chan int16 {
 	return audio.input
+}
+
+func (audio *Azul3DAudio) bufferDuration() (duration time.Duration) {
+	duration = time.Millisecond *
+		time.Duration(1000*(float32(audio.sampleSize)/(float32(audio.frequency)*audio.speed)))
+	return duration
 }
 
 func (audio *Azul3DAudio) stream(schan chan []int16) {
