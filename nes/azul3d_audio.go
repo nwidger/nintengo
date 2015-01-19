@@ -120,6 +120,7 @@ func (audio *Azul3DAudio) Run() {
 	audio.device.SourcePlay(audio.source)
 
 	state := al.PLAYING
+	queued := int32(len(audio.buffers))
 	processed := int32(0)
 	var samples []int16
 
@@ -145,9 +146,10 @@ func (audio *Azul3DAudio) Run() {
 		// buffering.
 		if audio.device.GetSourcei(audio.source, al.SOURCE_STATE, &state); state != al.PLAYING {
 			fmt.Println("nes: Failed to feed audio to OpenAL fast enough; resynching...")
-			for {
+			for queued > 0 {
 				audio.device.GetSourcei(audio.source, al.BUFFERS_PROCESSED, &processed)
-				if int(processed) == len(audio.buffers) {
+
+				if processed == queued {
 					break
 				}
 			}
@@ -167,6 +169,8 @@ func (audio *Azul3DAudio) Run() {
 			audio.device.SourceQueueBuffers(audio.source, []uint32{pbuffers[i]})
 			samples = nil
 		}
+
+		audio.device.GetSourcei(audio.source, al.BUFFERS_QUEUED, &queued)
 
 		// Begin playing the source now that we've filled all the buffers.
 		if audio.device.GetSourcei(audio.source, al.SOURCE_STATE, &state); state != al.PLAYING {
