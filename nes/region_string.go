@@ -6,16 +6,11 @@ import "fmt"
 
 const _Region_name = "NTSCPAL"
 
-var _Region_index = [...]uint8{4, 7}
+var _Region_index = [...]uint8{0, 4, 7}
 
 func (i Region) String() string {
-	if i >= Region(len(_Region_index)) {
+	if i+1 >= Region(len(_Region_index)) {
 		return fmt.Sprintf("Region(%d)", i)
 	}
-	hi := _Region_index[i]
-	lo := uint8(0)
-	if i > 0 {
-		lo = _Region_index[i-1]
-	}
-	return _Region_name[lo:hi]
+	return _Region_name[_Region_index[i]:_Region_index[i+1]]
 }

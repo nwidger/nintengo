@@ -6,16 +6,11 @@ import "fmt"
 
 const _StepState_name = "NoStepCycleStepScanlineStepFrameStep"
 
-var _StepState_index = [...]uint8{6, 15, 27, 36}
+var _StepState_index = [...]uint8{0, 6, 15, 27, 36}
 
 func (i StepState) String() string {
-	if i >= StepState(len(_StepState_index)) {
+	if i+1 >= StepState(len(_StepState_index)) {
 		return fmt.Sprintf("StepState(%d)", i)
 	}
-	hi := _StepState_index[i]
-	lo := uint8(0)
-	if i > 0 {
-		lo = _StepState_index[i-1]
-	}
-	return _StepState_name[lo:hi]
+	return _StepState_name[_StepState_index[i]:_StepState_index[i+1]]
 }

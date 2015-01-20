@@ -6,16 +6,11 @@ import "fmt"
 
 const _Index_name = "XY"
 
-var _Index_index = [...]uint8{1, 2}
+var _Index_index = [...]uint8{0, 1, 2}
 
 func (i Index) String() string {
-	if i >= Index(len(_Index_index)) {
+	if i+1 >= Index(len(_Index_index)) {
 		return fmt.Sprintf("Index(%d)", i)
 	}
-	hi := _Index_index[i]
-	lo := uint8(0)
-	if i > 0 {
-		lo = _Index_index[i-1]
-	}
-	return _Index_name[lo:hi]
+	return _Index_name[_Index_index[i]:_Index_index[i+1]]
 }

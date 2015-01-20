@@ -6,16 +6,11 @@ import "fmt"
 
 const _RunState_name = "RunningQuitting"
 
-var _RunState_index = [...]uint8{7, 15}
+var _RunState_index = [...]uint8{0, 7, 15}
 
 func (i RunState) String() string {
-	if i >= RunState(len(_RunState_index)) {
+	if i+1 >= RunState(len(_RunState_index)) {
 		return fmt.Sprintf("RunState(%d)", i)
 	}
-	hi := _RunState_index[i]
-	lo := uint8(0)
-	if i > 0 {
-		lo = _RunState_index[i-1]
-	}
-	return _RunState_name[lo:hi]
+	return _RunState_name[_RunState_index[i]:_RunState_index[i+1]]
 }

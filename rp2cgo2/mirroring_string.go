@@ -6,16 +6,11 @@ import "fmt"
 
 const _Mirroring_name = "HorizontalVerticalFourScreen"
 
-var _Mirroring_index = [...]uint8{10, 18, 28}
+var _Mirroring_index = [...]uint8{0, 10, 18, 28}
 
 func (i Mirroring) String() string {
-	if i >= Mirroring(len(_Mirroring_index)) {
+	if i+1 >= Mirroring(len(_Mirroring_index)) {
 		return fmt.Sprintf("Mirroring(%d)", i)
 	}
-	hi := _Mirroring_index[i]
-	lo := uint8(0)
-	if i > 0 {
-		lo = _Mirroring_index[i-1]
-	}
-	return _Mirroring_name[lo:hi]
+	return _Mirroring_name[_Mirroring_index[i]:_Mirroring_index[i+1]]
 }

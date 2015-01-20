@@ -6,16 +6,11 @@ import "fmt"
 
 const _Button_name = "ABSelectStartUpDownLeftRightOne"
 
-var _Button_index = [...]uint8{1, 2, 8, 13, 15, 19, 23, 28, 31}
+var _Button_index = [...]uint8{0, 1, 2, 8, 13, 15, 19, 23, 28, 31}
 
 func (i Button) String() string {
-	if i >= Button(len(_Button_index)) {
+	if i+1 >= Button(len(_Button_index)) {
 		return fmt.Sprintf("Button(%d)", i)
 	}
-	hi := _Button_index[i]
-	lo := uint8(0)
-	if i > 0 {
-		lo = _Button_index[i-1]
-	}
-	return _Button_name[lo:hi]
+	return _Button_name[_Button_index[i]:_Button_index[i+1]]
 }
