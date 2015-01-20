@@ -164,16 +164,15 @@ void main()
 
 var glslFrag = []byte(`
 #version 120
- 
+
 varying vec2 tc;
 
-uniform sampler2D Texture0;
-uniform vec4 palette[64];
+uniform sampler2D Texture0; // palette indices
+uniform sampler2D Texture1; // palette
 
 void main() {
 	vec4 t = texture2D(Texture0, tc);
-	int i = int(t.r * 256.0);
-	gl_FragColor = palette[i];
+	gl_FragColor = texture2D(Texture1, vec2((t.r*256.0)/64.0, 0));
 }
 `)
 
@@ -344,20 +343,23 @@ func (video *Azul3DVideo) Run() {
 			},
 		}
 
+		palette := gfx.NewTexture()
+		palette.MinFilter = gfx.Nearest
+		palette.MagFilter = gfx.Nearest
+		paletteSrc := image.NewRGBA(image.Rect(0, 0, 64, 2))
+		for x, c := range Azul3DPalette {
+			paletteSrc.SetRGBA(x, 0, c)
+		}
+		palette.Source = paletteSrc
+
 		// Create a card object.
 		card := gfx.NewObject()
 
 		card.Shader = shader
-		card.Textures = []*gfx.Texture{nil}
+		card.Textures = []*gfx.Texture{nil, palette}
 		card.Meshes = []*gfx.Mesh{cardMesh}
 
 		img := image.NewRGBA(image.Rect(0, 0, 256, 256))
-
-		palette := []gfx.Color{}
-
-		for _, c := range Azul3DPalette {
-			palette = append(palette, gfx.ColorModel.Convert(c).(gfx.Color))
-		}
 
 		updateTex := func() {
 			for i, c := range colors {
@@ -386,7 +388,6 @@ func (video *Azul3DVideo) Run() {
 
 			shader.Inputs["scale"] = scale
 			shader.Inputs["shift"] = shift
-			shader.Inputs["palette"] = palette
 
 			// Create new texture and ask the renderer to load it. We don't use DXT
 			// compression because those textures cannot be downloaded.
