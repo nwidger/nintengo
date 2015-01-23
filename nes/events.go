@@ -7,7 +7,7 @@ type Event interface {
 }
 
 type FrameEvent struct {
-	colors []uint8
+	Colors []uint8
 }
 
 func (e *FrameEvent) String() string {
@@ -20,14 +20,14 @@ func (e *FrameEvent) Process(nes *NES) {
 	}
 
 	if nes.recorder != nil {
-		nes.recorder.Input() <- e.colors
+		nes.recorder.Input() <- e.Colors
 	}
 
-	nes.video.Input() <- e.colors
+	nes.video.Input() <- e.Colors
 }
 
 type SampleEvent struct {
-	sample int16
+	Sample int16
 }
 
 func (e *SampleEvent) String() string {
@@ -40,16 +40,16 @@ func (e *SampleEvent) Process(nes *NES) {
 	}
 
 	if nes.audioRecorder != nil {
-		nes.audioRecorder.Input() <- e.sample
+		nes.audioRecorder.Input() <- e.Sample
 	}
 
-	nes.audio.Input() <- e.sample
+	nes.audio.Input() <- e.Sample
 }
 
 type ControllerEvent struct {
-	controller int
-	down       bool
-	button     Button
+	Controler  int
+	Down       bool
+	B          Button
 }
 
 func (e *ControllerEvent) String() string {
@@ -61,16 +61,16 @@ func (e *ControllerEvent) Process(nes *NES) {
 		return
 	}
 
-	if e.down {
-		nes.controllers.KeyDown(e.controller, e.button)
+	if e.Down {
+		nes.controllers.KeyDown(e.Controler, e.B)
 	} else {
-		nes.controllers.KeyUp(e.controller, e.button)
+		nes.controllers.KeyUp(e.Controler, e.B)
 	}
 }
 
 type PauseEvent struct {
-	request PauseRequest
-	changed chan bool
+	Request PauseRequest
+	Changed chan bool
 }
 
 func (e *PauseEvent) String() string {
