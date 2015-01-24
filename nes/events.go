@@ -1,9 +1,49 @@
 package nes
 
-import "fmt"
+import (
+    "encoding/gob"
+    "fmt"
+)
+
+type Packet struct {
+    Tick    uint64
+    Ev      Event
+}
 
 type Event interface {
 	Process(nes *NES)
+}
+
+func init() {
+    gob.Register(&FrameEvent{})
+    gob.Register(&SampleEvent{})
+    gob.Register(&ControllerEvent{})
+    gob.Register(&PauseEvent{})
+    gob.Register(&FrameStepEvent{})
+    gob.Register(&ResetEvent{})
+    gob.Register(&RecordEvent{})
+    gob.Register(&StopEvent{})
+    gob.Register(&AudioRecordEvent{})
+    gob.Register(&AudioStopEvent{})
+    gob.Register(&QuitEvent{})
+    gob.Register(&ShowBackgroundEvent{})
+    gob.Register(&ShowSpritesEvent{})
+    gob.Register(&CPUDecodeEvent{})
+    gob.Register(&PPUDecodeEvent{})
+    gob.Register(&SaveStateEvent{})
+    gob.Register(&LoadStateEvent{})
+    gob.Register(&FastForwardEvent{})
+    gob.Register(&FPS100Event{})
+    gob.Register(&FPS75Event{})
+    gob.Register(&FPS50Event{})
+    gob.Register(&FPS25Event{})
+    gob.Register(&SavePatternTablesEvent{})
+    gob.Register(&MuteEvent{})
+    gob.Register(&MuteNoiseEvent{})
+    gob.Register(&MuteTriangleEvent{})
+    gob.Register(&MutePulse1Event{})
+    gob.Register(&MutePulse2Event{})
+    gob.Register(&HeartbeatEvent{})
 }
 
 type FrameEvent struct {
@@ -393,4 +433,14 @@ func (e *MutePulse2Event) String() string {
 func (e *MutePulse2Event) Process(nes *NES) {
 	nes.CPU.APU.Pulse2.Muted = !nes.CPU.APU.Pulse2.Muted
 	fmt.Println("*** Toggling mute pulse2 =", nes.CPU.APU.Pulse2.Muted)
+}
+
+type HeartbeatEvent struct{}
+
+func (e *HeartbeatEvent) String() string {
+    return "HeartbeatEvent"
+}
+
+func (e *HeartbeatEvent) Process(nes *NES) {
+    // do nothing
 }
