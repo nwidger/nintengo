@@ -309,64 +309,18 @@ func (e *LoadStateEvent) Process(nes *NES) {
 	}
 }
 
-type FastForwardEvent struct{}
-
-func (e *FastForwardEvent) String() string {
-	return "FastForwardEvent"
+type FPSEvent struct {
+    Rate    float
 }
 
-func (e *FastForwardEvent) Process(nes *NES) {
-	nes.fps.SetRate(DEFAULT_FPS * 2.00)
-	nes.audio.SetSpeed(2.00)
-	fmt.Println("*** Setting fps to fast forward (2x)")
+func (e *FPSEvent) String() string {
+    return "FPSEvent"
 }
 
-type FPS100Event struct{}
-
-func (e *FPS100Event) String() string {
-	return "FPS100Event"
-}
-
-func (e *FPS100Event) Process(nes *NES) {
-	nes.fps.SetRate(DEFAULT_FPS * 1.00)
-	nes.audio.SetSpeed(1.00)
-	fmt.Println("*** Setting fps to 4/4")
-}
-
-type FPS75Event struct{}
-
-func (e *FPS75Event) String() string {
-	return "FPS75Event"
-}
-
-func (e *FPS75Event) Process(nes *NES) {
-	nes.fps.SetRate(DEFAULT_FPS * 0.75)
-	nes.audio.SetSpeed(0.70)
-	fmt.Println("*** Setting fps to 3/4")
-}
-
-type FPS50Event struct{}
-
-func (e *FPS50Event) String() string {
-	return "FPS50Event"
-}
-
-func (e *FPS50Event) Process(nes *NES) {
-	nes.fps.SetRate(DEFAULT_FPS * 0.50)
-	nes.audio.SetSpeed(0.50)
-	fmt.Println("*** Setting fps to 2/4")
-}
-
-type FPS25Event struct{}
-
-func (e *FPS25Event) String() string {
-	return "FPS25Event"
-}
-
-func (e *FPS25Event) Process(nes *NES) {
-	nes.fps.SetRate(DEFAULT_FPS * 0.25)
-	nes.audio.SetSpeed(0.25)
-	fmt.Println("*** Setting fps to 1/4")
+func (e *FPSEvent) Process(nes *NES) {
+    nes.fps.SetRate(DEFAULT_FPS * e.Rate)
+    nes.audio.SetSpeed(1.00)
+    fmt.Printf("*** Setting fps to %0.1f", e.Rate)
 }
 
 type SavePatternTablesEvent struct{}
