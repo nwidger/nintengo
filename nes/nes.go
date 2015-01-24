@@ -62,6 +62,7 @@ type NES struct {
 	recorder      Recorder
 	audioRecorder AudioRecorder
 	options       *Options
+	tick          chan uint64
 }
 
 type Options struct {
@@ -154,6 +155,9 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 
 	ppu.Memory.AddMappings(rom, rp2ago3.PPU)
 
+	tick = make(chan uint64, 1)
+    tick <- 0
+
 	nes = &NES{
 		frameStep:     NoStep,
 		paused:        make(chan *PauseEvent),
@@ -169,6 +173,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		audioRecorder: audioRecorder,
 		controllers:   ctrls,
 		options:       options,
+		tick:          tick,
 	}
 
 	return
