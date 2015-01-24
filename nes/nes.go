@@ -72,6 +72,8 @@ type Options struct {
 	CPUProfile    string
 	MemProfile    string
 	HTTPAddress   string
+	Listen        string
+	Connect       string
 }
 
 func NewNES(filename string, options *Options) (nes *NES, err error) {
@@ -155,7 +157,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 
 	ppu.Memory.AddMappings(rom, rp2ago3.PPU)
 
-	tick = make(chan uint64, 1)
+	tick := make(chan uint64, 1)
     tick <- 0
 
 	nes = &NES{
@@ -390,7 +392,7 @@ func (nes *NES) runProcessors() (err error) {
 }
 
 func (nes *NES) isPaused(pr *PauseEvent, oldPaused bool) (isPaused bool) {
-	switch pr.request {
+	switch pr.Request {
 	case Pause:
 		isPaused = true
 	case Unpause:
@@ -399,8 +401,8 @@ func (nes *NES) isPaused(pr *PauseEvent, oldPaused bool) (isPaused bool) {
 		isPaused = !oldPaused
 	}
 
-	if pr.changed != nil {
-		pr.changed <- (isPaused != oldPaused)
+	if pr.Changed != nil {
+		pr.Changed <- (isPaused != oldPaused)
 	}
 
 	return
@@ -408,7 +410,7 @@ func (nes *NES) isPaused(pr *PauseEvent, oldPaused bool) (isPaused bool) {
 
 func (nes *NES) frame(colors []uint8) {
 	e := &FrameEvent{
-		colors: colors,
+		Colors: colors,
 	}
 
 	e.Process(nes)
@@ -416,7 +418,7 @@ func (nes *NES) frame(colors []uint8) {
 
 func (nes *NES) sample(sample int16) {
 	e := &SampleEvent{
-		sample: sample,
+		Sample: sample,
 	}
 
 	e.Process(nes)

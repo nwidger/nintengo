@@ -32,11 +32,7 @@ func init() {
     gob.Register(&PPUDecodeEvent{})
     gob.Register(&SaveStateEvent{})
     gob.Register(&LoadStateEvent{})
-    gob.Register(&FastForwardEvent{})
-    gob.Register(&FPS100Event{})
-    gob.Register(&FPS75Event{})
-    gob.Register(&FPS50Event{})
-    gob.Register(&FPS25Event{})
+    gob.Register(&FPSEvent{})
     gob.Register(&SavePatternTablesEvent{})
     gob.Register(&MuteEvent{})
     gob.Register(&MuteNoiseEvent{})
@@ -267,19 +263,19 @@ func (e *SaveStateEvent) String() string {
 
 func (e *SaveStateEvent) Process(nes *NES) {
 	pe := &PauseEvent{
-		changed: make(chan bool),
+		Changed: make(chan bool),
 	}
 
-	pe.request = Pause
+	pe.Request = Pause
 	pe.Process(nes)
-	changed := <-pe.changed
+	changed := <-pe.Changed
 
 	nes.SaveState()
 
 	if changed {
-		pe.changed = nil
+		pe.Changed = nil
 
-		pe.request = Unpause
+		pe.Request = Unpause
 		pe.Process(nes)
 	}
 }
@@ -292,25 +288,25 @@ func (e *LoadStateEvent) String() string {
 
 func (e *LoadStateEvent) Process(nes *NES) {
 	pe := &PauseEvent{
-		changed: make(chan bool),
+		Changed: make(chan bool),
 	}
 
-	pe.request = Pause
+	pe.Request = Pause
 	pe.Process(nes)
-	changed := <-pe.changed
+	changed := <-pe.Changed
 
 	nes.LoadState()
 
 	if changed {
-		pe.changed = nil
+		pe.Changed = nil
 
-		pe.request = Unpause
+		pe.Request = Unpause
 		pe.Process(nes)
 	}
 }
 
 type FPSEvent struct {
-    Rate    float
+    Rate    float64
 }
 
 func (e *FPSEvent) String() string {
