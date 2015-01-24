@@ -3,7 +3,7 @@ package rp2ago3
 import (
 	"errors"
 
-	"github.com/nwidger/nintengo/m65go2"
+	"github.com/kaicheng/nintengo/m65go2"
 )
 
 type Mapping uint8

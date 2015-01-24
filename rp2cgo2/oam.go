@@ -1,6 +1,6 @@
 package rp2cgo2
 
-import "github.com/nwidger/nintengo/m65go2"
+import "github.com/kaicheng/nintengo/m65go2"
 
 type CycleFunc func(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool)
 
