@@ -278,8 +278,8 @@ func (video *Azul3DVideo) handleInput(ev keyboard.StateEvent, w *window.Window) 
 		}
 
 		event = &ControllerEvent{
-			B : button,
-			Down :   ev.State == keyboard.Down,
+			B:    button,
+			Down: ev.State == keyboard.Down,
 		}
 	}
 

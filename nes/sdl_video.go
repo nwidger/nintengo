@@ -370,8 +370,8 @@ func (video *SDLVideo) Run() {
 
 				if event == nil && running {
 					event = &ControllerEvent{
-						button: button(e),
-						down:   e.Type == sdl.KEYDOWN,
+						B:    button(e),
+						Down: e.Type == sdl.KEYDOWN,
 					}
 				}
 			}

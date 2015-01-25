@@ -7,9 +7,9 @@ import (
 
 	"flag"
 
-	"github.com/mitchellh/go-homedir"
 	"github.com/kaicheng/nintengo/http"
 	"github.com/kaicheng/nintengo/nes"
+	"github.com/mitchellh/go-homedir"
 	"gopkg.in/yaml.v2"
 )
 

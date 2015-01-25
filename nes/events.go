@@ -1,45 +1,111 @@
 package nes
 
 import (
-    "encoding/gob"
-    "fmt"
+	"bytes"
+	"encoding/gob"
+	"fmt"
+	"io/ioutil"
 )
 
 type Packet struct {
-    Tick    uint64
-    Ev      Event
+	Tick uint64
+	Ev   Event
 }
 
 type Event interface {
 	Process(nes *NES)
+	String() string
 }
 
 func init() {
-    gob.Register(&FrameEvent{})
-    gob.Register(&SampleEvent{})
-    gob.Register(&ControllerEvent{})
-    gob.Register(&PauseEvent{})
-    gob.Register(&FrameStepEvent{})
-    gob.Register(&ResetEvent{})
-    gob.Register(&RecordEvent{})
-    gob.Register(&StopEvent{})
-    gob.Register(&AudioRecordEvent{})
-    gob.Register(&AudioStopEvent{})
-    gob.Register(&QuitEvent{})
-    gob.Register(&ShowBackgroundEvent{})
-    gob.Register(&ShowSpritesEvent{})
-    gob.Register(&CPUDecodeEvent{})
-    gob.Register(&PPUDecodeEvent{})
-    gob.Register(&SaveStateEvent{})
-    gob.Register(&LoadStateEvent{})
-    gob.Register(&FPSEvent{})
-    gob.Register(&SavePatternTablesEvent{})
-    gob.Register(&MuteEvent{})
-    gob.Register(&MuteNoiseEvent{})
-    gob.Register(&MuteTriangleEvent{})
-    gob.Register(&MutePulse1Event{})
-    gob.Register(&MutePulse2Event{})
-    gob.Register(&HeartbeatEvent{})
+	gob.Register(&FrameEvent{})
+	gob.Register(&SampleEvent{})
+	gob.Register(&ControllerEvent{})
+	gob.Register(&PauseEvent{})
+	gob.Register(&FrameStepEvent{})
+	gob.Register(&ResetEvent{})
+	gob.Register(&RecordEvent{})
+	gob.Register(&StopEvent{})
+	gob.Register(&AudioRecordEvent{})
+	gob.Register(&AudioStopEvent{})
+	gob.Register(&QuitEvent{})
+	gob.Register(&ShowBackgroundEvent{})
+	gob.Register(&ShowSpritesEvent{})
+	gob.Register(&CPUDecodeEvent{})
+	gob.Register(&PPUDecodeEvent{})
+	gob.Register(&SaveStateEvent{})
+	gob.Register(&LoadStateEvent{})
+	gob.Register(&FPSEvent{})
+	gob.Register(&SavePatternTablesEvent{})
+	gob.Register(&MuteEvent{})
+	gob.Register(&MuteNoiseEvent{})
+	gob.Register(&MuteTriangleEvent{})
+	gob.Register(&MutePulse1Event{})
+	gob.Register(&MutePulse2Event{})
+	gob.Register(&HeartbeatEvent{})
+}
+
+const (
+	EV_GLOBAL uint = 1 << iota
+	EV_MASTER
+	EV_SLAVE
+)
+
+func GetEventFlag(ev Event) (flag uint) {
+	switch ev.String() {
+	case "FrameEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "SampleEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "ControllerEvent":
+		flag |= EV_GLOBAL | EV_MASTER | EV_SLAVE
+	case "PauseEvent":
+		flag |= EV_GLOBAL | EV_MASTER | EV_SLAVE
+	case "FrameStepEvent":
+		flag |= EV_GLOBAL | EV_MASTER
+	case "ResetEvent":
+		flag |= EV_GLOBAL | EV_MASTER
+	case "RecordEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "StopEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "AudioRecordEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "AudioStopEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "QuitEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "ShowBackgroundEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "ShowSpritesEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "CPUDecodeEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "PPUDecodeEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "SaveStateEvent":
+		flag |= EV_GLOBAL | EV_MASTER
+	case "LoadStateEvent":
+		flag |= EV_GLOBAL | EV_MASTER
+	case "FPSEvent":
+		flag |= EV_GLOBAL | EV_MASTER
+	case "SavePatternTablesEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "MuteEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "MuteNoiseEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "MuteTriangleEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "MutePulse1Event":
+		flag |= EV_MASTER | EV_SLAVE
+	case "MutePulse2Event":
+		flag |= EV_MASTER | EV_SLAVE
+	case "HeartbeatEvent":
+		flag |= EV_GLOBAL | EV_MASTER
+	default:
+	}
+	return
 }
 
 type FrameEvent struct {
@@ -83,7 +149,7 @@ func (e *SampleEvent) Process(nes *NES) {
 }
 
 type ControllerEvent struct {
-	Controler  int
+	Controller int
 	Down       bool
 	B          Button
 }
@@ -98,9 +164,9 @@ func (e *ControllerEvent) Process(nes *NES) {
 	}
 
 	if e.Down {
-		nes.controllers.KeyDown(e.Controler, e.B)
+		nes.controllers.KeyDown(e.Controller, e.B)
 	} else {
-		nes.controllers.KeyUp(e.Controler, e.B)
+		nes.controllers.KeyUp(e.Controller, e.B)
 	}
 }
 
@@ -262,61 +328,47 @@ func (e *SaveStateEvent) String() string {
 }
 
 func (e *SaveStateEvent) Process(nes *NES) {
-	pe := &PauseEvent{
-		Changed: make(chan bool),
-	}
-
-	pe.Request = Pause
-	pe.Process(nes)
-	changed := <-pe.Changed
-
 	nes.SaveState()
-
-	if changed {
-		pe.Changed = nil
-
-		pe.Request = Unpause
-		pe.Process(nes)
-	}
 }
 
-type LoadStateEvent struct{}
+type LoadStateEvent struct {
+	Data []byte
+}
 
 func (e *LoadStateEvent) String() string {
 	return "LoadStateEvent"
 }
 
 func (e *LoadStateEvent) Process(nes *NES) {
-	pe := &PauseEvent{
-		Changed: make(chan bool),
+	if e.Data == nil {
+		if !nes.master {
+			// Should not go here, NES.processEvents already filter the events.
+			return
+		}
+		name := nes.ROM.GameName() + ".nst"
+		fmt.Println("Reading ", name)
+		data, err := ioutil.ReadFile(name)
+		if err != nil {
+			return
+		}
+		e.Data = data
 	}
-
-	pe.Request = Pause
-	pe.Process(nes)
-	changed := <-pe.Changed
-
-	nes.LoadState()
-
-	if changed {
-		pe.Changed = nil
-
-		pe.Request = Unpause
-		pe.Process(nes)
-	}
+	reader := bytes.NewReader(e.Data)
+	nes.LoadStateFromReader(reader, int64(len(e.Data)))
 }
 
 type FPSEvent struct {
-    Rate    float64
+	Rate float64
 }
 
 func (e *FPSEvent) String() string {
-    return "FPSEvent"
+	return "FPSEvent"
 }
 
 func (e *FPSEvent) Process(nes *NES) {
-    nes.fps.SetRate(DEFAULT_FPS * e.Rate)
-    nes.audio.SetSpeed(1.00)
-    fmt.Printf("*** Setting fps to %0.1f", e.Rate)
+	nes.fps.SetRate(DEFAULT_FPS * e.Rate)
+	nes.audio.SetSpeed(1.00)
+	fmt.Printf("*** Setting fps to %0.1f", e.Rate)
 }
 
 type SavePatternTablesEvent struct{}
@@ -388,9 +440,9 @@ func (e *MutePulse2Event) Process(nes *NES) {
 type HeartbeatEvent struct{}
 
 func (e *HeartbeatEvent) String() string {
-    return "HeartbeatEvent"
+	return "HeartbeatEvent"
 }
 
 func (e *HeartbeatEvent) Process(nes *NES) {
-    // do nothing
+	// do nothing
 }
