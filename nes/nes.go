@@ -52,7 +52,7 @@ type NES struct {
 	GameName      string
 	state         RunState
 	frameStep     StepState
-	paused        chan *PauseEvent
+	Paused        bool
 	events        chan Event
 	CPU           *rp2ago3.RP2A03
 	CpuDivisor    float32
@@ -188,7 +188,6 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	nes = &NES{
 		GameName:      gamename,
 		frameStep:     NoStep,
-		paused:        make(chan *PauseEvent),
 		events:        events,
 		CPU:           cpu,
 		CpuDivisor:    cpuDivisor,
@@ -477,7 +476,7 @@ func (nes *NES) step() (cycles uint16, err error) {
 			nes.fps.Delay()
 
 			if nes.frameStep == FrameStep {
-				// isPaused = true
+				nes.Paused = true
 				fmt.Println("*** Paused at frame", nes.PPU.Frame)
 			}
 		}
@@ -490,7 +489,7 @@ func (nes *NES) step() (cycles uint16, err error) {
 
 		if nes.frameStep == CycleStep ||
 			(nes.frameStep == ScanlineStep && nes.PPU.Scanline != scanline) {
-			// isPaused = true
+			nes.Paused = true
 
 			if nes.frameStep == CycleStep {
 				fmt.Println("*** Paused at cycle", nes.PPU.Cycle)
@@ -534,71 +533,50 @@ func (nes *NES) runAsSlave() (err error) {
 	return
 }
 
+func (nes *NES) processPacket(pkt *Packet) {
+	fmt.Println("Sync processing: ", pkt)
+	lock := <-nes.lock
+	pkt.Tick = nes.Tick
+	pkt.Ev.Process(nes)
+	nes.lock <- lock
+	flag := GetEventFlag(pkt.Ev)
+	if nes.bridge.active && (flag&EV_GLOBAL != 0) {
+		nes.bridge.outgoing <- *pkt
+	}	
+}
+
 func (nes *NES) runAsMaster() (err error) {
 	var cycles uint16
-
-	// isPaused := false
-	// mmc3, _ := nes.ROM.(*MMC3)
 
 	nes.state = Running
 
 	for nes.state != Quitting {
 	ProcessingEventLoop:
 		for {
-			// Must be non-blocking receiving here
-			select {
-			case pkt := <-nes.bridge.incoming:
-				fmt.Println("Sync processing: ", pkt)
-				lock := <-nes.lock
-				pkt.Tick = nes.Tick
-				pkt.Ev.Process(nes)
-				nes.lock <- lock
-				flag := GetEventFlag(pkt.Ev)
-				if nes.bridge.active && (flag&EV_GLOBAL != 0) {
-					nes.bridge.outgoing <- pkt
+			if nes.Paused {
+				// If Paused, use blocking chan receiving
+				pkt := <- nes.bridge.incoming
+				nes.processPacket(&pkt)
+			} else {
+				// Must be non-blocking receiving if not paused
+				select {
+				case pkt := <-nes.bridge.incoming:
+					nes.processPacket(&pkt)
+				default:
+					// Done processing
+					break ProcessingEventLoop
 				}
-			default:
-				// Done processing
-				break ProcessingEventLoop
 			}
 		}
 
-		lock := <-nes.lock
-		cycles, err = nes.step()
-		nes.Tick += uint64(cycles)
+		if !nes.Paused {
+			lock := <-nes.lock
+			cycles, err = nes.step()
+			nes.Tick += uint64(cycles)
 
-		nes.lock <- lock
-
-		// FIXME: pausing
-		/*
-			select {
-			case pr := <-nes.paused:
-				isPaused = nes.isPaused(pr, isPaused)
-			default:
-			}
-
-			for isPaused {
-				isPaused = nes.isPaused(<-nes.paused, isPaused)
-			}
-		*/
+			nes.lock <- lock
+		}
 	}
-	return
-}
-
-func (nes *NES) isPaused(pr *PauseEvent, oldPaused bool) (isPaused bool) {
-	switch pr.Request {
-	case Pause:
-		isPaused = true
-	case Unpause:
-		isPaused = false
-	case Toggle:
-		isPaused = !oldPaused
-	}
-
-	if pr.Changed != nil {
-		pr.Changed <- (isPaused != oldPaused)
-	}
-
 	return
 }
 

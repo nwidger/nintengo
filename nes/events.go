@@ -181,7 +181,7 @@ func (e *PauseEvent) String() string {
 
 func (e *PauseEvent) Process(nes *NES) {
 	nes.audio.TogglePaused()
-	nes.paused <- e
+	nes.Paused = !nes.Paused
 }
 
 type FrameStepEvent struct{}
