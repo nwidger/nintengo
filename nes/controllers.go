@@ -1,6 +1,6 @@
 package nes
 
-import "github.com/kaicheng/nintengo/rp2ago3"
+import "github.com/nwidger/nintengo/rp2ago3"
 
 //go:generate stringer -type=Button
 type Button uint8

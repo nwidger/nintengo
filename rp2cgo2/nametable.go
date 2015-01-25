@@ -1,6 +1,6 @@
 package rp2cgo2
 
-import "github.com/kaicheng/nintengo/rp2ago3"
+import "github.com/nwidger/nintengo/rp2ago3"
 
 type Nametable struct {
 	Tables [4]int

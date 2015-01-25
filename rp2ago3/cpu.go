@@ -1,6 +1,6 @@
 package rp2ago3
 
-import "github.com/kaicheng/nintengo/m65go2"
+import "github.com/nwidger/nintengo/m65go2"
 
 const NTSC_CPU_CLOCK_DIVISOR float32 = 3
 const PAL_CPU_CLOCK_DIVISOR float32 = 3.2

@@ -7,9 +7,9 @@ import (
 
 	"flag"
 
-	"github.com/kaicheng/nintengo/http"
-	"github.com/kaicheng/nintengo/nes"
 	"github.com/mitchellh/go-homedir"
+	"github.com/nwidger/nintengo/http"
+	"github.com/nwidger/nintengo/nes"
 	"gopkg.in/yaml.v2"
 )
 
@@ -63,7 +63,6 @@ func main() {
 	} else {
 		filename = flag.Arg(0)
 	}
-
 
 	nes, err := nes.NewNES(filename, options)
 
