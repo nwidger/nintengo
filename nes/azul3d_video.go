@@ -483,3 +483,7 @@ func (video *Azul3DVideo) Run() {
 
 	window.Run(gfxLoop, props)
 }
+
+func (video *Azul3DVideo) SetCaption(caption string) {
+	video.caption = caption
+}

@@ -78,6 +78,20 @@ func (mem *MappedMemory) AddMappings(mappable MappableMemory, which Mapping) (er
 	return
 }
 
+func (mem *MappedMemory) ForceAddMappings(mappable MappableMemory, which Mapping) (err error) {
+	fetch, store := mappable.Mappings(which)
+
+	for _, address := range fetch {
+		mem.fetch[address] = mappable
+	}
+
+	for _, address := range store {
+		mem.store[address] = mappable
+	}
+
+	return
+}
+
 func (mem *MappedMemory) Reset() {
 	// don't clear mappings
 	mem.Memory.Reset()

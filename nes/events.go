@@ -345,7 +345,7 @@ func (e *LoadStateEvent) Process(nes *NES) {
 			// Should not go here, NES.processEvents already filter the events.
 			return
 		}
-		name := nes.ROM.GameName() + ".nst"
+		name := nes.GameName + ".nst"
 		fmt.Println("Reading ", name)
 		data, err := ioutil.ReadFile(name)
 		if err != nil {

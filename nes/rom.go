@@ -25,7 +25,6 @@ const (
 
 type ROMFile struct {
 	gamename    string
-	filename    string
 	prgBanks    uint16
 	chrBanks    uint16
 	mirroring   rp2cgo2.Mirroring
@@ -42,6 +41,7 @@ type ROMFile struct {
 	vromBanks   [][]uint8
 	irq         func(state bool)
 	setTables   func(t0, t1, t2, t3 int)
+	raw			[]byte
 }
 
 type ROM interface {
@@ -51,6 +51,7 @@ type ROM interface {
 	GameName() string
 	LoadBattery()
 	SaveBattery() (err error)
+	GetRaw() []byte
 }
 
 func getBuf(filename string) (buf []byte, suffix string, err error) {
@@ -102,17 +103,8 @@ func getBuf(filename string) (buf []byte, suffix string, err error) {
 	return
 }
 
-func NewROM(filename string, irq func(state bool), setTables func(t0, t1, t2, t3 int)) (rom ROM, err error) {
-	var buf []byte
-	var suffix string
-
-	buf, suffix, err = getBuf(filename)
-
-	if err != nil {
-		return
-	}
-
-	romf, err := NewROMFile(buf)
+func NewROMFromRaw(gamename string, raw []byte, irq func(state bool), setTables func(t0, t1, t2, t3 int)) (rom ROM, err error) {
+	romf, err := NewROMFile(raw)
 
 	if err != nil {
 		return
@@ -120,10 +112,9 @@ func NewROM(filename string, irq func(state bool), setTables func(t0, t1, t2, t3
 
 	romf.irq = irq
 	romf.setTables = setTables
-	romf.filename = filename
-	romf.gamename = strings.TrimSuffix(romf.filename, suffix)
 
 	romf.setTables(romf.Tables())
+	romf.gamename = gamename
 
 	switch romf.mapper {
 	case 0x00, 0x40, 0x41:
@@ -144,6 +135,21 @@ func NewROM(filename string, irq func(state bool), setTables func(t0, t1, t2, t3
 		err = errors.New(fmt.Sprintf("Unsupported mapper type %v", romf.mapper))
 	}
 
+	return
+}
+
+func NewROM(filename string, irq func(state bool), setTables func(t0, t1, t2, t3 int)) (rom ROM, err error) {
+	var buf []byte
+	var suffix string
+
+	buf, suffix, err = getBuf(filename)
+
+	if err != nil {
+		return
+	}
+
+	gamename := strings.TrimSuffix(filename, suffix)
+	rom, err = NewROMFromRaw(gamename, buf, irq, setTables)
 	return
 }
 
@@ -263,6 +269,7 @@ func NewROMFile(buf []byte) (romf *ROMFile, err error) {
 		romf.wramBanks[n] = make([]uint8, offset)
 	}
 
+	romf.raw = buf
 	return
 }
 
@@ -342,4 +349,8 @@ func (romf *ROMFile) SaveBattery() (err error) {
 	err = ioutil.WriteFile(savename, buf.Bytes(), 0644)
 
 	return
+}
+
+func (romf *ROMFile) GetRaw() []byte {
+	return romf.raw
 }

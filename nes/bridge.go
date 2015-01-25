@@ -14,7 +14,7 @@ func loop(conn net.Conn, incoming chan<- Packet, outgoing <-chan Packet) error {
 	go func(c <-chan Packet, conn net.Conn, enc *gob.Encoder) {
 		for {
 			pkt := <-c
-			fmt.Println("Encoding: ", pkt)
+			// fmt.Println("Encoding: ", pkt)
 			err := enc.Encode(&pkt)
 			if err != nil {
 				fmt.Println("Error Encoding: ", err)
@@ -25,7 +25,7 @@ func loop(conn net.Conn, incoming chan<- Packet, outgoing <-chan Packet) error {
 	}(outgoing, conn, enc)
 	var pkt Packet
 	for {
-		fmt.Println("Decoding..")
+		//fmt.Println("Decoding..")
 		err := dec.Decode(&pkt)
 		if err != nil {
 			fmt.Println("Decode err: ", err)
@@ -34,7 +34,7 @@ func loop(conn net.Conn, incoming chan<- Packet, outgoing <-chan Packet) error {
 			}
 			return err
 		} else {
-			fmt.Println("Decoded: ", pkt)
+			//fmt.Println("Decoded: ", pkt)
 			incoming <- pkt
 		}
 	}

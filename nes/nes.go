@@ -49,12 +49,13 @@ const (
 )
 
 type NES struct {
+	GameName      string
 	state         RunState
 	frameStep     StepState
 	paused        chan *PauseEvent
 	events        chan Event
 	CPU           *rp2ago3.RP2A03
-	cpuDivisor    float32
+	CpuDivisor    float32
 	PPU           *rp2cgo2.RP2C02
 	PPUQuota      float32
 	controllers   *Controllers
@@ -90,6 +91,9 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	var cpuDivisor float32
 	var master bool
 	var bridge *Bridge
+	var rom ROM
+
+	gamename := "NONAME"
 
 	audioFrequency := 44100
 	audioSampleSize := 2048
@@ -108,26 +112,29 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	} else {
 		master = true
 		bridge = newBridge(nil, options.Listen)
+	
+		rom, err = NewROM(filename, cpu.InterruptLine(m65go2.Irq), ppu.Nametable.SetTables)
+		gamename = rom.GameName()
+
+		if err != nil {
+			err = errors.New(fmt.Sprintf("Error loading ROM: %v", err))
+			return
+		}
+
+		switch rom.Region() {
+		case NTSC:
+			cpuDivisor = rp2ago3.NTSC_CPU_CLOCK_DIVISOR
+		case PAL:
+			cpuDivisor = rp2ago3.PAL_CPU_CLOCK_DIVISOR
+		}
+
 	}
 
-	rom, err := NewROM(filename, cpu.InterruptLine(m65go2.Irq), ppu.Nametable.SetTables)
-
-	if err != nil {
-		err = errors.New(fmt.Sprintf("Error loading ROM: %v", err))
-		return
-	}
-
-	switch rom.Region() {
-	case NTSC:
-		cpuDivisor = rp2ago3.NTSC_CPU_CLOCK_DIVISOR
-	case PAL:
-		cpuDivisor = rp2ago3.PAL_CPU_CLOCK_DIVISOR
-	}
 
 	ctrls := NewControllers()
 
 	events := make(chan Event)
-	video, err = NewVideo(rom.GameName(), events)
+	video, err = NewVideo(gamename, events)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error creating video: %v", err))
@@ -168,20 +175,23 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	}
 
 	cpu.Memory.AddMappings(ppu, rp2ago3.CPU)
-	cpu.Memory.AddMappings(rom, rp2ago3.CPU)
 	cpu.Memory.AddMappings(ctrls, rp2ago3.CPU)
 
-	ppu.Memory.AddMappings(rom, rp2ago3.PPU)
+	if master {
+		cpu.Memory.AddMappings(rom, rp2ago3.CPU)
+		ppu.Memory.AddMappings(rom, rp2ago3.PPU)
+	}
 
 	lock := make(chan uint64, 1)
 	lock <- 0
 
 	nes = &NES{
+		GameName:      gamename,
 		frameStep:     NoStep,
 		paused:        make(chan *PauseEvent),
 		events:        events,
 		CPU:           cpu,
-		cpuDivisor:    cpuDivisor,
+		CpuDivisor:    cpuDivisor,
 		PPU:           ppu,
 		ROM:           rom,
 		audio:         audio,
@@ -199,6 +209,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 
 	bridge.nes = nes
 
+	fmt.Println("Done creating NES")
 	return
 }
 
@@ -225,7 +236,7 @@ func (nes *NES) Pause() RunState {
 }
 
 func (nes *NES) SaveState() {
-	name := nes.ROM.GameName() + ".nst"
+	name := nes.GameName + ".nst"
 
 	fo, err := os.Create(name)
 	defer fo.Close()
@@ -235,12 +246,14 @@ func (nes *NES) SaveState() {
 		return
 	}
 
-	nes.SaveStateToWriter(fo)
+	nes.SaveStateToWriter(fo, false)
 
 	fmt.Println("*** Saving state to", name)
 }
 
-func (nes *NES) SaveStateToWriter(writer io.Writer) (err error) {
+func (nes *NES) SaveStateToWriter(writer io.Writer, withrom bool) (err error) {
+	var romfw io.Writer
+
 	fmt.Println("Start saving")
 	w := bufio.NewWriter(writer)
 	defer w.Flush()
@@ -262,6 +275,21 @@ func (nes *NES) SaveStateToWriter(writer io.Writer) (err error) {
 		return
 	}
 
+	if withrom {
+		// ROM should be written before NES, because we need ROM restored before NES.
+		fmt.Println("Saving ROM ...")
+		romfw, err = zw.Create("rom.bin")
+		if err != nil {
+			fmt.Printf("*** Error saving rom: %s\n", err)
+			return
+		}
+		raw := nes.ROM.GetRaw()
+		if _, err = romfw.Write(raw); err != nil {
+			fmt.Printf("*** Error saving rom: %s\n", err)
+		}
+	}
+
+
 	zfw, err := zw.Create("state.json")
 
 	if err != nil {
@@ -276,11 +304,12 @@ func (nes *NES) SaveStateToWriter(writer io.Writer) (err error) {
 	if _, err = zfw.Write(buf); err != nil {
 		fmt.Printf("*** Error saving state: %s\n", err)
 	}
+
 	return
 }
 
 func (nes *NES) LoadState() {
-	name := nes.ROM.GameName() + ".nst"
+	name := nes.GameName + ".nst"
 	reader, err := os.Open(name)
 	if err != nil {
 	}
@@ -344,8 +373,31 @@ func (nes *NES) LoadStateFromReader(reader io.ReaderAt, size int64) (err error) 
 				fmt.Printf("*** Error loading state: %s\n", err)
 				return err
 			}
+			nes.video.SetCaption(nes.GameName)
 
 			loaded = true
+		case "rom.bin":
+			fmt.Printf("Trying recover ROM")
+			romfr, err := zf.Open()
+			defer romfr.Close()
+
+			if err != nil {
+				fmt.Printf("*** Error loading rom: %s\n", err)
+			}
+
+			var buf bytes.Buffer
+			if _, err = buf.ReadFrom(romfr); err != nil {
+				fmt.Printf("*** Error loading rom %s\n", err)
+			}
+
+			rom, err := NewROMFromRaw(nes.GameName, buf.Bytes(), nes.CPU.InterruptLine(m65go2.Irq), nes.PPU.Nametable.SetTables)
+			if err != nil {
+				fmt.Printf("*** Error loading rom: %s\n", err)
+			}
+
+			nes.ROM = rom
+			nes.CPU.Memory.ForceAddMappings(rom, rp2ago3.CPU)
+			nes.PPU.Memory.ForceAddMappings(rom, rp2ago3.PPU)
 		}
 	}
 
@@ -358,7 +410,7 @@ func (nes *NES) LoadStateFromReader(reader io.ReaderAt, size int64) (err error) 
 
 func (nes *NES) getLoadStateEvent() (ev *LoadStateEvent, err error) {
 	var buf bytes.Buffer
-	err = nes.SaveStateToWriter(&buf)
+	err = nes.SaveStateToWriter(&buf, true)
 	if err != nil {
 		fmt.Print("getLoadStateEvent: ", err)
 		return
@@ -414,7 +466,7 @@ func (nes *NES) step() (cycles uint16, err error) {
 			return
 		}
 
-		nes.PPUQuota += float32(cycles) * nes.cpuDivisor
+		nes.PPUQuota += float32(cycles) * nes.CpuDivisor
 	}
 
 	if nes.PPUQuota >= 1.0 {
@@ -462,7 +514,7 @@ func (nes *NES) runAsSlave() (err error) {
 	var cycles uint16
 	for nes.state != Quitting {
 		pkt := <-nes.bridge.incoming
-		fmt.Println("Got pkt: ", pkt)
+		// fmt.Println("Got pkt: ", pkt)
 		if pkt.Ev.String() != "LoadStateEvent" {
 			if nes.state == Uninitialized {
 				continue
@@ -578,7 +630,9 @@ func (nes *NES) sample(sample int16) {
 func (nes *NES) Run() (err error) {
 	fmt.Println(nes.ROM)
 
-	nes.ROM.LoadBattery()
+	if nes.master {
+		nes.ROM.LoadBattery()
+	}
 	nes.Reset()
 
 	nes.state = Running
@@ -642,7 +696,9 @@ func (nes *NES) Run() (err error) {
 		f.Close()
 	}
 
-	err = nes.ROM.SaveBattery()
+	if (nes.master) {
+		err = nes.ROM.SaveBattery()
+	}
 
 	return
 }

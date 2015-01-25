@@ -39,6 +39,7 @@ type SDLVideo struct {
 	palette       []uint32
 	events        chan Event
 	overscan      bool
+	caption       string
 }
 
 func NewVideo(caption string, events chan Event) (video *SDLVideo, err error) {
@@ -47,6 +48,7 @@ func NewVideo(caption string, events chan Event) (video *SDLVideo, err error) {
 		events:   events,
 		palette:  SDLPalette,
 		overscan: true,
+		caption: caption,
 	}
 
 	for i, _ := range video.palette {
@@ -66,12 +68,16 @@ func NewVideo(caption string, events chan Event) (video *SDLVideo, err error) {
 		return
 	}
 
-	sdl.WM_SetCaption("nintengo - "+caption, "")
+	sdl.WM_SetCaption("nintengo - "+video.caption, "")
 
 	video.initGL()
 	video.Reshape(int(video.screen.W), int(video.screen.H))
 
 	return
+}
+
+func (video *SDLVideo) SetCaption(caption string) {
+	sdl.WM_SetCaption("nintengo - "+video.caption, "")
 }
 
 func (video *SDLVideo) Events() chan Event {

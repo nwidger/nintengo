@@ -7,7 +7,7 @@ var index = `
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>nintengo - {{.NES.ROM.GameName}}</title>
+    <title>nintengo - {{.NES.GameName}}</title>
 
     <!-- Latest compiled and minified CSS -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
@@ -39,7 +39,7 @@ var index = `
 	    <!-- Collect the nav links, forms, and other content for toggling -->
 	    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
 	      <ul class="nav navbar-nav">
-	  	<li class='active'><a href='#'>{{.NES.ROM.GameName}}</a></li>
+	  	<li class='active'><a href='#'>{{.NES.GameName}}</a></li>
 	  	<li><a href='#' id='pause-link'>Pause</a></li>
 		<li><a href='#' id='toggle-stepping-link'>Toggle Stepping</a></li>
 		<li><a href='#' id='save-state-link'>Save State</a></li>

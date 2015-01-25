@@ -29,6 +29,8 @@ func LoadConfig(options *nes.Options, filename string) (err error) {
 }
 
 func main() {
+	filename := ""
+
 	options := &nes.Options{}
 
 	flag.BoolVar(&options.CPUDecode, "cpu-decode", false, "decode CPU instructions")
@@ -38,7 +40,7 @@ func main() {
 	flag.StringVar(&options.MemProfile, "mem-profile", "", "write memory profile to file")
 	flag.StringVar(&options.HTTPAddress, "http", "", "HTTP service address (e.g., ':6060')")
 	flag.StringVar(&options.Listen, "l", "", "Listen at address as master (e.g., ':8080')")
-	flag.StringVar(&options.Connect, "c", "", "Connect to address as slave (e.g., 'localhost:8080')")
+	flag.StringVar(&options.Connect, "c", "", "Connect to address as slave, <rom-file> will be ignored (e.g., 'localhost:8080')")
 	flag.Parse()
 
 	filename, err := homedir.Expand("~/.nintengorc")
@@ -54,11 +56,16 @@ func main() {
 	}
 
 	if len(flag.Args()) != 1 {
-		fmt.Fprintf(os.Stderr, "usage: <rom-file>\n")
-		return
+		if len(options.Connect) == 0 {
+			fmt.Fprintf(os.Stderr, "usage: <rom-file>\n")
+			return
+		}
+	} else {
+		filename = flag.Arg(0)
 	}
 
-	nes, err := nes.NewNES(flag.Arg(0), options)
+
+	nes, err := nes.NewNES(filename, options)
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
