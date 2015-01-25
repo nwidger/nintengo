@@ -470,7 +470,7 @@ func (nes *NES) step() (cycles uint16, err error) {
 		nes.PPUQuota += float32(cycles) * nes.CpuDivisor
 	}
 
-	if nes.PPUQuota >= 1.0 {
+	for nes.PPUQuota >= 1.0 {
 		scanline := nes.PPU.Scanline
 
 		if colors := nes.PPU.Execute(); colors != nil {
