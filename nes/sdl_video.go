@@ -328,23 +328,23 @@ func (video *SDLVideo) Run() {
 					}
 				case sdl.K_F8:
 					if e.Type == sdl.KEYDOWN {
-						event = &FastForwardEvent{}
+						event = &FPSEvent{2.}
 					}
 				case sdl.K_F9:
 					if e.Type == sdl.KEYDOWN {
-						event = &FPS100Event{}
+						event = &FPSEvent{1.}
 					}
 				case sdl.K_F10:
 					if e.Type == sdl.KEYDOWN {
-						event = &FPS75Event{}
+						event = &FPSEvent{.75}
 					}
 				case sdl.K_F11:
 					if e.Type == sdl.KEYDOWN {
-						event = &FPS50Event{}
+						event = &FPSEvent{.5}
 					}
 				case sdl.K_F12:
 					if e.Type == sdl.KEYDOWN {
-						event = &FPS25Event{}
+						event = &FPSEvent{.25}
 					}
 				case sdl.K_KP0:
 					if e.Type == sdl.KEYDOWN {
@@ -370,8 +370,8 @@ func (video *SDLVideo) Run() {
 
 				if event == nil && running {
 					event = &ControllerEvent{
-						button: button(e),
-						down:   e.Type == sdl.KEYDOWN,
+						B:    button(e),
+						Down: e.Type == sdl.KEYDOWN,
 					}
 				}
 			}

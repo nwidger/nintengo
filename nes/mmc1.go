@@ -3,7 +3,7 @@ package nes
 import (
 	"fmt"
 
-	"github.com/nwidger/nintengo/rp2ago3"
+	"github.com/kaicheng/nintengo/rp2ago3"
 )
 
 type MMC1Mirroring uint8

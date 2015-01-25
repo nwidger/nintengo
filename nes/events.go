@@ -1,13 +1,115 @@
 package nes
 
-import "fmt"
+import (
+	"bytes"
+	"encoding/gob"
+	"fmt"
+	"io/ioutil"
+)
+
+type Packet struct {
+	Tick uint64
+	Ev   Event
+}
 
 type Event interface {
 	Process(nes *NES)
+	String() string
+}
+
+func init() {
+	gob.Register(&FrameEvent{})
+	gob.Register(&SampleEvent{})
+	gob.Register(&ControllerEvent{})
+	gob.Register(&PauseEvent{})
+	gob.Register(&FrameStepEvent{})
+	gob.Register(&ResetEvent{})
+	gob.Register(&RecordEvent{})
+	gob.Register(&StopEvent{})
+	gob.Register(&AudioRecordEvent{})
+	gob.Register(&AudioStopEvent{})
+	gob.Register(&QuitEvent{})
+	gob.Register(&ShowBackgroundEvent{})
+	gob.Register(&ShowSpritesEvent{})
+	gob.Register(&CPUDecodeEvent{})
+	gob.Register(&PPUDecodeEvent{})
+	gob.Register(&SaveStateEvent{})
+	gob.Register(&LoadStateEvent{})
+	gob.Register(&FPSEvent{})
+	gob.Register(&SavePatternTablesEvent{})
+	gob.Register(&MuteEvent{})
+	gob.Register(&MuteNoiseEvent{})
+	gob.Register(&MuteTriangleEvent{})
+	gob.Register(&MutePulse1Event{})
+	gob.Register(&MutePulse2Event{})
+	gob.Register(&HeartbeatEvent{})
+}
+
+const (
+	EV_GLOBAL uint = 1 << iota
+	EV_MASTER
+	EV_SLAVE
+)
+
+func GetEventFlag(ev Event) (flag uint) {
+	switch ev.String() {
+	case "FrameEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "SampleEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "ControllerEvent":
+		flag |= EV_GLOBAL | EV_MASTER | EV_SLAVE
+	case "PauseEvent":
+		flag |= EV_GLOBAL | EV_MASTER | EV_SLAVE
+	case "FrameStepEvent":
+		flag |= EV_GLOBAL | EV_MASTER
+	case "ResetEvent":
+		flag |= EV_GLOBAL | EV_MASTER
+	case "RecordEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "StopEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "AudioRecordEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "AudioStopEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "QuitEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "ShowBackgroundEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "ShowSpritesEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "CPUDecodeEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "PPUDecodeEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "SaveStateEvent":
+		flag |= EV_GLOBAL | EV_MASTER
+	case "LoadStateEvent":
+		flag |= EV_GLOBAL | EV_MASTER
+	case "FPSEvent":
+		flag |= EV_GLOBAL | EV_MASTER
+	case "SavePatternTablesEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "MuteEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "MuteNoiseEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "MuteTriangleEvent":
+		flag |= EV_MASTER | EV_SLAVE
+	case "MutePulse1Event":
+		flag |= EV_MASTER | EV_SLAVE
+	case "MutePulse2Event":
+		flag |= EV_MASTER | EV_SLAVE
+	case "HeartbeatEvent":
+		flag |= EV_GLOBAL | EV_MASTER
+	default:
+	}
+	return
 }
 
 type FrameEvent struct {
-	colors []uint8
+	Colors []uint8
 }
 
 func (e *FrameEvent) String() string {
@@ -20,14 +122,14 @@ func (e *FrameEvent) Process(nes *NES) {
 	}
 
 	if nes.recorder != nil {
-		nes.recorder.Input() <- e.colors
+		nes.recorder.Input() <- e.Colors
 	}
 
-	nes.video.Input() <- e.colors
+	nes.video.Input() <- e.Colors
 }
 
 type SampleEvent struct {
-	sample int16
+	Sample int16
 }
 
 func (e *SampleEvent) String() string {
@@ -40,16 +142,16 @@ func (e *SampleEvent) Process(nes *NES) {
 	}
 
 	if nes.audioRecorder != nil {
-		nes.audioRecorder.Input() <- e.sample
+		nes.audioRecorder.Input() <- e.Sample
 	}
 
-	nes.audio.Input() <- e.sample
+	nes.audio.Input() <- e.Sample
 }
 
 type ControllerEvent struct {
-	controller int
-	down       bool
-	button     Button
+	Controller int
+	Down       bool
+	B          Button
 }
 
 func (e *ControllerEvent) String() string {
@@ -61,16 +163,16 @@ func (e *ControllerEvent) Process(nes *NES) {
 		return
 	}
 
-	if e.down {
-		nes.controllers.KeyDown(e.controller, e.button)
+	if e.Down {
+		nes.controllers.KeyDown(e.Controller, e.B)
 	} else {
-		nes.controllers.KeyUp(e.controller, e.button)
+		nes.controllers.KeyUp(e.Controller, e.B)
 	}
 }
 
 type PauseEvent struct {
-	request PauseRequest
-	changed chan bool
+	Request PauseRequest
+	Changed chan bool
 }
 
 func (e *PauseEvent) String() string {
@@ -226,107 +328,47 @@ func (e *SaveStateEvent) String() string {
 }
 
 func (e *SaveStateEvent) Process(nes *NES) {
-	pe := &PauseEvent{
-		changed: make(chan bool),
-	}
-
-	pe.request = Pause
-	pe.Process(nes)
-	changed := <-pe.changed
-
 	nes.SaveState()
-
-	if changed {
-		pe.changed = nil
-
-		pe.request = Unpause
-		pe.Process(nes)
-	}
 }
 
-type LoadStateEvent struct{}
+type LoadStateEvent struct {
+	Data []byte
+}
 
 func (e *LoadStateEvent) String() string {
 	return "LoadStateEvent"
 }
 
 func (e *LoadStateEvent) Process(nes *NES) {
-	pe := &PauseEvent{
-		changed: make(chan bool),
+	if e.Data == nil {
+		if !nes.master {
+			// Should not go here, NES.processEvents already filter the events.
+			return
+		}
+		name := nes.ROM.GameName() + ".nst"
+		fmt.Println("Reading ", name)
+		data, err := ioutil.ReadFile(name)
+		if err != nil {
+			return
+		}
+		e.Data = data
 	}
-
-	pe.request = Pause
-	pe.Process(nes)
-	changed := <-pe.changed
-
-	nes.LoadState()
-
-	if changed {
-		pe.changed = nil
-
-		pe.request = Unpause
-		pe.Process(nes)
-	}
+	reader := bytes.NewReader(e.Data)
+	nes.LoadStateFromReader(reader, int64(len(e.Data)))
 }
 
-type FastForwardEvent struct{}
-
-func (e *FastForwardEvent) String() string {
-	return "FastForwardEvent"
+type FPSEvent struct {
+	Rate float64
 }
 
-func (e *FastForwardEvent) Process(nes *NES) {
-	nes.fps.SetRate(DEFAULT_FPS * 2.00)
-	nes.audio.SetSpeed(2.00)
-	fmt.Println("*** Setting fps to fast forward (2x)")
+func (e *FPSEvent) String() string {
+	return "FPSEvent"
 }
 
-type FPS100Event struct{}
-
-func (e *FPS100Event) String() string {
-	return "FPS100Event"
-}
-
-func (e *FPS100Event) Process(nes *NES) {
-	nes.fps.SetRate(DEFAULT_FPS * 1.00)
+func (e *FPSEvent) Process(nes *NES) {
+	nes.fps.SetRate(DEFAULT_FPS * e.Rate)
 	nes.audio.SetSpeed(1.00)
-	fmt.Println("*** Setting fps to 4/4")
-}
-
-type FPS75Event struct{}
-
-func (e *FPS75Event) String() string {
-	return "FPS75Event"
-}
-
-func (e *FPS75Event) Process(nes *NES) {
-	nes.fps.SetRate(DEFAULT_FPS * 0.75)
-	nes.audio.SetSpeed(0.70)
-	fmt.Println("*** Setting fps to 3/4")
-}
-
-type FPS50Event struct{}
-
-func (e *FPS50Event) String() string {
-	return "FPS50Event"
-}
-
-func (e *FPS50Event) Process(nes *NES) {
-	nes.fps.SetRate(DEFAULT_FPS * 0.50)
-	nes.audio.SetSpeed(0.50)
-	fmt.Println("*** Setting fps to 2/4")
-}
-
-type FPS25Event struct{}
-
-func (e *FPS25Event) String() string {
-	return "FPS25Event"
-}
-
-func (e *FPS25Event) Process(nes *NES) {
-	nes.fps.SetRate(DEFAULT_FPS * 0.25)
-	nes.audio.SetSpeed(0.25)
-	fmt.Println("*** Setting fps to 1/4")
+	fmt.Printf("*** Setting fps to %0.1f", e.Rate)
 }
 
 type SavePatternTablesEvent struct{}
@@ -393,4 +435,14 @@ func (e *MutePulse2Event) String() string {
 func (e *MutePulse2Event) Process(nes *NES) {
 	nes.CPU.APU.Pulse2.Muted = !nes.CPU.APU.Pulse2.Muted
 	fmt.Println("*** Toggling mute pulse2 =", nes.CPU.APU.Pulse2.Muted)
+}
+
+type HeartbeatEvent struct{}
+
+func (e *HeartbeatEvent) String() string {
+	return "HeartbeatEvent"
+}
+
+func (e *HeartbeatEvent) Process(nes *NES) {
+	// do nothing
 }
