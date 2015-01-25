@@ -5,41 +5,40 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 )
 
-func loop(conn net.Conn, incoming chan<- Packet, outgoing <-chan Packet) error {
+func loop(conn net.Conn, incoming chan<- Packet, outgoing <-chan Packet) (err error) {
 	fmt.Println("Start loop")
 	dec := gob.NewDecoder(conn)
 	enc := gob.NewEncoder(conn)
 	go func(c <-chan Packet, conn net.Conn, enc *gob.Encoder) {
 		for {
 			pkt := <-c
-			// fmt.Println("Encoding: ", pkt)
 			err := enc.Encode(&pkt)
 			if err != nil {
-				fmt.Println("Error Encoding: ", err)
-				break
+				fmt.Fprintf(os.Stderr, "Encode err: %s\n", err)
+				if err == io.EOF {
+					break
+				}
 			}
 		}
 		conn.Close()
 	}(outgoing, conn, enc)
 	var pkt Packet
 	for {
-		//fmt.Println("Decoding..")
-		err := dec.Decode(&pkt)
+		err = dec.Decode(&pkt)
 		if err != nil {
-			fmt.Println("Decode err: ", err)
+			fmt.Fprintf(os.Stderr, "Decode err: %s\n", err)
 			if err == io.EOF {
 				break
 			}
-			return err
 		} else {
-			//fmt.Println("Decoded: ", pkt)
 			incoming <- pkt
 		}
 	}
 	conn.Close()
-	return nil
+	return
 }
 
 type Bridge struct {
@@ -70,12 +69,11 @@ func (bridge *Bridge) runAsMaster() error {
 	}
 	for {
 		conn, err := ln.Accept()
-		fmt.Println("Got conn")
 		if err != nil {
-			fmt.Println("Error: ", err)
-			break
+			fmt.Fprintf(os.Stderr, "Accept error: ", err)
+			// Serve next conn
+			continue
 		}
-		fmt.Println("Getting LoadStateEvent")
 		lock := <-bridge.nes.lock
 		bridge.active = true
 		ev, err := bridge.nes.getLoadStateEvent()
@@ -84,13 +82,14 @@ func (bridge *Bridge) runAsMaster() error {
 			Ev:   ev,
 		}
 		bridge.nes.lock <- lock
-		fmt.Println("Startinig loop")
 		if err == nil {
-			loop(conn, bridge.incoming, bridge.outgoing)
+			if err := loop(conn, bridge.incoming, bridge.outgoing); err != nil {
+				fmt.Fprintf(os.Stderr, "Serving slave error: ", err)
+			}
 		}
 		bridge.active = false
 	}
-	return nil
+	return err
 }
 
 func (bridge *Bridge) runAsSlave() error {

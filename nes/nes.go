@@ -114,13 +114,11 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		bridge = newBridge(nil, options.Listen)
 	
 		rom, err = NewROM(filename, cpu.InterruptLine(m65go2.Irq), ppu.Nametable.SetTables)
-		gamename = rom.GameName()
-
 		if err != nil {
 			err = errors.New(fmt.Sprintf("Error loading ROM: %v", err))
 			return
 		}
-
+		gamename = rom.GameName()
 		switch rom.Region() {
 		case NTSC:
 			cpuDivisor = rp2ago3.NTSC_CPU_CLOCK_DIVISOR
@@ -311,10 +309,12 @@ func (nes *NES) LoadState() {
 	name := nes.GameName + ".nst"
 	reader, err := os.Open(name)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening file %s: %s\n", name, err)
 	}
 	defer reader.Close()
 	readeri, err := reader.Stat()
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting stat of %s: %s\n", name, err)
 	}
 
 	nes.LoadStateFromReader(reader, readeri.Size())
@@ -382,16 +382,19 @@ func (nes *NES) LoadStateFromReader(reader io.ReaderAt, size int64) (err error) 
 
 			if err != nil {
 				fmt.Printf("*** Error loading rom: %s\n", err)
+				return err
 			}
 
 			var buf bytes.Buffer
 			if _, err = buf.ReadFrom(romfr); err != nil {
 				fmt.Printf("*** Error loading rom %s\n", err)
+				return err
 			}
 
 			rom, err := NewROMFromRaw(nes.GameName, buf.Bytes(), nes.CPU.InterruptLine(m65go2.Irq), nes.PPU.Nametable.SetTables)
 			if err != nil {
 				fmt.Printf("*** Error loading rom: %s\n", err)
+				return err
 			}
 
 			nes.ROM = rom
@@ -436,7 +439,6 @@ func (nes *NES) processEvents() {
 					Tick: nes.Tick,
 					Ev:   e,
 				}
-				fmt.Println("master? ", nes.master, ": Pkt into loop ", pkt)
 				if nes.master {
 					nes.bridge.incoming <- pkt
 				} else {
@@ -513,7 +515,6 @@ func (nes *NES) runAsSlave() (err error) {
 	var cycles uint16
 	for nes.state != Quitting {
 		pkt := <-nes.bridge.incoming
-		// fmt.Println("Got pkt: ", pkt)
 		if pkt.Ev.String() != "LoadStateEvent" {
 			if nes.state == Uninitialized {
 				continue
@@ -524,7 +525,9 @@ func (nes *NES) runAsSlave() (err error) {
 				nes.Tick += uint64(cycles)
 			}
 			if nes.Tick > pkt.Tick {
-				// error here.
+				fmt.Fprintf(os.Stderr, "Failed to sync with master, quiting...\n")
+				err = errors.New(fmt.Sprintf("Failed to sync with master"))
+				return
 			}
 			nes.lock <- lock
 		}
@@ -534,7 +537,6 @@ func (nes *NES) runAsSlave() (err error) {
 }
 
 func (nes *NES) processPacket(pkt *Packet) {
-	fmt.Println("Sync processing: ", pkt)
 	lock := <-nes.lock
 	pkt.Tick = nes.Tick
 	pkt.Ev.Process(nes)
