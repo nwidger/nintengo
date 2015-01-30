@@ -354,7 +354,6 @@ func (e *LoadStateEvent) Process(nes *NES) {
 			return
 		}
 		name := nes.GameName + ".nst"
-		fmt.Println("Reading ", name)
 		data, err := ioutil.ReadFile(name)
 		if err != nil {
 			return

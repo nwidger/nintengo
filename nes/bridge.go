@@ -9,7 +9,6 @@ import (
 )
 
 func loop(conn net.Conn, incoming chan<- Packet, outgoing <-chan Packet) (err error) {
-	fmt.Println("Start loop")
 	dec := gob.NewDecoder(conn)
 	enc := gob.NewEncoder(conn)
 	go func(c <-chan Packet, conn net.Conn, enc *gob.Encoder) {
@@ -64,13 +63,13 @@ func newBridge(nes *NES, addr string) (bridge *Bridge) {
 func (bridge *Bridge) runAsMaster() error {
 	ln, err := net.Listen("tcp", bridge.addr)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Fprintf(os.Stderr, "Listen error: %s\n", err)
 		return err
 	}
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Accept error: ", err)
+			fmt.Fprintf(os.Stderr, "Accept error: %s\n", err)
 			// Serve next conn
 			continue
 		}
@@ -84,7 +83,7 @@ func (bridge *Bridge) runAsMaster() error {
 		bridge.nes.lock <- lock
 		if err == nil {
 			if err := loop(conn, bridge.incoming, bridge.outgoing); err != nil {
-				fmt.Fprintf(os.Stderr, "Serving slave error: ", err)
+				fmt.Fprintf(os.Stderr, "Serving slave error: %s\n", err)
 			}
 		}
 		bridge.active = false
@@ -95,7 +94,7 @@ func (bridge *Bridge) runAsMaster() error {
 func (bridge *Bridge) runAsSlave() error {
 	conn, err := net.Dial("tcp", bridge.addr)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Fprintf(os.Stderr, "Connecting error: %s\n", err)
 		return err
 	}
 	return loop(conn, bridge.incoming, bridge.outgoing)

@@ -205,7 +205,6 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 
 	bridge.nes = nes
 
-	fmt.Println("Done creating NES")
 	return
 }
 
@@ -242,15 +241,13 @@ func (nes *NES) SaveState() {
 		return
 	}
 
-	nes.SaveStateToWriter(fo, false)
-
 	fmt.Println("*** Saving state to", name)
+	nes.SaveStateToWriter(fo, false)
 }
 
 func (nes *NES) SaveStateToWriter(writer io.Writer, withrom bool) (err error) {
 	var romfw io.Writer
 
-	fmt.Println("Start saving")
 	w := bufio.NewWriter(writer)
 	defer w.Flush()
 
@@ -273,7 +270,6 @@ func (nes *NES) SaveStateToWriter(writer io.Writer, withrom bool) (err error) {
 
 	if withrom {
 		// ROM should be written before NES, because we need ROM restored before NES.
-		fmt.Println("Saving ROM ...")
 		romfw, err = zw.Create("rom.bin")
 		if err != nil {
 			fmt.Printf("*** Error saving rom: %s\n", err)
@@ -292,9 +288,7 @@ func (nes *NES) SaveStateToWriter(writer io.Writer, withrom bool) (err error) {
 		return
 	}
 
-	fmt.Println("Marshal nes")
 	buf, err := json.MarshalIndent(nes, "", "  ")
-	fmt.Println("Done marshal nes")
 
 	if _, err = zfw.Write(buf); err != nil {
 		fmt.Printf("*** Error saving state: %s\n", err)
@@ -315,13 +309,11 @@ func (nes *NES) LoadState() {
 		fmt.Fprintf(os.Stderr, "Error getting stat of %s: %s\n", name, err)
 	}
 
-	nes.LoadStateFromReader(reader, readeri.Size())
-
 	fmt.Println("*** Loading state from", name)
+	nes.LoadStateFromReader(reader, readeri.Size())
 }
 
 func (nes *NES) LoadStateFromReader(reader io.ReaderAt, size int64) (err error) {
-	fmt.Println("Start loading state")
 	zr, err := zip.NewReader(reader, size)
 
 	if err != nil {
@@ -374,7 +366,6 @@ func (nes *NES) LoadStateFromReader(reader io.ReaderAt, size int64) (err error) 
 
 			loaded = true
 		case "rom.bin":
-			fmt.Printf("Trying recover ROM")
 			romfr, err := zf.Open()
 			defer romfr.Close()
 
@@ -412,7 +403,7 @@ func (nes *NES) getLoadStateEvent() (ev *LoadStateEvent, err error) {
 	var buf bytes.Buffer
 	err = nes.SaveStateToWriter(&buf, true)
 	if err != nil {
-		fmt.Print("getLoadStateEvent: ", err)
+		// Error message has been printed out.
 		return
 	}
 	ev = &LoadStateEvent{
