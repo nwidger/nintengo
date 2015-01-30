@@ -398,8 +398,8 @@ func (nes *NES) LoadStateFromReader(reader io.ReaderAt, size int64) (err error) 
 			}
 
 			nes.ROM = rom
-			nes.CPU.Memory.ForceAddMappings(rom, rp2ago3.CPU)
-			nes.PPU.Memory.ForceAddMappings(rom, rp2ago3.PPU)
+			nes.CPU.Memory.AddMappings(rom, rp2ago3.CPU)
+			nes.PPU.Memory.AddMappings(rom, rp2ago3.PPU)
 		}
 	}
 
