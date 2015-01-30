@@ -112,7 +112,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	} else {
 		master = true
 		bridge = newBridge(nil, options.Listen)
-	
+
 		rom, err = NewROM(filename, cpu.InterruptLine(m65go2.Irq), ppu.Nametable.SetTables)
 		if err != nil {
 			err = errors.New(fmt.Sprintf("Error loading ROM: %v", err))
@@ -127,7 +127,6 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		}
 
 	}
-
 
 	ctrls := NewControllers()
 
@@ -286,7 +285,6 @@ func (nes *NES) SaveStateToWriter(writer io.Writer, withrom bool) (err error) {
 		}
 	}
 
-
 	zfw, err := zw.Create("state.json")
 
 	if err != nil {
@@ -426,7 +424,7 @@ func (nes *NES) getLoadStateEvent() (ev *LoadStateEvent, err error) {
 func (nes *NES) processEvents() {
 	for nes.state != Quitting {
 		e := <-nes.events
-		flag := GetEventFlag(e)
+		flag := e.Flag()
 		if nes.master || flag&EvSlave != 0 {
 			if flag&EvGlobal != 0 {
 				// Tick is not important here. Just a Reference
@@ -541,10 +539,10 @@ func (nes *NES) processPacket(pkt *Packet) {
 	pkt.Tick = nes.Tick
 	pkt.Ev.Process(nes)
 	nes.lock <- lock
-	flag := GetEventFlag(pkt.Ev)
+	flag := pkt.Ev.Flag()
 	if nes.bridge.active && (flag&EvGlobal != 0) {
 		nes.bridge.outgoing <- *pkt
-	}	
+	}
 }
 
 func (nes *NES) runAsMaster() (err error) {
@@ -557,7 +555,7 @@ func (nes *NES) runAsMaster() (err error) {
 		for {
 			if nes.Paused {
 				// If Paused, use blocking chan receiving
-				pkt := <- nes.bridge.incoming
+				pkt := <-nes.bridge.incoming
 				nes.processPacket(&pkt)
 			} else {
 				// Must be non-blocking receiving if not paused
@@ -676,7 +674,7 @@ func (nes *NES) Run() (err error) {
 		f.Close()
 	}
 
-	if (nes.master) {
+	if nes.master {
 		err = nes.ROM.SaveBattery()
 	}
 

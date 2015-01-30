@@ -48,7 +48,7 @@ func NewVideo(caption string, events chan Event) (video *SDLVideo, err error) {
 		events:   events,
 		palette:  SDLPalette,
 		overscan: true,
-		caption: caption,
+		caption:  caption,
 	}
 
 	for i, _ := range video.palette {
@@ -376,8 +376,8 @@ func (video *SDLVideo) Run() {
 
 				if event == nil && running {
 					event = &ControllerEvent{
-						B:    button(e),
-						Down: e.Type == sdl.KEYDOWN,
+						Button: button(e),
+						Down:   e.Type == sdl.KEYDOWN,
 					}
 				}
 			}

@@ -41,7 +41,7 @@ type ROMFile struct {
 	vromBanks   [][]uint8
 	irq         func(state bool)
 	setTables   func(t0, t1, t2, t3 int)
-	raw			[]byte
+	raw         []byte
 }
 
 type ROM interface {

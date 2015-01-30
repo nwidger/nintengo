@@ -13,6 +13,7 @@ type Packet struct {
 }
 
 type Event interface {
+	Flag() uint
 	Process(nes *NES)
 	String() string
 }
@@ -51,63 +52,6 @@ const (
 	EvSlave
 )
 
-func GetEventFlag(ev Event) (flag uint) {
-	switch ev.String() {
-	case "FrameEvent":
-		flag |= EvMaster | EvSlave
-	case "SampleEvent":
-		flag |= EvMaster | EvSlave
-	case "ControllerEvent":
-		flag |= EvGlobal | EvMaster | EvSlave
-	case "PauseEvent":
-		flag |= EvGlobal | EvMaster | EvSlave
-	case "FrameStepEvent":
-		flag |= EvGlobal | EvMaster
-	case "ResetEvent":
-		flag |= EvGlobal | EvMaster
-	case "RecordEvent":
-		flag |= EvMaster | EvSlave
-	case "StopEvent":
-		flag |= EvMaster | EvSlave
-	case "AudioRecordEvent":
-		flag |= EvMaster | EvSlave
-	case "AudioStopEvent":
-		flag |= EvMaster | EvSlave
-	case "QuitEvent":
-		flag |= EvMaster | EvSlave
-	case "ShowBackgroundEvent":
-		flag |= EvMaster | EvSlave
-	case "ShowSpritesEvent":
-		flag |= EvMaster | EvSlave
-	case "CPUDecodeEvent":
-		flag |= EvMaster | EvSlave
-	case "PPUDecodeEvent":
-		flag |= EvMaster | EvSlave
-	case "SaveStateEvent":
-		flag |= EvGlobal | EvMaster
-	case "LoadStateEvent":
-		flag |= EvGlobal | EvMaster
-	case "FPSEvent":
-		flag |= EvGlobal | EvMaster
-	case "SavePatternTablesEvent":
-		flag |= EvMaster | EvSlave
-	case "MuteEvent":
-		flag |= EvMaster | EvSlave
-	case "MuteNoiseEvent":
-		flag |= EvMaster | EvSlave
-	case "MuteTriangleEvent":
-		flag |= EvMaster | EvSlave
-	case "MutePulse1Event":
-		flag |= EvMaster | EvSlave
-	case "MutePulse2Event":
-		flag |= EvMaster | EvSlave
-	case "HeartbeatEvent":
-		flag |= EvGlobal | EvMaster
-	default:
-	}
-	return
-}
-
 type FrameEvent struct {
 	Colors []uint8
 }
@@ -126,6 +70,10 @@ func (e *FrameEvent) Process(nes *NES) {
 	}
 
 	nes.video.Input() <- e.Colors
+}
+
+func (e *FrameEvent) Flag() uint {
+	return EvMaster | EvSlave
 }
 
 type SampleEvent struct {
@@ -148,10 +96,14 @@ func (e *SampleEvent) Process(nes *NES) {
 	nes.audio.Input() <- e.Sample
 }
 
+func (e *SampleEvent) Flag() uint {
+	return EvMaster | EvSlave
+}
+
 type ControllerEvent struct {
 	Controller int
 	Down       bool
-	B          Button
+	Button     Button
 }
 
 func (e *ControllerEvent) String() string {
@@ -164,10 +116,14 @@ func (e *ControllerEvent) Process(nes *NES) {
 	}
 
 	if e.Down {
-		nes.controllers.KeyDown(e.Controller, e.B)
+		nes.controllers.KeyDown(e.Controller, e.Button)
 	} else {
-		nes.controllers.KeyUp(e.Controller, e.B)
+		nes.controllers.KeyUp(e.Controller, e.Button)
 	}
+}
+
+func (e *ControllerEvent) Flag() uint {
+	return EvGlobal | EvMaster | EvSlave
 }
 
 type PauseEvent struct {
@@ -182,6 +138,10 @@ func (e *PauseEvent) String() string {
 func (e *PauseEvent) Process(nes *NES) {
 	nes.audio.TogglePaused()
 	nes.Paused = !nes.Paused
+}
+
+func (e *PauseEvent) Flag() uint {
+	return EvGlobal | EvMaster | EvSlave
 }
 
 type FrameStepEvent struct{}
@@ -207,6 +167,10 @@ func (e *FrameStepEvent) Process(nes *NES) {
 	}
 }
 
+func (e *FrameStepEvent) Flag() uint {
+	return EvGlobal | EvMaster
+}
+
 type ResetEvent struct{}
 
 func (e *ResetEvent) String() string {
@@ -221,6 +185,10 @@ func (e *ResetEvent) Process(nes *NES) {
 	nes.Reset()
 }
 
+func (e *ResetEvent) Flag() uint {
+	return EvGlobal | EvMaster
+}
+
 type RecordEvent struct{}
 
 func (e *RecordEvent) String() string {
@@ -231,6 +199,10 @@ func (e *RecordEvent) Process(nes *NES) {
 	if nes.recorder != nil {
 		nes.recorder.Record()
 	}
+}
+
+func (e *RecordEvent) Flag() uint {
+	return EvMaster | EvSlave
 }
 
 type StopEvent struct{}
@@ -245,6 +217,10 @@ func (e *StopEvent) Process(nes *NES) {
 	}
 }
 
+func (e *StopEvent) Flag() uint {
+	return EvMaster | EvSlave
+}
+
 type AudioRecordEvent struct{}
 
 func (e *AudioRecordEvent) String() string {
@@ -255,6 +231,10 @@ func (e *AudioRecordEvent) Process(nes *NES) {
 	if nes.audioRecorder != nil {
 		nes.audioRecorder.Record()
 	}
+}
+
+func (e *AudioRecordEvent) Flag() uint {
+	return EvMaster | EvSlave
 }
 
 type AudioStopEvent struct{}
@@ -269,6 +249,10 @@ func (e *AudioStopEvent) Process(nes *NES) {
 	}
 }
 
+func (e *AudioStopEvent) Flag() uint {
+	return EvMaster | EvSlave
+}
+
 type QuitEvent struct{}
 
 func (e *QuitEvent) String() string {
@@ -277,6 +261,10 @@ func (e *QuitEvent) String() string {
 
 func (e *QuitEvent) Process(nes *NES) {
 	nes.state = Quitting
+}
+
+func (e *QuitEvent) Flag() uint {
+	return EvMaster | EvSlave
 }
 
 type ShowBackgroundEvent struct{}
@@ -290,6 +278,10 @@ func (e *ShowBackgroundEvent) Process(nes *NES) {
 	fmt.Println("*** Toggling show background =", nes.PPU.ShowBackground)
 }
 
+func (e *ShowBackgroundEvent) Flag() uint {
+	return EvMaster | EvSlave
+}
+
 type ShowSpritesEvent struct{}
 
 func (e *ShowSpritesEvent) String() string {
@@ -299,6 +291,10 @@ func (e *ShowSpritesEvent) String() string {
 func (e *ShowSpritesEvent) Process(nes *NES) {
 	nes.PPU.ShowSprites = !nes.PPU.ShowSprites
 	fmt.Println("*** Toggling show sprites =", nes.PPU.ShowSprites)
+}
+
+func (e *ShowSpritesEvent) Flag() uint {
+	return EvMaster | EvSlave
 }
 
 type CPUDecodeEvent struct{}
@@ -311,6 +307,10 @@ func (e *CPUDecodeEvent) Process(nes *NES) {
 	fmt.Println("*** Toggling CPU decode =", nes.CPU.ToggleDecode())
 }
 
+func (e *CPUDecodeEvent) Flag() uint {
+	return EvMaster | EvSlave
+}
+
 type PPUDecodeEvent struct{}
 
 func (e *PPUDecodeEvent) String() string {
@@ -321,6 +321,10 @@ func (e *PPUDecodeEvent) Process(nes *NES) {
 	fmt.Println("*** Toggling PPU decode =", nes.PPU.ToggleDecode())
 }
 
+func (e *PPUDecodeEvent) Flag() uint {
+	return EvMaster | EvSlave
+}
+
 type SaveStateEvent struct{}
 
 func (e *SaveStateEvent) String() string {
@@ -329,6 +333,10 @@ func (e *SaveStateEvent) String() string {
 
 func (e *SaveStateEvent) Process(nes *NES) {
 	nes.SaveState()
+}
+
+func (e *SaveStateEvent) Flag() uint {
+	return EvGlobal | EvMaster
 }
 
 type LoadStateEvent struct {
@@ -357,6 +365,10 @@ func (e *LoadStateEvent) Process(nes *NES) {
 	nes.LoadStateFromReader(reader, int64(len(e.Data)))
 }
 
+func (e *LoadStateEvent) Flag() uint {
+	return EvGlobal | EvMaster
+}
+
 type FPSEvent struct {
 	Rate float64
 }
@@ -371,6 +383,10 @@ func (e *FPSEvent) Process(nes *NES) {
 	fmt.Printf("*** Setting fps to %0.1f", e.Rate)
 }
 
+func (e *FPSEvent) Flag() uint {
+	return EvGlobal | EvMaster
+}
+
 type SavePatternTablesEvent struct{}
 
 func (e *SavePatternTablesEvent) String() string {
@@ -380,6 +396,10 @@ func (e *SavePatternTablesEvent) String() string {
 func (e *SavePatternTablesEvent) Process(nes *NES) {
 	fmt.Println("*** Saving PPU pattern tables")
 	nes.PPU.SavePatternTables()
+}
+
+func (e *SavePatternTablesEvent) Flag() uint {
+	return EvMaster | EvSlave
 }
 
 type MuteEvent struct{}
@@ -393,6 +413,10 @@ func (e *MuteEvent) Process(nes *NES) {
 	fmt.Println("*** Toggling mute =", nes.CPU.APU.Muted)
 }
 
+func (e *MuteEvent) Flag() uint {
+	return EvMaster | EvSlave
+}
+
 type MuteNoiseEvent struct{}
 
 func (e *MuteNoiseEvent) String() string {
@@ -402,6 +426,10 @@ func (e *MuteNoiseEvent) String() string {
 func (e *MuteNoiseEvent) Process(nes *NES) {
 	nes.CPU.APU.Noise.Muted = !nes.CPU.APU.Noise.Muted
 	fmt.Println("*** Toggling mute noise =", nes.CPU.APU.Noise.Muted)
+}
+
+func (e *MuteNoiseEvent) Flag() uint {
+	return EvMaster | EvSlave
 }
 
 type MuteTriangleEvent struct{}
@@ -415,6 +443,10 @@ func (e *MuteTriangleEvent) Process(nes *NES) {
 	fmt.Println("*** Toggling mute triangle =", nes.CPU.APU.Triangle.Muted)
 }
 
+func (e *MuteTriangleEvent) Flag() uint {
+	return EvMaster | EvSlave
+}
+
 type MutePulse1Event struct{}
 
 func (e *MutePulse1Event) String() string {
@@ -424,6 +456,10 @@ func (e *MutePulse1Event) String() string {
 func (e *MutePulse1Event) Process(nes *NES) {
 	nes.CPU.APU.Pulse1.Muted = !nes.CPU.APU.Pulse1.Muted
 	fmt.Println("*** Toggling mute pulse1 =", nes.CPU.APU.Pulse1.Muted)
+}
+
+func (e *MutePulse1Event) Flag() uint {
+	return EvMaster | EvSlave
 }
 
 type MutePulse2Event struct{}
@@ -437,6 +473,10 @@ func (e *MutePulse2Event) Process(nes *NES) {
 	fmt.Println("*** Toggling mute pulse2 =", nes.CPU.APU.Pulse2.Muted)
 }
 
+func (e *MutePulse2Event) Flag() uint {
+	return EvMaster | EvSlave
+}
+
 type HeartbeatEvent struct{}
 
 func (e *HeartbeatEvent) String() string {
@@ -445,4 +485,8 @@ func (e *HeartbeatEvent) String() string {
 
 func (e *HeartbeatEvent) Process(nes *NES) {
 	// do nothing
+}
+
+func (e *HeartbeatEvent) Flag() uint {
+	return EvGlobal | EvMaster
 }
