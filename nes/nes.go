@@ -427,8 +427,8 @@ func (nes *NES) processEvents() {
 	for nes.state != Quitting {
 		e := <-nes.events
 		flag := GetEventFlag(e)
-		if nes.master || flag&EV_SLAVE != 0 {
-			if flag&EV_GLOBAL != 0 {
+		if nes.master || flag&EvSlave != 0 {
+			if flag&EvGlobal != 0 {
 				// Tick is not important here. Just a Reference
 				if e.String() == "ControllerEvent" && !nes.master {
 					// hardcode to fix controller id.
@@ -542,7 +542,7 @@ func (nes *NES) processPacket(pkt *Packet) {
 	pkt.Ev.Process(nes)
 	nes.lock <- lock
 	flag := GetEventFlag(pkt.Ev)
-	if nes.bridge.active && (flag&EV_GLOBAL != 0) {
+	if nes.bridge.active && (flag&EvGlobal != 0) {
 		nes.bridge.outgoing <- *pkt
 	}	
 }

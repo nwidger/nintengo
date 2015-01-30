@@ -46,63 +46,63 @@ func init() {
 }
 
 const (
-	EV_GLOBAL uint = 1 << iota
-	EV_MASTER
-	EV_SLAVE
+	EvGlobal uint = 1 << iota
+	EvMaster
+	EvSlave
 )
 
 func GetEventFlag(ev Event) (flag uint) {
 	switch ev.String() {
 	case "FrameEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "SampleEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "ControllerEvent":
-		flag |= EV_GLOBAL | EV_MASTER | EV_SLAVE
+		flag |= EvGlobal | EvMaster | EvSlave
 	case "PauseEvent":
-		flag |= EV_GLOBAL | EV_MASTER | EV_SLAVE
+		flag |= EvGlobal | EvMaster | EvSlave
 	case "FrameStepEvent":
-		flag |= EV_GLOBAL | EV_MASTER
+		flag |= EvGlobal | EvMaster
 	case "ResetEvent":
-		flag |= EV_GLOBAL | EV_MASTER
+		flag |= EvGlobal | EvMaster
 	case "RecordEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "StopEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "AudioRecordEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "AudioStopEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "QuitEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "ShowBackgroundEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "ShowSpritesEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "CPUDecodeEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "PPUDecodeEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "SaveStateEvent":
-		flag |= EV_GLOBAL | EV_MASTER
+		flag |= EvGlobal | EvMaster
 	case "LoadStateEvent":
-		flag |= EV_GLOBAL | EV_MASTER
+		flag |= EvGlobal | EvMaster
 	case "FPSEvent":
-		flag |= EV_GLOBAL | EV_MASTER
+		flag |= EvGlobal | EvMaster
 	case "SavePatternTablesEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "MuteEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "MuteNoiseEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "MuteTriangleEvent":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "MutePulse1Event":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "MutePulse2Event":
-		flag |= EV_MASTER | EV_SLAVE
+		flag |= EvMaster | EvSlave
 	case "HeartbeatEvent":
-		flag |= EV_GLOBAL | EV_MASTER
+		flag |= EvGlobal | EvMaster
 	default:
 	}
 	return
