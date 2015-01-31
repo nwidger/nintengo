@@ -46,7 +46,7 @@ type MMC1Registers struct {
 }
 
 type MMC1 struct {
-	*ROMFile  `json:"-"`
+	*ROMFile
 	Registers MMC1Registers
 }
 
@@ -67,20 +67,20 @@ func NewMMC1(romf *ROMFile) *MMC1 {
 
 	// divide 8KB CHR banks into 4KB banks since we may be
 	// swapping 4KB banks
-	if romf.chrBanks > 0 {
-		vromBanks := make([][]uint8, uint16(romf.chrBanks)*2)
+	if romf.CHRBanks > 0 {
+		vromBanks := make([][]uint8, uint16(romf.CHRBanks)*2)
 
-		for n := 0; n < int(romf.chrBanks); n++ {
-			vromBanks[2*n] = romf.vromBanks[n][0x000:0x1000]
-			vromBanks[(2*n)+1] = romf.vromBanks[n][0x1000:0x2000]
+		for n := 0; n < int(romf.CHRBanks); n++ {
+			vromBanks[2*n] = romf.VROMBanks[n][0x000:0x1000]
+			vromBanks[(2*n)+1] = romf.VROMBanks[n][0x1000:0x2000]
 		}
 
-		romf.vromBanks = vromBanks
-		romf.chrBanks *= 2
+		romf.VROMBanks = vromBanks
+		romf.CHRBanks *= 2
 	}
 
 	mmc1.Registers.Reset()
-	mmc1.ROMFile.setTables(mmc1.Tables())
+	mmc1.setTables(mmc1.Tables())
 
 	return mmc1
 }
@@ -96,7 +96,7 @@ func (mmc1 *MMC1) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 
 	switch which {
 	case rp2ago3.PPU:
-		if mmc1.ROMFile.chrBanks > 0 {
+		if mmc1.CHRBanks > 0 {
 			// CHR bank 1
 			for i := uint32(0x0000); i <= 0x0fff; i++ {
 				fetch = append(fetch, uint16(i))
@@ -110,7 +110,7 @@ func (mmc1 *MMC1) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 			}
 		}
 	case rp2ago3.CPU:
-		if mmc1.ROMFile.ramBanks > 0 {
+		if mmc1.RAMBanks > 0 {
 			// PRG RAM bank
 			for i := uint32(0x6000); i <= 0x7fff; i++ {
 				store = append(store, uint16(i))
@@ -118,7 +118,7 @@ func (mmc1 *MMC1) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 			}
 		}
 
-		if mmc1.ROMFile.prgBanks > 0 {
+		if mmc1.PRGBanks > 0 {
 			// PRG bank 1
 			for i := uint32(0x8000); i <= 0xbfff; i++ {
 				store = append(store, uint16(i))
@@ -152,13 +152,13 @@ func (mmc1 *MMC1) Fetch(address uint16) (value uint8) {
 		switch {
 		// CHR bank 1
 		case address >= 0x0000 && address <= 0x0fff:
-			if mmc1.ROMFile.chrBanks > 0 {
-				value = mmc1.ROMFile.vromBanks[lower][index]
+			if mmc1.CHRBanks > 0 {
+				value = mmc1.VROMBanks[lower][index]
 			}
 		// CHR bank 2
 		case address >= 0x1000 && address <= 0x1fff:
-			if mmc1.ROMFile.chrBanks > 0 {
-				value = mmc1.ROMFile.vromBanks[upper][index]
+			if mmc1.CHRBanks > 0 {
+				value = mmc1.VROMBanks[upper][index]
 			}
 		}
 	// CPU only
@@ -169,20 +169,20 @@ func (mmc1 *MMC1) Fetch(address uint16) (value uint8) {
 		// PRG RAM bank
 		case address >= 0x6000 && address <= 0x7fff:
 			index := address & 0x1fff
-			value = mmc1.ROMFile.wramBanks[0][index]
+			value = mmc1.WRAMBanks[0][index]
 		// PRG bank 1
 		case address >= 0x8000 && address <= 0xbfff:
 			index := address & 0x3fff
 
-			if mmc1.ROMFile.prgBanks > 0 {
-				value = mmc1.ROMFile.romBanks[lower][index]
+			if mmc1.PRGBanks > 0 {
+				value = mmc1.ROMBanks[lower][index]
 			}
 		// PRG bank 2
 		case address >= 0xc000 && address <= 0xffff:
 			index := address & 0x3fff
 
-			if mmc1.ROMFile.prgBanks > 0 {
-				value = mmc1.ROMFile.romBanks[upper][index]
+			if mmc1.PRGBanks > 0 {
+				value = mmc1.ROMBanks[upper][index]
 			}
 		}
 	}
@@ -201,20 +201,20 @@ func (mmc1 *MMC1) Store(address uint16, value uint8) (oldValue uint8) {
 		switch {
 		// CHR bank 1
 		case address >= 0x0000 && address <= 0x0fff:
-			if mmc1.ROMFile.chrBanks > 0 {
-				mmc1.ROMFile.vromBanks[lower][index] = value
+			if mmc1.CHRBanks > 0 {
+				mmc1.VROMBanks[lower][index] = value
 			}
 		// CHR bank 2
 		case address >= 0x1000 && address <= 0x1fff:
-			if mmc1.ROMFile.chrBanks > 0 {
-				mmc1.ROMFile.vromBanks[upper][index] = value
+			if mmc1.CHRBanks > 0 {
+				mmc1.VROMBanks[upper][index] = value
 			}
 		}
 	// CPU only
 	// PRG RAM bank
 	case address >= 0x6000 && address <= 0x7fff:
 		index := address & 0x1fff
-		mmc1.ROMFile.wramBanks[0][index] = value
+		mmc1.WRAMBanks[0][index] = value
 	// PRG banks 1 & 2
 	case address >= 0x8000 && address <= 0xffff:
 		oldMirrors := mmc1.control(Mirroring)
@@ -252,7 +252,7 @@ func (mmc1 *MMC1) Store(address uint16, value uint8) (oldValue uint8) {
 		}
 
 		if mmc1.control(Mirroring) != oldMirrors {
-			mmc1.ROMFile.setTables(mmc1.Tables())
+			mmc1.setTables(mmc1.Tables())
 		}
 	}
 
@@ -368,7 +368,7 @@ func (mmc1 *MMC1) prgBanks() (lower, upper uint16) {
 		upper = uint16(mmc1.prgBank(PRGBankSelect))
 	case 3:
 		lower = uint16(mmc1.prgBank(PRGBankSelect))
-		upper = mmc1.ROMFile.prgBanks - 1
+		upper = mmc1.PRGBanks - 1
 	}
 
 	return

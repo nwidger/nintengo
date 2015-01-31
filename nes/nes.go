@@ -222,7 +222,7 @@ func (nes *NES) SaveState() {
 
 	enc := json.NewEncoder(vfw)
 
-	if err = enc.Encode(struct{ Version string }{"0.2"}); err != nil {
+	if err = enc.Encode(struct{ Version string }{"0.3"}); err != nil {
 		fmt.Printf("*** Error saving state: %s\n", err)
 		return
 	}
@@ -277,7 +277,7 @@ func (nes *NES) LoadState() {
 				return
 			}
 
-			if v.Version != "0.2" {
+			if v.Version != "0.3" {
 				fmt.Printf("*** Error loading state: Invalid save state format version '%s'\n", v.Version)
 				return
 			}

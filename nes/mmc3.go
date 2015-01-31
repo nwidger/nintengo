@@ -38,7 +38,7 @@ type MMC3Registers struct {
 }
 
 type MMC3 struct {
-	*ROMFile  `json:"-"`
+	*ROMFile
 	Registers MMC3Registers
 }
 
@@ -69,36 +69,36 @@ func NewMMC3(romf *ROMFile) *MMC3 {
 	}
 
 	// divide 8KB CHR banks into 1KB banks
-	if romf.chrBanks > 0 {
+	if romf.CHRBanks > 0 {
 		offset := 0x0400
-		vromBanks := make([][]uint8, uint16(romf.chrBanks)*8)
+		vromBanks := make([][]uint8, uint16(romf.CHRBanks)*8)
 
-		for n := 0; n < int(romf.chrBanks); n++ {
+		for n := 0; n < int(romf.CHRBanks); n++ {
 			for i := 0; i < 8; i++ {
-				vromBanks[(8*n)+i] = romf.vromBanks[n][(offset * i):((offset * i) + offset)]
+				vromBanks[(8*n)+i] = romf.VROMBanks[n][(offset * i):((offset * i) + offset)]
 			}
 		}
 
-		romf.vromBanks = vromBanks
-		romf.chrBanks *= 8
+		romf.VROMBanks = vromBanks
+		romf.CHRBanks *= 8
 	}
 
 	// divide 16KB PRG banks into 8KB banks since we may be
 	// swapping 8KB banks
-	if romf.prgBanks > 0 {
-		romBanks := make([][]uint8, uint16(romf.prgBanks)*2)
+	if romf.PRGBanks > 0 {
+		romBanks := make([][]uint8, uint16(romf.PRGBanks)*2)
 
-		for n := 0; n < int(romf.prgBanks); n++ {
-			romBanks[2*n] = romf.romBanks[n][0x0000:0x2000]
-			romBanks[(2*n)+1] = romf.romBanks[n][0x2000:0x4000]
+		for n := 0; n < int(romf.PRGBanks); n++ {
+			romBanks[2*n] = romf.ROMBanks[n][0x0000:0x2000]
+			romBanks[(2*n)+1] = romf.ROMBanks[n][0x2000:0x4000]
 		}
 
-		romf.romBanks = romBanks
-		romf.prgBanks *= 2
+		romf.ROMBanks = romBanks
+		romf.PRGBanks *= 2
 	}
 
 	mmc3.Registers.Reset()
-	mmc3.ROMFile.setTables(mmc3.Tables())
+	mmc3.setTables(mmc3.Tables())
 
 	return mmc3
 }
@@ -114,7 +114,7 @@ func (mmc3 *MMC3) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 
 	switch which {
 	case rp2ago3.PPU:
-		if mmc3.ROMFile.chrBanks > 0 {
+		if mmc3.CHRBanks > 0 {
 			// CHR bank 1
 			for i := uint32(0x0000); i <= 0x03ff; i++ {
 				fetch = append(fetch, uint16(i))
@@ -164,7 +164,7 @@ func (mmc3 *MMC3) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 			}
 		}
 	case rp2ago3.CPU:
-		if mmc3.ROMFile.ramBanks > 0 {
+		if mmc3.RAMBanks > 0 {
 			// PRG RAM bank
 			for i := uint32(0x6000); i <= 0x7fff; i++ {
 				store = append(store, uint16(i))
@@ -172,7 +172,7 @@ func (mmc3 *MMC3) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 			}
 		}
 
-		if mmc3.ROMFile.prgBanks > 0 {
+		if mmc3.PRGBanks > 0 {
 			// PRG bank 1
 			for i := uint32(0x8000); i <= 0x9fff; i++ {
 				store = append(store, uint16(i))
@@ -217,34 +217,34 @@ func (mmc3 *MMC3) Fetch(address uint16) (value uint8) {
 		switch {
 		// CHR bank 1
 		case address >= 0x0000 && address <= 0x03ff:
-			value = mmc3.ROMFile.vromBanks[bank1][index]
+			value = mmc3.VROMBanks[bank1][index]
 		// CHR bank 2
 		case address >= 0x0400 && address <= 0x07ff:
-			value = mmc3.ROMFile.vromBanks[bank2][index]
+			value = mmc3.VROMBanks[bank2][index]
 		// CHR bank 3
 		case address >= 0x0800 && address <= 0x0bff:
-			value = mmc3.ROMFile.vromBanks[bank3][index]
+			value = mmc3.VROMBanks[bank3][index]
 		// CHR bank 4
 		case address >= 0x0c00 && address <= 0x0fff:
-			value = mmc3.ROMFile.vromBanks[bank4][index]
+			value = mmc3.VROMBanks[bank4][index]
 		// CHR bank 5
 		case address >= 0x1000 && address <= 0x13ff:
-			value = mmc3.ROMFile.vromBanks[bank5][index]
+			value = mmc3.VROMBanks[bank5][index]
 		// CHR bank 6
 		case address >= 0x1400 && address <= 0x17ff:
-			value = mmc3.ROMFile.vromBanks[bank6][index]
+			value = mmc3.VROMBanks[bank6][index]
 		// CHR bank 7
 		case address >= 0x1800 && address <= 0x1bff:
-			value = mmc3.ROMFile.vromBanks[bank7][index]
+			value = mmc3.VROMBanks[bank7][index]
 		// CHR bank 8
 		case address >= 0x1c00 && address <= 0x1fff:
-			value = mmc3.ROMFile.vromBanks[bank8][index]
+			value = mmc3.VROMBanks[bank8][index]
 		}
 	// CPU only
 	case address >= 0x6000 && address <= 0x7fff:
 		if chipEnable, _ := mmc3.prgRAMProtect(); chipEnable {
 			index := address & 0x1fff
-			value = mmc3.ROMFile.wramBanks[0][index]
+			value = mmc3.WRAMBanks[0][index]
 		}
 	case address >= 0x8000 && address <= 0xffff:
 		index := address & 0x1fff
@@ -253,16 +253,16 @@ func (mmc3 *MMC3) Fetch(address uint16) (value uint8) {
 		switch {
 		// PRG bank 1
 		case address >= 0x8000 && address <= 0x9fff:
-			value = mmc3.ROMFile.romBanks[bank1][index]
+			value = mmc3.ROMBanks[bank1][index]
 		// PRG bank 2
 		case address >= 0xa000 && address <= 0xbfff:
-			value = mmc3.ROMFile.romBanks[bank2][index]
+			value = mmc3.ROMBanks[bank2][index]
 		// PRG bank 3
 		case address >= 0xc000 && address <= 0xdfff:
-			value = mmc3.ROMFile.romBanks[bank3][index]
+			value = mmc3.ROMBanks[bank3][index]
 		// PRG bank 4
 		case address >= 0xe000 && address <= 0xffff:
-			value = mmc3.ROMFile.romBanks[bank4][index]
+			value = mmc3.ROMBanks[bank4][index]
 		}
 	}
 
@@ -280,35 +280,35 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 		switch {
 		// CHR bank 1
 		case address >= 0x0000 && address <= 0x03ff:
-			mmc3.ROMFile.vromBanks[bank1][index] = value
+			mmc3.VROMBanks[bank1][index] = value
 		// CHR bank 2
 		case address >= 0x0400 && address <= 0x07ff:
-			mmc3.ROMFile.vromBanks[bank2][index] = value
+			mmc3.VROMBanks[bank2][index] = value
 		// CHR bank 3
 		case address >= 0x0800 && address <= 0x0bff:
-			mmc3.ROMFile.vromBanks[bank3][index] = value
+			mmc3.VROMBanks[bank3][index] = value
 		// CHR bank 4
 		case address >= 0x0c00 && address <= 0x0fff:
-			mmc3.ROMFile.vromBanks[bank4][index] = value
+			mmc3.VROMBanks[bank4][index] = value
 		// CHR bank 5
 		case address >= 0x1000 && address <= 0x13ff:
-			mmc3.ROMFile.vromBanks[bank5][index] = value
+			mmc3.VROMBanks[bank5][index] = value
 		// CHR bank 6
 		case address >= 0x1400 && address <= 0x17ff:
-			mmc3.ROMFile.vromBanks[bank6][index] = value
+			mmc3.VROMBanks[bank6][index] = value
 		// CHR bank 7
 		case address >= 0x1800 && address <= 0x1bff:
-			mmc3.ROMFile.vromBanks[bank7][index] = value
+			mmc3.VROMBanks[bank7][index] = value
 		// CHR bank 8
 		case address >= 0x1c00 && address <= 0x1fff:
-			mmc3.ROMFile.vromBanks[bank8][index] = value
+			mmc3.VROMBanks[bank8][index] = value
 		}
 	// CPU only
 	// PRG RAM bank
 	case address >= 0x6000 && address <= 0x7fff:
 		if _, allowWrites := mmc3.prgRAMProtect(); allowWrites {
 			index := address & 0x1fff
-			mmc3.ROMFile.wramBanks[0][index] = value
+			mmc3.WRAMBanks[0][index] = value
 		}
 	// Bank select (even) / Bank data (odd)
 	case address >= 0x8000 && address <= 0x9fff:
@@ -345,7 +345,7 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 			mmc3.Registers.Mirroring = value
 
 			if mmc3.mirroring() != oldMirroring {
-				mmc3.ROMFile.setTables(mmc3.Tables())
+				mmc3.setTables(mmc3.Tables())
 			}
 		}
 	// IRQ latch (even) / IRQ reload (odd)
@@ -361,7 +361,7 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 			mmc3.Registers.IRQEnable = true
 		} else { // even
 			mmc3.Registers.IRQEnable = false
-			mmc3.ROMFile.irq(false)
+			mmc3.irq(false)
 		}
 	}
 
@@ -379,7 +379,7 @@ func (mmc3 *MMC3) scanlineCounter() {
 	}
 
 	if mmc3.Registers.IRQCounter == 0x00 && mmc3.Registers.IRQEnable {
-		mmc3.ROMFile.irq(true)
+		mmc3.irq(true)
 	}
 }
 
@@ -426,15 +426,15 @@ func (mmc3 *MMC3) prgBanks() (bank1, bank2, bank3, bank4 uint16) {
 	case 0:
 		bank1 = uint16(mmc3.Registers.PRGBankLow) & 0x003f
 		bank2 = uint16(mmc3.Registers.PRGBankHigh) & 0x003f
-		bank3 = mmc3.ROMFile.prgBanks - 2
-		bank4 = mmc3.ROMFile.prgBanks - 1
+		bank3 = mmc3.PRGBanks - 2
+		bank4 = mmc3.PRGBanks - 1
 	// $c000-$dfff swappable,
 	// $8000-$9fff fixed to second-last bank
 	case 1:
-		bank1 = mmc3.ROMFile.prgBanks - 2
+		bank1 = mmc3.PRGBanks - 2
 		bank2 = uint16(mmc3.Registers.PRGBankHigh) & 0x003f
 		bank3 = uint16(mmc3.Registers.PRGBankLow) & 0x003f
-		bank4 = mmc3.ROMFile.prgBanks - 1
+		bank4 = mmc3.PRGBanks - 1
 	}
 
 	return

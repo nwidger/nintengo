@@ -122,7 +122,7 @@ func TestPrgBanks(t *testing.T) {
 		return
 	}
 
-	if rom.prgBanks != 0x01 {
+	if rom.PRGBanks != 0x01 {
 		t.Error("RomBanks is not 0x01")
 	}
 
@@ -138,8 +138,8 @@ func TestPrgBanks(t *testing.T) {
 			val = 0xff
 		}
 
-		if rom.romBanks[0][i] != val {
-			t.Errorf("ROM bank 0 data index %v is %02X not %02X\n", i, rom.romBanks[0][i], val)
+		if rom.ROMBanks[0][i] != val {
+			t.Errorf("ROM bank 0 data index %v is %02X not %02X\n", i, rom.ROMBanks[0][i], val)
 		}
 	}
 }
@@ -198,7 +198,7 @@ func TestChrBanks(t *testing.T) {
 		return
 	}
 
-	if rom.chrBanks != 0x01 {
+	if rom.CHRBanks != 0x01 {
 		t.Error("VRomBanks is not 0x01")
 	}
 
@@ -214,8 +214,8 @@ func TestChrBanks(t *testing.T) {
 			val = 0xff
 		}
 
-		if rom.vromBanks[0][i] != val {
-			t.Errorf("VROM bank 0 data index %v is %02X not %02X\n", i, rom.vromBanks[0][i], val)
+		if rom.VROMBanks[0][i] != val {
+			t.Errorf("VROM bank 0 data index %v is %02X not %02X\n", i, rom.VROMBanks[0][i], val)
 		}
 	}
 }
@@ -235,7 +235,7 @@ func TestMirroring(t *testing.T) {
 		return
 	}
 
-	if rom.mirroring != rp2cgo2.Horizontal {
+	if rom.Mirroring != rp2cgo2.Horizontal {
 		t.Error("Mirroring is not Horizontal")
 	}
 
@@ -253,7 +253,7 @@ func TestMirroring(t *testing.T) {
 		return
 	}
 
-	if rom.mirroring != rp2cgo2.Vertical {
+	if rom.Mirroring != rp2cgo2.Vertical {
 		t.Error("Mirroring is not Vertical")
 	}
 
@@ -274,7 +274,7 @@ func TestBattery(t *testing.T) {
 		return
 	}
 
-	if rom.battery {
+	if rom.Battery {
 		t.Error("Battery is true")
 	}
 
@@ -292,7 +292,7 @@ func TestBattery(t *testing.T) {
 		return
 	}
 
-	if !rom.battery {
+	if !rom.Battery {
 		t.Error("Battery is false")
 	}
 
@@ -313,7 +313,7 @@ func TestTrainer(t *testing.T) {
 		return
 	}
 
-	if rom.trainer {
+	if rom.Trainer {
 		t.Error("Trainer is true")
 	}
 
@@ -353,12 +353,12 @@ func TestTrainer(t *testing.T) {
 		return
 	}
 
-	if !rom.trainer {
+	if !rom.Trainer {
 		t.Error("Trainer is false")
 	}
 
 	for i := 0; i < 512; i++ {
-		if rom.trainerData[i] != 0xff {
+		if rom.TrainerData[i] != 0xff {
 			t.Error("Trainer data is not all 0xff")
 		}
 	}
@@ -379,7 +379,7 @@ func TestFourScreen(t *testing.T) {
 		return
 	}
 
-	if rom.fourScreen {
+	if rom.FourScreen {
 		t.Error("FourScreen is true")
 	}
 
@@ -397,7 +397,7 @@ func TestFourScreen(t *testing.T) {
 		return
 	}
 
-	if !rom.fourScreen {
+	if !rom.FourScreen {
 		t.Error("FourScreen is false")
 	}
 
@@ -418,7 +418,7 @@ func TestMapperLow(t *testing.T) {
 		return
 	}
 
-	if rom.mapper != 0x00 {
+	if rom.Mapper != 0x00 {
 		t.Error("Mapper is not 0x00")
 	}
 
@@ -436,7 +436,7 @@ func TestMapperLow(t *testing.T) {
 		return
 	}
 
-	if rom.mapper != 0x0f {
+	if rom.Mapper != 0x0f {
 		t.Error("Mapper is not 0x0f")
 	}
 }
@@ -456,7 +456,7 @@ func TestVsCart(t *testing.T) {
 		return
 	}
 
-	if rom.vsCart {
+	if rom.VSCart {
 		t.Error("VSCart is true")
 	}
 
@@ -474,7 +474,7 @@ func TestVsCart(t *testing.T) {
 		return
 	}
 
-	if !rom.vsCart {
+	if !rom.VSCart {
 		t.Error("VSCart is false")
 	}
 
@@ -495,7 +495,7 @@ func TestMapperHigh(t *testing.T) {
 		return
 	}
 
-	if rom.mapper != 0x00 {
+	if rom.Mapper != 0x00 {
 		t.Error("Mapper is not 0x00")
 	}
 
@@ -513,7 +513,7 @@ func TestMapperHigh(t *testing.T) {
 		return
 	}
 
-	if rom.mapper != 0xf0 {
+	if rom.Mapper != 0xf0 {
 		t.Error("Mapper is not 0xf0")
 	}
 }
@@ -533,7 +533,7 @@ func TestMapper(t *testing.T) {
 		return
 	}
 
-	if rom.mapper != 0x00 {
+	if rom.Mapper != 0x00 {
 		t.Error("Mapper is not 0x00")
 	}
 
@@ -551,7 +551,7 @@ func TestMapper(t *testing.T) {
 		return
 	}
 
-	if rom.mapper != 0xff {
+	if rom.Mapper != 0xff {
 		t.Error("Mapper is not 0xff")
 	}
 }
@@ -571,7 +571,7 @@ func TestRamBanks(t *testing.T) {
 		return
 	}
 
-	if rom.ramBanks != 0xff {
+	if rom.RAMBanks != 0xff {
 		t.Error("RamBanks is not 0xff")
 	}
 
@@ -589,7 +589,7 @@ func TestRamBanks(t *testing.T) {
 		return
 	}
 
-	if rom.ramBanks != 0x01 {
+	if rom.RAMBanks != 0x01 {
 		t.Error("RamBanks is not 0x01")
 	}
 }
@@ -609,7 +609,7 @@ func TestRegion(t *testing.T) {
 		return
 	}
 
-	if rom.region != NTSC {
+	if rom.RegionFlag != NTSC {
 		t.Error("Region is not NTSC")
 	}
 
@@ -627,7 +627,7 @@ func TestRegion(t *testing.T) {
 		return
 	}
 
-	if rom.region != PAL {
+	if rom.RegionFlag != PAL {
 		t.Error("Region is not PAL")
 	}
 

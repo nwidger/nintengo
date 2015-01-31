@@ -7,7 +7,7 @@ import (
 )
 
 type NROM struct {
-	*ROMFile `json:"-"`
+	*ROMFile
 }
 
 func NewNROM(romf *ROMFile) *NROM {
@@ -25,7 +25,7 @@ func (nrom *NROM) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 
 	switch which {
 	case rp2ago3.PPU:
-		if nrom.ROMFile.chrBanks > 0 {
+		if nrom.CHRBanks > 0 {
 			// CHR bank 1
 			for i := uint32(0x0000); i <= 0x0fff; i++ {
 				fetch = append(fetch, uint16(i))
@@ -39,7 +39,7 @@ func (nrom *NROM) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 			}
 		}
 	case rp2ago3.CPU:
-		if nrom.ROMFile.prgBanks > 0 {
+		if nrom.PRGBanks > 0 {
 			// PRG bank 1
 			for i := uint32(0x8000); i <= 0xbfff; i++ {
 				fetch = append(fetch, uint16(i))
@@ -63,8 +63,8 @@ func (nrom *NROM) Fetch(address uint16) (value uint8) {
 	switch {
 	// PPU only
 	case address >= 0x0000 && address <= 0x1fff:
-		if nrom.ROMFile.chrBanks > 0 {
-			value = nrom.ROMFile.vromBanks[0][address]
+		if nrom.CHRBanks > 0 {
+			value = nrom.VROMBanks[0][address]
 		}
 	// CPU only
 	case address >= 0x8000 && address <= 0xffff:
@@ -73,13 +73,13 @@ func (nrom *NROM) Fetch(address uint16) (value uint8) {
 		switch {
 		// PRG bank 1
 		case address >= 0x8000 && address <= 0xbfff:
-			if nrom.ROMFile.prgBanks > 0 {
-				value = nrom.ROMFile.romBanks[0][index]
+			if nrom.PRGBanks > 0 {
+				value = nrom.ROMBanks[0][index]
 			}
 		// PRG bank 2
 		case address >= 0xc000 && address <= 0xffff:
-			if nrom.ROMFile.prgBanks > 0 {
-				value = nrom.ROMFile.romBanks[nrom.ROMFile.prgBanks-1][index]
+			if nrom.PRGBanks > 0 {
+				value = nrom.ROMBanks[nrom.PRGBanks-1][index]
 			}
 		}
 	}
@@ -92,8 +92,8 @@ func (nrom *NROM) Store(address uint16, value uint8) (oldValue uint8) {
 	switch {
 	// CHR banks 1 & 2
 	case address >= 0x0000 && address <= 0x1fff:
-		if nrom.ROMFile.chrBanks > 0 {
-			nrom.ROMFile.vromBanks[0][address] = value
+		if nrom.CHRBanks > 0 {
+			nrom.VROMBanks[0][address] = value
 		}
 	}
 

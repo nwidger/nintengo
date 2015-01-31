@@ -2,6 +2,7 @@ package nes
 
 import (
 	"bytes"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +16,18 @@ import (
 	"github.com/nwidger/nintengo/rp2cgo2"
 )
 
+func init() {
+	gob.Register(&ROMFile{})
+
+	gob.Register(&ANROM{})
+	gob.Register(&CNROM{})
+	gob.Register(&MMC1{})
+	gob.Register(&MMC2{})
+	gob.Register(&MMC3{})
+	gob.Register(&NROM{})
+	gob.Register(&UNROM{})
+}
+
 //go:generate stringer -type=Region
 type Region uint8
 
@@ -24,22 +37,22 @@ const (
 )
 
 type ROMFile struct {
-	gamename    string
-	filename    string
-	prgBanks    uint16
-	chrBanks    uint16
-	mirroring   rp2cgo2.Mirroring
-	battery     bool
-	trainer     bool
-	fourScreen  bool
-	vsCart      bool
-	mapper      uint8
-	ramBanks    uint8
-	region      Region
-	trainerData []uint8
-	wramBanks   [][]uint8
-	romBanks    [][]uint8
-	vromBanks   [][]uint8
+	Gamename    string
+	Filename    string
+	PRGBanks    uint16
+	CHRBanks    uint16
+	Mirroring   rp2cgo2.Mirroring
+	Battery     bool
+	Trainer     bool
+	FourScreen  bool
+	VSCart      bool
+	Mapper      uint8
+	RAMBanks    uint8
+	RegionFlag  Region
+	TrainerData []uint8
+	WRAMBanks   [][]uint8
+	ROMBanks    [][]uint8
+	VROMBanks   [][]uint8
 	irq         func(state bool)
 	setTables   func(t0, t1, t2, t3 int)
 }
@@ -120,12 +133,12 @@ func NewROM(filename string, irq func(state bool), setTables func(t0, t1, t2, t3
 
 	romf.irq = irq
 	romf.setTables = setTables
-	romf.filename = filename
-	romf.gamename = strings.TrimSuffix(romf.filename, suffix)
+	romf.Filename = filename
+	romf.Gamename = strings.TrimSuffix(romf.Filename, suffix)
 
 	romf.setTables(romf.Tables())
 
-	switch romf.mapper {
+	switch romf.Mapper {
 	case 0x00, 0x40, 0x41:
 		rom = NewNROM(romf)
 	case 0x01:
@@ -141,7 +154,7 @@ func NewROM(filename string, irq func(state bool), setTables func(t0, t1, t2, t3
 	case 0x09:
 		rom = NewMMC2(romf)
 	default:
-		err = errors.New(fmt.Sprintf("Unsupported mapper type %v", romf.mapper))
+		err = errors.New(fmt.Sprintf("Unsupported mapper type %v", romf.Mapper))
 	}
 
 	return
@@ -169,50 +182,50 @@ func NewROMFile(buf []byte) (romf *ROMFile, err error) {
 
 		switch i {
 		case 4:
-			romf.prgBanks = uint16(byte)
+			romf.PRGBanks = uint16(byte)
 		case 5:
-			romf.chrBanks = uint16(byte)
+			romf.CHRBanks = uint16(byte)
 		case 6:
 			for j := 0; j < 4; j++ {
 				if byte&(0x01<<uint8(j)) != 0 {
 					switch j {
 					case 0:
-						romf.mirroring = rp2cgo2.Vertical
+						romf.Mirroring = rp2cgo2.Vertical
 					case 1:
-						romf.battery = true
+						romf.Battery = true
 					case 2:
-						romf.trainer = true
+						romf.Trainer = true
 					case 3:
-						romf.fourScreen = true
-						romf.mirroring = rp2cgo2.FourScreen
+						romf.FourScreen = true
+						romf.Mirroring = rp2cgo2.FourScreen
 					}
 				}
 			}
 
-			romf.mapper = (byte >> 4) & 0x0f
+			romf.Mapper = (byte >> 4) & 0x0f
 		case 7:
 			if byte&0x01 != 0 {
-				romf.vsCart = true
+				romf.VSCart = true
 			}
 
-			romf.mapper |= byte & 0xf0
+			romf.Mapper |= byte & 0xf0
 
 		case 8:
-			romf.ramBanks = byte
+			romf.RAMBanks = byte
 
-			if romf.ramBanks == 0 {
-				romf.ramBanks = 1
+			if romf.RAMBanks == 0 {
+				romf.RAMBanks = 1
 			}
 		case 9:
 			if byte&0x01 != 0 {
-				romf.region = PAL
+				romf.RegionFlag = PAL
 			}
 		}
 	}
 
 	i += 6
 
-	if romf.trainer {
+	if romf.Trainer {
 		offset = 512
 
 		if len(buf) < (i + offset) {
@@ -221,57 +234,57 @@ func NewROMFile(buf []byte) (romf *ROMFile, err error) {
 			return
 		}
 
-		romf.trainerData = buf[i : i+offset]
+		romf.TrainerData = buf[i : i+offset]
 		i += offset
 	}
 
 	offset = 1024 * 16
 
-	if len(buf) < (i + (offset * int(romf.prgBanks))) {
+	if len(buf) < (i + (offset * int(romf.PRGBanks))) {
 		romf = nil
 		err = errors.New("Invalid ROM: EOF in ROM bank data")
 		return
 	}
 
-	romf.romBanks = make([][]uint8, romf.prgBanks)
+	romf.ROMBanks = make([][]uint8, romf.PRGBanks)
 
-	for n := 0; n < int(romf.prgBanks); n++ {
-		romf.romBanks[n] = buf[i : i+offset]
+	for n := 0; n < int(romf.PRGBanks); n++ {
+		romf.ROMBanks[n] = buf[i : i+offset]
 		i += offset
 	}
 
 	offset = 1024 * 8
 
-	if len(buf) < (i + (offset * int(romf.chrBanks))) {
+	if len(buf) < (i + (offset * int(romf.CHRBanks))) {
 		romf = nil
 		err = errors.New("Invalid ROM: EOF in VROM bank data")
 		return
 	}
 
-	romf.vromBanks = make([][]uint8, romf.chrBanks)
+	romf.VROMBanks = make([][]uint8, romf.CHRBanks)
 
-	for n := 0; n < int(romf.chrBanks); n++ {
-		romf.vromBanks[n] = buf[i : i+offset]
+	for n := 0; n < int(romf.CHRBanks); n++ {
+		romf.VROMBanks[n] = buf[i : i+offset]
 		i += offset
 	}
 
 	offset = 1024 * 8
 
-	romf.wramBanks = make([][]uint8, romf.ramBanks)
+	romf.WRAMBanks = make([][]uint8, romf.RAMBanks)
 
-	for n := 0; n < int(romf.ramBanks); n++ {
-		romf.wramBanks[n] = make([]uint8, offset)
+	for n := 0; n < int(romf.RAMBanks); n++ {
+		romf.WRAMBanks[n] = make([]uint8, offset)
 	}
 
 	return
 }
 
 func (romf *ROMFile) Region() Region {
-	return romf.region
+	return romf.RegionFlag
 }
 
 func (romf *ROMFile) Tables() (t0, t1, t2, t3 int) {
-	switch romf.mirroring {
+	switch romf.Mirroring {
 	case rp2cgo2.Horizontal:
 		t0, t1, t2, t3 = 0, 0, 1, 1
 	case rp2cgo2.Vertical:
@@ -282,29 +295,29 @@ func (romf *ROMFile) Tables() (t0, t1, t2, t3 int) {
 }
 
 func (romf *ROMFile) String() string {
-	return fmt.Sprintf("PRG Banks: %v\n", romf.prgBanks) +
-		fmt.Sprintf("CHR Banks: %v\n", romf.chrBanks) +
-		fmt.Sprintf("Mirroring: %v\n", romf.mirroring) +
-		fmt.Sprintf("Battery: %v\n", romf.battery) +
-		fmt.Sprintf("Trainer: %v\n", romf.trainer) +
-		fmt.Sprintf("FourScreen: %v\n", romf.fourScreen) +
-		fmt.Sprintf("VS Cart: %v\n", romf.vsCart) +
-		fmt.Sprintf("RAM Banks: %v\n", romf.ramBanks) +
-		fmt.Sprintf("Region: %v\n", romf.region)
+	return fmt.Sprintf("PRG Banks: %v\n", romf.PRGBanks) +
+		fmt.Sprintf("CHR Banks: %v\n", romf.CHRBanks) +
+		fmt.Sprintf("Mirroring: %v\n", romf.Mirroring) +
+		fmt.Sprintf("Battery: %v\n", romf.Battery) +
+		fmt.Sprintf("Trainer: %v\n", romf.Trainer) +
+		fmt.Sprintf("FourScreen: %v\n", romf.FourScreen) +
+		fmt.Sprintf("VS Cart: %v\n", romf.VSCart) +
+		fmt.Sprintf("RAM Banks: %v\n", romf.RAMBanks) +
+		fmt.Sprintf("Region: %v\n", romf.RegionFlag)
 }
 
 func (romf *ROMFile) GameName() string {
-	return romf.gamename
+	return romf.Gamename
 }
 
 func (romf *ROMFile) LoadBattery() {
 	var ram []byte
 
-	if !romf.battery || romf.ramBanks == 0 {
+	if !romf.Battery || romf.RAMBanks == 0 {
 		return
 	}
 
-	savename := romf.gamename + ".sav"
+	savename := romf.Gamename + ".sav"
 	ram, err := ioutil.ReadFile(savename)
 
 	if err != nil {
@@ -313,9 +326,9 @@ func (romf *ROMFile) LoadBattery() {
 
 	fmt.Println("*** Loading battery from " + savename)
 
-	for b := range romf.wramBanks {
+	for b := range romf.WRAMBanks {
 		for i := uint16(0); i < 0x2000; i++ {
-			romf.wramBanks[b][i] = ram[i]
+			romf.WRAMBanks[b][i] = ram[i]
 		}
 	}
 
@@ -323,19 +336,19 @@ func (romf *ROMFile) LoadBattery() {
 }
 
 func (romf *ROMFile) SaveBattery() (err error) {
-	if !romf.battery || romf.ramBanks == 0 {
+	if !romf.Battery || romf.RAMBanks == 0 {
 		return
 	}
 
-	savename := romf.gamename + ".sav"
+	savename := romf.Gamename + ".sav"
 
 	fmt.Println("*** Saving battery to " + savename)
 
 	buf := bytes.Buffer{}
 
-	for b := range romf.wramBanks {
+	for b := range romf.WRAMBanks {
 		for i := uint16(0); i < 0x2000; i++ {
-			buf.WriteByte(romf.wramBanks[b][i])
+			buf.WriteByte(romf.WRAMBanks[b][i])
 		}
 	}
 

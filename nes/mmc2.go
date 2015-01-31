@@ -19,7 +19,7 @@ type MMC2Registers struct {
 }
 
 type MMC2 struct {
-	*ROMFile  `json:"-"`
+	*ROMFile
 	Registers MMC2Registers
 }
 
@@ -41,34 +41,34 @@ func NewMMC2(romf *ROMFile) *MMC2 {
 
 	// divide 8KB CHR banks into 4KB banks since we may be
 	// swapping 4KB banks
-	if romf.chrBanks > 0 {
-		vromBanks := make([][]uint8, uint16(romf.chrBanks)*2)
+	if romf.CHRBanks > 0 {
+		vromBanks := make([][]uint8, uint16(romf.CHRBanks)*2)
 
-		for n := 0; n < int(romf.chrBanks); n++ {
-			vromBanks[2*n] = romf.vromBanks[n][0x0000:0x1000]
-			vromBanks[(2*n)+1] = romf.vromBanks[n][0x1000:0x2000]
+		for n := 0; n < int(romf.CHRBanks); n++ {
+			vromBanks[2*n] = romf.VROMBanks[n][0x0000:0x1000]
+			vromBanks[(2*n)+1] = romf.VROMBanks[n][0x1000:0x2000]
 		}
 
-		romf.vromBanks = vromBanks
-		romf.chrBanks *= 2
+		romf.VROMBanks = vromBanks
+		romf.CHRBanks *= 2
 	}
 
 	// divide 16KB PRG banks into 8KB banks since we may be
 	// swapping 8KB banks
-	if romf.prgBanks > 0 {
-		romBanks := make([][]uint8, uint16(romf.prgBanks)*2)
+	if romf.PRGBanks > 0 {
+		romBanks := make([][]uint8, uint16(romf.PRGBanks)*2)
 
-		for n := 0; n < int(romf.prgBanks); n++ {
-			romBanks[2*n] = romf.romBanks[n][0x0000:0x2000]
-			romBanks[(2*n)+1] = romf.romBanks[n][0x2000:0x4000]
+		for n := 0; n < int(romf.PRGBanks); n++ {
+			romBanks[2*n] = romf.ROMBanks[n][0x0000:0x2000]
+			romBanks[(2*n)+1] = romf.ROMBanks[n][0x2000:0x4000]
 		}
 
-		romf.romBanks = romBanks
-		romf.prgBanks *= 2
+		romf.ROMBanks = romBanks
+		romf.PRGBanks *= 2
 	}
 
 	mmc2.Registers.Reset()
-	mmc2.ROMFile.setTables(mmc2.Tables())
+	mmc2.setTables(mmc2.Tables())
 
 	return mmc2
 }
@@ -84,7 +84,7 @@ func (mmc2 *MMC2) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 
 	switch which {
 	case rp2ago3.PPU:
-		if mmc2.ROMFile.chrBanks > 0 {
+		if mmc2.CHRBanks > 0 {
 			// CHR bank 1
 			for i := uint32(0x0000); i <= 0x0fff; i++ {
 				fetch = append(fetch, uint16(i))
@@ -98,7 +98,7 @@ func (mmc2 *MMC2) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 			}
 		}
 	case rp2ago3.CPU:
-		if mmc2.ROMFile.prgBanks > 0 {
+		if mmc2.PRGBanks > 0 {
 			// PRG bank 1
 			for i := uint32(0x8000); i <= 0x9fff; i++ {
 				store = append(store, uint16(i))
@@ -143,13 +143,13 @@ func (mmc2 *MMC2) Fetch(address uint16) (value uint8) {
 		switch {
 		// CHR bank 1
 		case address >= 0x0000 && address <= 0x0fff:
-			if mmc2.ROMFile.chrBanks > 0 {
-				value = mmc2.ROMFile.vromBanks[lower][index]
+			if mmc2.CHRBanks > 0 {
+				value = mmc2.VROMBanks[lower][index]
 			}
 		// CHR bank 2
 		case address >= 0x1000 && address <= 0x1fff:
-			if mmc2.ROMFile.chrBanks > 0 {
-				value = mmc2.ROMFile.vromBanks[upper][index]
+			if mmc2.CHRBanks > 0 {
+				value = mmc2.VROMBanks[upper][index]
 			}
 		}
 
@@ -170,24 +170,24 @@ func (mmc2 *MMC2) Fetch(address uint16) (value uint8) {
 		switch {
 		// PRG bank 1
 		case address >= 0x8000 && address <= 0x9fff:
-			if mmc2.ROMFile.prgBanks > 0 {
+			if mmc2.PRGBanks > 0 {
 				bank := mmc2.prgBank()
-				value = mmc2.ROMFile.romBanks[bank][index]
+				value = mmc2.ROMBanks[bank][index]
 			}
 		// PRG bank 2
 		case address >= 0xa000 && address <= 0xbfff:
-			if mmc2.ROMFile.prgBanks > 0 {
-				value = mmc2.ROMFile.romBanks[mmc2.ROMFile.prgBanks-3][index]
+			if mmc2.PRGBanks > 0 {
+				value = mmc2.ROMBanks[mmc2.PRGBanks-3][index]
 			}
 		// PRG bank 3
 		case address >= 0xc000 && address <= 0xdfff:
-			if mmc2.ROMFile.prgBanks > 0 {
-				value = mmc2.ROMFile.romBanks[mmc2.ROMFile.prgBanks-2][index]
+			if mmc2.PRGBanks > 0 {
+				value = mmc2.ROMBanks[mmc2.PRGBanks-2][index]
 			}
 		// PRG bank 4
 		case address >= 0xe000 && address <= 0xffff:
-			if mmc2.ROMFile.prgBanks > 0 {
-				value = mmc2.ROMFile.romBanks[mmc2.ROMFile.prgBanks-1][index]
+			if mmc2.PRGBanks > 0 {
+				value = mmc2.ROMBanks[mmc2.PRGBanks-1][index]
 			}
 		}
 	}
@@ -206,13 +206,13 @@ func (mmc2 *MMC2) Store(address uint16, value uint8) (oldValue uint8) {
 		switch {
 		// CHR bank 1
 		case address >= 0x0000 && address <= 0x0fff:
-			if mmc2.ROMFile.chrBanks > 0 {
-				mmc2.ROMFile.vromBanks[lower][index] = value
+			if mmc2.CHRBanks > 0 {
+				mmc2.VROMBanks[lower][index] = value
 			}
 		// CHR bank 2
 		case address >= 0x1000 && address <= 0x1fff:
-			if mmc2.ROMFile.chrBanks > 0 {
-				mmc2.ROMFile.vromBanks[upper][index] = value
+			if mmc2.CHRBanks > 0 {
+				mmc2.VROMBanks[upper][index] = value
 			}
 		}
 	// CPU only
@@ -221,8 +221,8 @@ func (mmc2 *MMC2) Store(address uint16, value uint8) (oldValue uint8) {
 		bank := mmc2.prgBank()
 		index := address & 0x1fff
 
-		if mmc2.ROMFile.prgBanks > 0 {
-			mmc2.ROMFile.romBanks[bank][index] = value
+		if mmc2.PRGBanks > 0 {
+			mmc2.ROMBanks[bank][index] = value
 		}
 	// PRG bank select
 	case address >= 0xa000 && address <= 0xafff:
@@ -245,7 +245,7 @@ func (mmc2 *MMC2) Store(address uint16, value uint8) (oldValue uint8) {
 		mmc2.Registers.Mirroring = value
 
 		if mmc2.mirroring() != oldMirroring {
-			mmc2.ROMFile.setTables(mmc2.Tables())
+			mmc2.setTables(mmc2.Tables())
 		}
 	}
 

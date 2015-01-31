@@ -11,7 +11,7 @@ type CNROMRegisters struct {
 }
 
 type CNROM struct {
-	*ROMFile  `json:"-"`
+	*ROMFile
 	Registers CNROMRegisters
 }
 
@@ -40,7 +40,7 @@ func (cnrom *CNROM) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 
 	switch which {
 	case rp2ago3.PPU:
-		if cnrom.ROMFile.chrBanks > 0 {
+		if cnrom.CHRBanks > 0 {
 			// CHR bank 1
 			for i := uint32(0x0000); i <= 0x0fff; i++ {
 				fetch = append(fetch, uint16(i))
@@ -54,7 +54,7 @@ func (cnrom *CNROM) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 			}
 		}
 	case rp2ago3.CPU:
-		if cnrom.ROMFile.prgBanks > 0 {
+		if cnrom.PRGBanks > 0 {
 			// PRG bank 1
 			for i := uint32(0x8000); i <= 0xbfff; i++ {
 				fetch = append(fetch, uint16(i))
@@ -80,8 +80,8 @@ func (cnrom *CNROM) Fetch(address uint16) (value uint8) {
 	switch {
 	// PPU only
 	case address >= 0x0000 && address <= 0x1fff:
-		if cnrom.ROMFile.chrBanks > 0 {
-			value = cnrom.ROMFile.vromBanks[cnrom.Registers.BankSelect][address]
+		if cnrom.CHRBanks > 0 {
+			value = cnrom.VROMBanks[cnrom.Registers.BankSelect][address]
 		}
 	// CPU only
 	case address >= 0x8000 && address <= 0xffff:
@@ -90,13 +90,13 @@ func (cnrom *CNROM) Fetch(address uint16) (value uint8) {
 		switch {
 		// PRG bank 1
 		case address >= 0x8000 && address <= 0xbfff:
-			if cnrom.ROMFile.prgBanks > 0 {
-				value = cnrom.ROMFile.romBanks[0][index]
+			if cnrom.PRGBanks > 0 {
+				value = cnrom.ROMBanks[0][index]
 			}
 		// PRG bank 2
 		case address >= 0xc000 && address <= 0xffff:
-			if cnrom.ROMFile.prgBanks > 0 {
-				value = cnrom.ROMFile.romBanks[cnrom.ROMFile.prgBanks-1][index]
+			if cnrom.PRGBanks > 0 {
+				value = cnrom.ROMBanks[cnrom.PRGBanks-1][index]
 			}
 		}
 	}
@@ -109,8 +109,8 @@ func (cnrom *CNROM) Store(address uint16, value uint8) (oldValue uint8) {
 	switch {
 	// CHR banks 1 & 2
 	case address >= 0x0000 && address <= 0x1fff:
-		if cnrom.ROMFile.chrBanks > 0 {
-			cnrom.ROMFile.vromBanks[cnrom.Registers.BankSelect][address] = value
+		if cnrom.CHRBanks > 0 {
+			cnrom.VROMBanks[cnrom.Registers.BankSelect][address] = value
 		}
 	// CPU only
 	// PRG banks 1 & 2

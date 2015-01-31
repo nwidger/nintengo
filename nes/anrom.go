@@ -11,7 +11,7 @@ type ANROMRegisters struct {
 }
 
 type ANROM struct {
-	*ROMFile  `json:"-"`
+	*ROMFile
 	Registers ANROMRegisters
 }
 
@@ -25,7 +25,7 @@ func NewANROM(romf *ROMFile) *ANROM {
 	}
 
 	anrom.Registers.Reset()
-	anrom.ROMFile.setTables(anrom.Tables())
+	anrom.setTables(anrom.Tables())
 
 	return anrom
 }
@@ -41,7 +41,7 @@ func (anrom *ANROM) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 
 	switch which {
 	case rp2ago3.PPU:
-		if anrom.ROMFile.chrBanks > 0 {
+		if anrom.CHRBanks > 0 {
 			// CHR bank 1
 			for i := uint32(0x0000); i <= 0x0fff; i++ {
 				fetch = append(fetch, uint16(i))
@@ -55,7 +55,7 @@ func (anrom *ANROM) Mappings(which rp2ago3.Mapping) (fetch, store []uint16) {
 			}
 		}
 	case rp2ago3.CPU:
-		if anrom.ROMFile.prgBanks > 0 {
+		if anrom.PRGBanks > 0 {
 			// PRG bank 1
 			for i := uint32(0x8000); i <= 0xbfff; i++ {
 				fetch = append(fetch, uint16(i))
@@ -81,8 +81,8 @@ func (anrom *ANROM) Fetch(address uint16) (value uint8) {
 	switch {
 	// PPU only
 	case address >= 0x0000 && address <= 0x1fff:
-		if anrom.ROMFile.chrBanks > 0 {
-			value = anrom.ROMFile.vromBanks[0][address]
+		if anrom.CHRBanks > 0 {
+			value = anrom.VROMBanks[0][address]
 		}
 	// CPU only
 	case address >= 0x8000 && address <= 0xffff:
@@ -92,13 +92,13 @@ func (anrom *ANROM) Fetch(address uint16) (value uint8) {
 		switch {
 		// PRG bank 1
 		case address >= 0x8000 && address <= 0xbfff:
-			if anrom.ROMFile.prgBanks > 0 {
-				value = anrom.ROMFile.romBanks[lower][index]
+			if anrom.PRGBanks > 0 {
+				value = anrom.ROMBanks[lower][index]
 			}
 		// PRG bank 2
 		case address >= 0xc000 && address <= 0xffff:
-			if anrom.ROMFile.prgBanks > 0 {
-				value = anrom.ROMFile.romBanks[upper][index]
+			if anrom.PRGBanks > 0 {
+				value = anrom.ROMBanks[upper][index]
 			}
 		}
 	}
@@ -111,8 +111,8 @@ func (anrom *ANROM) Store(address uint16, value uint8) (oldValue uint8) {
 	switch {
 	// CHR banks 1 & 2
 	case address >= 0x0000 && address <= 0x1fff:
-		if anrom.ROMFile.chrBanks > 0 {
-			anrom.ROMFile.vromBanks[0][address] = value
+		if anrom.CHRBanks > 0 {
+			anrom.VROMBanks[0][address] = value
 		}
 	// CPU only
 	// PRG banks 1 & 2
@@ -121,7 +121,7 @@ func (anrom *ANROM) Store(address uint16, value uint8) (oldValue uint8) {
 		anrom.Registers.BankSelect = value
 
 		if anrom.mirroring() != oldMirrors {
-			anrom.ROMFile.setTables(anrom.Tables())
+			anrom.setTables(anrom.Tables())
 		}
 	}
 
