@@ -45,10 +45,10 @@ type ROMFile struct {
 }
 
 type ROMFileRaw struct {
-	WRAMBanks	[][]uint8
-	ROMBanks    [][]uint8
-	VROMBanks   [][]uint8
-	Raw         []byte
+	WRAMBanks [][]uint8
+	ROMBanks  [][]uint8
+	VROMBanks [][]uint8
+	Raw       []byte
 }
 
 type ROM interface {
@@ -362,9 +362,9 @@ func (romf *ROMFile) SaveBattery() (err error) {
 func (romf *ROMFile) GetRaw() *ROMFileRaw {
 	return &ROMFileRaw{
 		WRAMBanks: romf.wramBanks,
-		ROMBanks: romf.romBanks,
+		ROMBanks:  romf.romBanks,
 		VROMBanks: romf.vromBanks,
-		Raw: romf.raw,
+		Raw:       romf.raw,
 	}
 }
 

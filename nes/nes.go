@@ -527,7 +527,6 @@ func (nes *NES) runAsSlave() (err error) {
 			}
 			if nes.Tick > pkt.Tick {
 				fmt.Fprintf(os.Stderr, "Failed to sync with master, quiting...\n")
-				fmt.Println(pkt.Ev.String())
 				err = errors.New(fmt.Sprintf("Failed to sync with master"))
 				return
 			}
