@@ -44,6 +44,13 @@ type ROMFile struct {
 	raw         []byte
 }
 
+type ROMFileRaw struct {
+	WRAMBanks	[][]uint8
+	ROMBanks    [][]uint8
+	VROMBanks   [][]uint8
+	Raw         []byte
+}
+
 type ROM interface {
 	rp2ago3.MappableMemory
 	Region() Region
@@ -51,7 +58,8 @@ type ROM interface {
 	GameName() string
 	LoadBattery()
 	SaveBattery() (err error)
-	GetRaw() []byte
+	GetRaw() *ROMFileRaw
+	GetROMFile() *ROMFile
 }
 
 func getBuf(filename string) (buf []byte, suffix string, err error) {
@@ -351,6 +359,15 @@ func (romf *ROMFile) SaveBattery() (err error) {
 	return
 }
 
-func (romf *ROMFile) GetRaw() []byte {
-	return romf.raw
+func (romf *ROMFile) GetRaw() *ROMFileRaw {
+	return &ROMFileRaw{
+		WRAMBanks: romf.wramBanks,
+		ROMBanks: romf.romBanks,
+		VROMBanks: romf.vromBanks,
+		Raw: romf.raw,
+	}
+}
+
+func (romf *ROMFile) GetROMFile() *ROMFile {
+	return romf
 }

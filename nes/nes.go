@@ -3,6 +3,7 @@ package nes
 import (
 	"bufio"
 	"bytes"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"io"
@@ -81,6 +82,10 @@ type Options struct {
 	HTTPAddress   string
 	Listen        string
 	Connect       string
+}
+
+func init() {
+	gob.Register(&ROMFileRaw{})
 }
 
 func NewNES(filename string, options *Options) (nes *NES, err error) {
@@ -275,8 +280,9 @@ func (nes *NES) SaveStateToWriter(writer io.Writer, withrom bool) (err error) {
 			fmt.Printf("*** Error saving rom: %s\n", err)
 			return
 		}
+		enc := gob.NewEncoder(romfw)
 		raw := nes.ROM.GetRaw()
-		if _, err = romfw.Write(raw); err != nil {
+		if err = enc.Encode(raw); err != nil {
 			fmt.Printf("*** Error saving rom: %s\n", err)
 		}
 	}
@@ -374,17 +380,23 @@ func (nes *NES) LoadStateFromReader(reader io.ReaderAt, size int64) (err error) 
 				return err
 			}
 
-			var buf bytes.Buffer
-			if _, err = buf.ReadFrom(romfr); err != nil {
+			dec := gob.NewDecoder(romfr)
+			var raw ROMFileRaw
+			if err = dec.Decode(&raw); err != nil {
 				fmt.Printf("*** Error loading rom %s\n", err)
 				return err
 			}
 
-			rom, err := NewROMFromRaw(nes.GameName, buf.Bytes(), nes.CPU.InterruptLine(m65go2.Irq), nes.PPU.Nametable.SetTables)
+			rom, err := NewROMFromRaw(nes.GameName, raw.Raw, nes.CPU.InterruptLine(m65go2.Irq), nes.PPU.Nametable.SetTables)
 			if err != nil {
 				fmt.Printf("*** Error loading rom: %s\n", err)
 				return err
 			}
+
+			romf := rom.GetROMFile()
+			romf.wramBanks = raw.WRAMBanks
+			romf.romBanks = raw.ROMBanks
+			romf.vromBanks = raw.VROMBanks
 
 			nes.ROM = rom
 			nes.CPU.Memory.AddMappings(rom, rp2ago3.CPU)
@@ -515,6 +527,7 @@ func (nes *NES) runAsSlave() (err error) {
 			}
 			if nes.Tick > pkt.Tick {
 				fmt.Fprintf(os.Stderr, "Failed to sync with master, quiting...\n")
+				fmt.Println(pkt.Ev.String())
 				err = errors.New(fmt.Sprintf("Failed to sync with master"))
 				return
 			}
