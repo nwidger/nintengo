@@ -14,6 +14,7 @@ type Video interface {
 	Input() chan []uint8
 	Events() chan Event
 	Run()
+	SetCaption(caption string)
 }
 
 var RGBAPalette []color.Color = []color.Color{

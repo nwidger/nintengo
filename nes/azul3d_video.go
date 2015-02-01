@@ -233,15 +233,15 @@ func (video *Azul3DVideo) handleInput(ev keyboard.StateEvent, w *window.Window) 
 		case keyboard.F5:
 			event = &LoadStateEvent{}
 		case keyboard.F8:
-			event = &FastForwardEvent{}
+			event = &FPSEvent{2.}
 		case keyboard.F9:
-			event = &FPS100Event{}
+			event = &FPSEvent{1.}
 		case keyboard.F10:
-			event = &FPS75Event{}
+			event = &FPSEvent{.75}
 		case keyboard.F11:
-			event = &FPS50Event{}
+			event = &FPSEvent{.5}
 		case keyboard.F12:
-			event = &FPS25Event{}
+			event = &FPSEvent{.25}
 		case keyboard.NumZero:
 			event = &MuteEvent{}
 		case keyboard.NumOne:
@@ -278,8 +278,8 @@ func (video *Azul3DVideo) handleInput(ev keyboard.StateEvent, w *window.Window) 
 		}
 
 		event = &ControllerEvent{
-			button: button,
-			down:   ev.State == keyboard.Down,
+			Button: button,
+			Down:   ev.State == keyboard.Down,
 		}
 	}
 
@@ -482,4 +482,8 @@ func (video *Azul3DVideo) Run() {
 	props.SetTitle("nintengo - " + video.caption + " - {FPS}")
 
 	window.Run(gfxLoop, props)
+}
+
+func (video *Azul3DVideo) SetCaption(caption string) {
+	video.caption = caption
 }

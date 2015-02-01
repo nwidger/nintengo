@@ -33,9 +33,11 @@ An NES emulator written in Go
 nintengo OPTIONS FILE
 FILE can be a .nes file or a .nes file inside a .zip archive
   -audio-recorder="": recorder to use: none | wav
+  -connect="": Connect to address as slave, <rom-file> will be ignored (e.g., 'localhost:8080')
   -cpu-decode=false: decode CPU instructions
   -cpu-profile="": write CPU profile to file
   -http="": HTTP service address (e.g., ':6060')
+  -listen="": Listen at address as master (e.g., ':8080')
   -mem-profile="": write memory profile to file
   -recorder="": recorder to use: none | jpeg | gif
 ```
@@ -107,7 +109,27 @@ Battery backed saves is implemented and are saved to disk with a
 Save states are supported and are saved to disk with a `.nst` file
 extension.
 
-### Mappers
+## Netplay
+
+Nintengo includes two-player netplay support using the `-listen` and
+`-connect` command-line arguments.  To use, player one launches
+nintengo and tells it to listen for incoming connections using the
+`-listen` flag:
+
+```
+nintengo -listen=:8080 FILE
+```
+
+Player two then connects to player one using the `-connect` flag,
+providing the server's host/port:
+
+```
+nintengo -connect=192.168.1.110:8080
+```
+
+Note that player two does not need to provide a `FILE` argument.
+
+## Mappers
 
 - NROM
 - MMC1

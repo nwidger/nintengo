@@ -39,6 +39,7 @@ type SDLVideo struct {
 	palette       []uint32
 	events        chan Event
 	overscan      bool
+	caption       string
 }
 
 func NewVideo(caption string, events chan Event) (video *SDLVideo, err error) {
@@ -47,6 +48,7 @@ func NewVideo(caption string, events chan Event) (video *SDLVideo, err error) {
 		events:   events,
 		palette:  SDLPalette,
 		overscan: true,
+		caption:  caption,
 	}
 
 	for i, _ := range video.palette {
@@ -66,12 +68,16 @@ func NewVideo(caption string, events chan Event) (video *SDLVideo, err error) {
 		return
 	}
 
-	sdl.WM_SetCaption("nintengo - "+caption, "")
+	sdl.WM_SetCaption("nintengo - "+video.caption, "")
 
 	video.initGL()
 	video.Reshape(int(video.screen.W), int(video.screen.H))
 
 	return
+}
+
+func (video *SDLVideo) SetCaption(caption string) {
+	sdl.WM_SetCaption("nintengo - "+video.caption, "")
 }
 
 func (video *SDLVideo) Events() chan Event {
@@ -328,23 +334,23 @@ func (video *SDLVideo) Run() {
 					}
 				case sdl.K_F8:
 					if e.Type == sdl.KEYDOWN {
-						event = &FastForwardEvent{}
+						event = &FPSEvent{2.}
 					}
 				case sdl.K_F9:
 					if e.Type == sdl.KEYDOWN {
-						event = &FPS100Event{}
+						event = &FPSEvent{1.}
 					}
 				case sdl.K_F10:
 					if e.Type == sdl.KEYDOWN {
-						event = &FPS75Event{}
+						event = &FPSEvent{.75}
 					}
 				case sdl.K_F11:
 					if e.Type == sdl.KEYDOWN {
-						event = &FPS50Event{}
+						event = &FPSEvent{.5}
 					}
 				case sdl.K_F12:
 					if e.Type == sdl.KEYDOWN {
-						event = &FPS25Event{}
+						event = &FPSEvent{.25}
 					}
 				case sdl.K_KP0:
 					if e.Type == sdl.KEYDOWN {
@@ -370,8 +376,8 @@ func (video *SDLVideo) Run() {
 
 				if event == nil && running {
 					event = &ControllerEvent{
-						button: button(e),
-						down:   e.Type == sdl.KEYDOWN,
+						Button: button(e),
+						Down:   e.Type == sdl.KEYDOWN,
 					}
 				}
 			}
