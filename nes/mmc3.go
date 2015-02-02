@@ -424,16 +424,16 @@ func (mmc3 *MMC3) prgBanks() (bank1, bank2, bank3, bank4 uint16) {
 	// $8000-$9fff swappable,
 	// $c000-$dfff fixed to second-last bank
 	case 0:
-		bank1 = uint16(mmc3.Registers.PRGBankLow) & 0x003f
-		bank2 = uint16(mmc3.Registers.PRGBankHigh) & 0x003f
+		bank1 = uint16(mmc3.Registers.PRGBankLow) & 0x001f
+		bank2 = uint16(mmc3.Registers.PRGBankHigh) & 0x001f
 		bank3 = mmc3.PRGBanks - 2
 		bank4 = mmc3.PRGBanks - 1
 	// $c000-$dfff swappable,
 	// $8000-$9fff fixed to second-last bank
 	case 1:
 		bank1 = mmc3.PRGBanks - 2
-		bank2 = uint16(mmc3.Registers.PRGBankHigh) & 0x003f
-		bank3 = uint16(mmc3.Registers.PRGBankLow) & 0x003f
+		bank2 = uint16(mmc3.Registers.PRGBankHigh) & 0x001f
+		bank3 = uint16(mmc3.Registers.PRGBankLow) & 0x001f
 		bank4 = mmc3.PRGBanks - 1
 	}
 
