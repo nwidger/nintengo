@@ -54,14 +54,6 @@ type ROMFile struct {
 	VROMBanks   [][]uint8
 	irq         func(state bool)
 	setTables   func(t0, t1, t2, t3 int)
-	raw         []byte
-}
-
-type ROMFileRaw struct {
-	WRAMBanks [][]uint8
-	ROMBanks  [][]uint8
-	VROMBanks [][]uint8
-	Raw       []byte
 }
 
 type ROM interface {
@@ -71,7 +63,6 @@ type ROM interface {
 	GameName() string
 	LoadBattery()
 	SaveBattery() (err error)
-	GetRaw() *ROMFileRaw
 	GetROMFile() *ROMFile
 }
 
@@ -290,7 +281,6 @@ func NewROMFile(buf []byte) (romf *ROMFile, err error) {
 		romf.WRAMBanks[n] = make([]uint8, offset)
 	}
 
-	romf.raw = buf
 	return
 }
 
@@ -370,15 +360,6 @@ func (romf *ROMFile) SaveBattery() (err error) {
 	err = ioutil.WriteFile(savename, buf.Bytes(), 0644)
 
 	return
-}
-
-func (romf *ROMFile) GetRaw() *ROMFileRaw {
-	return &ROMFileRaw{
-		WRAMBanks: romf.WRAMBanks,
-		ROMBanks:  romf.ROMBanks,
-		VROMBanks: romf.VROMBanks,
-		Raw:       romf.raw,
-	}
 }
 
 func (romf *ROMFile) GetROMFile() *ROMFile {
