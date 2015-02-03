@@ -317,21 +317,21 @@ func (mmc3 *MMC3) Store(address uint16, value uint8) (oldValue uint8) {
 		} else { // odd
 			switch mmc3.bankSelect(BankRegister) {
 			case 0:
-				mmc3.Registers.CHRBank1 = value
+				mmc3.Registers.CHRBank1 = value & uint8(len(mmc3.VROMBanks)-1)
 			case 1:
-				mmc3.Registers.CHRBank2 = value
+				mmc3.Registers.CHRBank2 = value & uint8(len(mmc3.VROMBanks)-1)
 			case 2:
-				mmc3.Registers.CHRBank3 = value
+				mmc3.Registers.CHRBank3 = value & uint8(len(mmc3.VROMBanks)-1)
 			case 3:
-				mmc3.Registers.CHRBank4 = value
+				mmc3.Registers.CHRBank4 = value & uint8(len(mmc3.VROMBanks)-1)
 			case 4:
-				mmc3.Registers.CHRBank5 = value
+				mmc3.Registers.CHRBank5 = value & uint8(len(mmc3.VROMBanks)-1)
 			case 5:
-				mmc3.Registers.CHRBank6 = value
+				mmc3.Registers.CHRBank6 = value & uint8(len(mmc3.VROMBanks)-1)
 			case 6:
-				mmc3.Registers.PRGBankLow = value
+				mmc3.Registers.PRGBankLow = value & uint8(len(mmc3.ROMBanks)-1)
 			case 7:
-				mmc3.Registers.PRGBankHigh = value
+				mmc3.Registers.PRGBankHigh = value & uint8(len(mmc3.ROMBanks)-1)
 			}
 
 			mmc3.Registers.BankData = value
@@ -424,16 +424,16 @@ func (mmc3 *MMC3) prgBanks() (bank1, bank2, bank3, bank4 uint16) {
 	// $8000-$9fff swappable,
 	// $c000-$dfff fixed to second-last bank
 	case 0:
-		bank1 = uint16(mmc3.Registers.PRGBankLow) & 0x001f
-		bank2 = uint16(mmc3.Registers.PRGBankHigh) & 0x001f
+		bank1 = uint16(mmc3.Registers.PRGBankLow) & 0x003f
+		bank2 = uint16(mmc3.Registers.PRGBankHigh) & 0x003f
 		bank3 = mmc3.PRGBanks - 2
 		bank4 = mmc3.PRGBanks - 1
 	// $c000-$dfff swappable,
 	// $8000-$9fff fixed to second-last bank
 	case 1:
 		bank1 = mmc3.PRGBanks - 2
-		bank2 = uint16(mmc3.Registers.PRGBankHigh) & 0x001f
-		bank3 = uint16(mmc3.Registers.PRGBankLow) & 0x001f
+		bank2 = uint16(mmc3.Registers.PRGBankHigh) & 0x003f
+		bank3 = uint16(mmc3.Registers.PRGBankLow) & 0x003f
 		bank4 = mmc3.PRGBanks - 1
 	}
 
