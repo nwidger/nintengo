@@ -115,8 +115,17 @@ func getBuf(filename string) (buf []byte, suffix string, err error) {
 	return
 }
 
-func NewROMFromRaw(gamename string, raw []byte, irq func(state bool), setTables func(t0, t1, t2, t3 int)) (rom ROM, err error) {
-	romf, err := NewROMFile(raw)
+func NewROM(filename string, irq func(state bool), setTables func(t0, t1, t2, t3 int)) (rom ROM, err error) {
+	var buf []byte
+	var suffix string
+
+	buf, suffix, err = getBuf(filename)
+
+	if err != nil {
+		return
+	}
+
+	romf, err := NewROMFile(buf)
 
 	if err != nil {
 		return
@@ -126,7 +135,7 @@ func NewROMFromRaw(gamename string, raw []byte, irq func(state bool), setTables 
 	romf.setTables = setTables
 
 	romf.setTables(romf.Tables())
-	romf.Gamename = gamename
+	romf.Gamename = strings.TrimSuffix(filename, suffix)
 
 	switch romf.Mapper {
 	case 0x00, 0x40, 0x41:
@@ -147,21 +156,6 @@ func NewROMFromRaw(gamename string, raw []byte, irq func(state bool), setTables 
 		err = errors.New(fmt.Sprintf("Unsupported mapper type %v", romf.Mapper))
 	}
 
-	return
-}
-
-func NewROM(filename string, irq func(state bool), setTables func(t0, t1, t2, t3 int)) (rom ROM, err error) {
-	var buf []byte
-	var suffix string
-
-	buf, suffix, err = getBuf(filename)
-
-	if err != nil {
-		return
-	}
-
-	gamename := strings.TrimSuffix(filename, suffix)
-	rom, err = NewROMFromRaw(gamename, buf, irq, setTables)
 	return
 }
 
