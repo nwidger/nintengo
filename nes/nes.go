@@ -84,10 +84,6 @@ type Options struct {
 	Connect       string
 }
 
-func init() {
-	gob.Register(&ROMFileRaw{})
-}
-
 func NewNES(filename string, options *Options) (nes *NES, err error) {
 	var audio Audio
 	var video Video
@@ -247,10 +243,10 @@ func (nes *NES) SaveState() {
 	}
 
 	fmt.Println("*** Saving state to", name)
-	nes.SaveStateToWriter(fo, false)
+	nes.SaveStateToWriter(fo)
 }
 
-func (nes *NES) SaveStateToWriter(writer io.Writer, withrom bool) (err error) {
+func (nes *NES) SaveStateToWriter(writer io.Writer) (err error) {
 	var romfw io.Writer
 
 	w := bufio.NewWriter(writer)
@@ -273,18 +269,15 @@ func (nes *NES) SaveStateToWriter(writer io.Writer, withrom bool) (err error) {
 		return
 	}
 
-	if withrom {
-		// ROM should be written before NES, because we need ROM restored before NES.
-		romfw, err = zw.Create("rom.bin")
-		if err != nil {
-			fmt.Printf("*** Error saving rom: %s\n", err)
-			return
-		}
-		enc := gob.NewEncoder(romfw)
-		raw := nes.ROM.GetRaw()
-		if err = enc.Encode(raw); err != nil {
-			fmt.Printf("*** Error saving rom: %s\n", err)
-		}
+	// ROM should be written before NES, because we need ROM restored before NES.
+	romfw, err = zw.Create("rom.bin")
+	if err != nil {
+		fmt.Printf("*** Error saving rom: %s\n", err)
+		return
+	}
+	romenc := gob.NewEncoder(romfw)
+	if err = romenc.Encode(&nes.ROM); err != nil {
+		fmt.Printf("*** Error saving rom: %s\n", err)
 	}
 
 	zfw, err := zw.Create("state.json")
@@ -381,22 +374,15 @@ func (nes *NES) LoadStateFromReader(reader io.ReaderAt, size int64) (err error) 
 			}
 
 			dec := gob.NewDecoder(romfr)
-			var raw ROMFileRaw
-			if err = dec.Decode(&raw); err != nil {
+			var rom ROM
+			if err = dec.Decode(&rom); err != nil {
 				fmt.Printf("*** Error loading rom %s\n", err)
 				return err
 			}
 
-			rom, err := NewROMFromRaw(nes.GameName, raw.Raw, nes.CPU.InterruptLine(m65go2.Irq), nes.PPU.Nametable.SetTables)
-			if err != nil {
-				fmt.Printf("*** Error loading rom: %s\n", err)
-				return err
-			}
-
 			romf := rom.GetROMFile()
-			romf.WRAMBanks = raw.WRAMBanks
-			romf.ROMBanks = raw.ROMBanks
-			romf.VROMBanks = raw.VROMBanks
+			romf.irq = nes.CPU.InterruptLine(m65go2.Irq)
+			romf.setTables = nes.PPU.Nametable.SetTables
 
 			nes.ROM = rom
 			nes.CPU.Memory.AddMappings(rom, rp2ago3.CPU)
@@ -413,7 +399,7 @@ func (nes *NES) LoadStateFromReader(reader io.ReaderAt, size int64) (err error) 
 
 func (nes *NES) getLoadStateEvent() (ev *LoadStateEvent, err error) {
 	var buf bytes.Buffer
-	err = nes.SaveStateToWriter(&buf, true)
+	err = nes.SaveStateToWriter(&buf)
 	if err != nil {
 		// Error message has been printed out.
 		return
