@@ -83,9 +83,9 @@ func (instructions InstructionTable) Execute(cpu *M6502, opcode OpCode) (cycles 
 	status := inst.Exec(cpu)
 
 	if status&PageCross == 0 {
-		cycles = cpu.Instructions.cycles[opcode]
+		cycles = instructions.cycles[opcode]
 	} else {
-		cycles = cpu.Instructions.cyclesPageCross[opcode]
+		cycles = instructions.cyclesPageCross[opcode]
 	}
 
 	if status&Branched != 0 {
