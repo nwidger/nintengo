@@ -4,9 +4,9 @@ package nes
 
 import "fmt"
 
-const _RunState_name = "RunningQuitting"
+const _RunState_name = "UninitializedRunningQuitting"
 
-var _RunState_index = [...]uint8{0, 7, 15}
+var _RunState_index = [...]uint8{0, 13, 20, 28}
 
 func (i RunState) String() string {
 	if i+1 >= RunState(len(_RunState_index)) {
