@@ -5,16 +5,16 @@ import "github.com/nwidger/nintengo/m65go2"
 type CycleFunc func(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool)
 
 const (
-	CLEAR_BUFFER int = iota
-	COPY_Y_POSITION
-	COPY_INDEX
-	COPY_ATTRIBUTES
-	COPY_X_POSITION
-	EVALUATE_Y_POSITION
-	EVALUATE_INDEX
-	EVALUATE_ATTRIBUTES
-	EVALUATE_X_POSITION
-	FAIL_COPY_Y_POSITION
+	ClearBuffer int = iota
+	CopyYPosition
+	CopyIndex
+	CopyAttributes
+	CopyXPosition
+	EvaluateYPosition
+	EvaluateIndex
+	EvaluateAttributes
+	EvaluateXPosition
+	FailCopyYPosition
 )
 
 type OAM struct {
@@ -29,25 +29,25 @@ type OAM struct {
 }
 
 func NewOAM() *OAM {
-	cycleFuncs := make([]CycleFunc, 11)
-
-	cycleFuncs[CLEAR_BUFFER] = clearBuffer
-	cycleFuncs[COPY_Y_POSITION] = copyYPosition
-	cycleFuncs[COPY_INDEX] = copyIndex
-	cycleFuncs[COPY_ATTRIBUTES] = copyAttributes
-	cycleFuncs[COPY_X_POSITION] = copyXPosition
-	cycleFuncs[EVALUATE_Y_POSITION] = evaluateYPosition
-	cycleFuncs[EVALUATE_INDEX] = evaluateIndex
-	cycleFuncs[EVALUATE_ATTRIBUTES] = evaluateAttributes
-	cycleFuncs[EVALUATE_X_POSITION] = evaluateXPosition
-	cycleFuncs[FAIL_COPY_Y_POSITION] = failCopyYPosition
+	cycleFuncs := []CycleFunc{
+		ClearBuffer:        clearBuffer,
+		CopyYPosition:      copyYPosition,
+		CopyIndex:          copyIndex,
+		CopyAttributes:     copyAttributes,
+		CopyXPosition:      copyXPosition,
+		EvaluateYPosition:  evaluateYPosition,
+		EvaluateIndex:      evaluateIndex,
+		EvaluateAttributes: evaluateAttributes,
+		EvaluateXPosition:  evaluateXPosition,
+		FailCopyYPosition:  failCopyYPosition,
+	}
 
 	return &OAM{
 		BasicMemory:        m65go2.NewBasicMemory(256),
 		Buffer:             m65go2.NewBasicMemory(32),
 		SpriteZeroInBuffer: false,
 		cycleFuncs:         cycleFuncs,
-		WriteCycle:         FAIL_COPY_Y_POSITION,
+		WriteCycle:         FailCopyYPosition,
 	}
 }
 
@@ -71,14 +71,14 @@ func (oam *OAM) SpriteEvaluation(scanline uint16, cycle uint16, size uint16) (sp
 
 			oam.Buffer.DisableWrites = false
 			oam.DisableReads = true
-			oam.WriteCycle = CLEAR_BUFFER
+			oam.WriteCycle = ClearBuffer
 		case 65:
 			oam.Address = 0
 			oam.Latch = 0xff
 			oam.Index = 0
 
 			oam.DisableReads = false
-			oam.WriteCycle = COPY_Y_POSITION
+			oam.WriteCycle = CopyYPosition
 		}
 
 		switch cycle & 0x1 {
@@ -112,13 +112,13 @@ func clearBuffer(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOv
 func copyYPosition(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool) {
 	if scanline-uint16(oam.Latch) < size {
 		oam.Buffer.Store(oam.Index+0, oam.Latch)
-		oam.WriteCycle = COPY_INDEX
+		oam.WriteCycle = CopyIndex
 		oam.incrementAddress(0x00ff)
 	} else {
 		oam.Address += 4
 
 		if oam.Address == 0x0100 {
-			oam.WriteCycle = FAIL_COPY_Y_POSITION
+			oam.WriteCycle = FailCopyYPosition
 		}
 	}
 
@@ -127,14 +127,14 @@ func copyYPosition(oam *OAM, scanline uint16, cycle uint16, size uint16) (sprite
 
 func copyIndex(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool) {
 	oam.Buffer.Store(oam.Index+1, oam.Latch)
-	oam.WriteCycle = COPY_ATTRIBUTES
+	oam.WriteCycle = CopyAttributes
 	oam.incrementAddress(0x00ff)
 	return
 }
 
 func copyAttributes(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool) {
 	oam.Buffer.Store(oam.Index+2, oam.Latch)
-	oam.WriteCycle = COPY_X_POSITION
+	oam.WriteCycle = CopyXPosition
 	oam.incrementAddress(0x00ff)
 	return
 }
@@ -151,13 +151,13 @@ func copyXPosition(oam *OAM, scanline uint16, cycle uint16, size uint16) (sprite
 
 	switch {
 	case oam.Address == 0x0100:
-		oam.WriteCycle = FAIL_COPY_Y_POSITION
+		oam.WriteCycle = FailCopyYPosition
 	case oam.Index < 32:
-		oam.WriteCycle = COPY_Y_POSITION
+		oam.WriteCycle = CopyYPosition
 	default:
 		oam.Buffer.DisableWrites = true
 		oam.Address &= 0x00fc
-		oam.WriteCycle = EVALUATE_Y_POSITION
+		oam.WriteCycle = EvaluateYPosition
 	}
 
 	return
@@ -167,13 +167,13 @@ func evaluateYPosition(oam *OAM, scanline uint16, cycle uint16, size uint16) (sp
 	if scanline-uint16(uint32(oam.Latch)) < size {
 		spriteOverflow = true
 		oam.Address = (oam.Address + 1) & 0x00ff
-		oam.WriteCycle = EVALUATE_INDEX
+		oam.WriteCycle = EvaluateIndex
 	} else {
 		oam.Address = ((oam.Address + 4) & 0x00fc) + ((oam.Address + 1) & 0x0003)
 
 		if oam.Address <= 0x0005 {
 			oam.Address &= 0x00fc
-			oam.WriteCycle = FAIL_COPY_Y_POSITION
+			oam.WriteCycle = FailCopyYPosition
 		}
 	}
 
@@ -182,13 +182,13 @@ func evaluateYPosition(oam *OAM, scanline uint16, cycle uint16, size uint16) (sp
 
 func evaluateIndex(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool) {
 	oam.Address = (oam.Address + 1) & 0x00ff
-	oam.WriteCycle = EVALUATE_ATTRIBUTES
+	oam.WriteCycle = EvaluateAttributes
 	return
 }
 
 func evaluateAttributes(oam *OAM, scanline uint16, cycle uint16, size uint16) (spriteOverflow bool) {
 	oam.Address = (oam.Address + 1) & 0x00ff
-	oam.WriteCycle = EVALUATE_X_POSITION
+	oam.WriteCycle = EvaluateXPosition
 	return
 }
 
@@ -200,7 +200,7 @@ func evaluateXPosition(oam *OAM, scanline uint16, cycle uint16, size uint16) (sp
 	}
 
 	oam.Address &= 0x00fc
-	oam.WriteCycle = FAIL_COPY_Y_POSITION
+	oam.WriteCycle = FailCopyYPosition
 
 	return
 }

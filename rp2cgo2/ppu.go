@@ -161,6 +161,7 @@ type Sprite struct {
 
 	Address  uint16
 	Priority uint8
+	Zero     bool
 
 	TileData [8]TileData
 }
@@ -664,6 +665,7 @@ func (ppu *RP2C02) fetchSprites() {
 
 		s.Sprite = sprite
 		s.XPosition = ppu.sprite(sprite, XPosition)
+		s.Zero = index == 0 && ppu.OAM.SpriteZeroInBuffer
 
 		address := ppu.spriteAddress(sprite)
 		s.TileLow = ppu.Memory.Fetch(address)
@@ -808,7 +810,7 @@ func (ppu *RP2C02) renderBackground() (bgPixel, bgIndex uint8) {
 	return
 }
 
-func (ppu *RP2C02) renderSprites() (spritePixel, spriteIndex, spritePriority uint8, spriteUnit int) {
+func (ppu *RP2C02) renderSprites() (spritePixel, spriteIndex, spritePriority uint8, spriteZero bool) {
 	var s *Sprite
 
 	x := uint16(0)
@@ -827,7 +829,7 @@ func (ppu *RP2C02) renderSprites() (spritePixel, spriteIndex, spritePriority uin
 					spriteIndex = index
 					spritePixel = td.Pixel
 					spritePriority = s.Priority
-					spriteUnit = i
+					spriteZero = s.Zero
 					break
 				}
 			}
@@ -957,13 +959,13 @@ func (ppu *RP2C02) renderVisibleScanline() {
 
 	if ppu.Cycle >= 1 && ppu.Cycle <= 256 {
 		bgPixel, bgIndex := ppu.renderBackground()
-		spritePixel, spriteIndex, spritePriority, spriteUnit := ppu.renderSprites()
+		spritePixel, spriteIndex, spritePriority, spriteZero := ppu.renderSprites()
 
 		color := ppu.priorityMultiplexer(bgPixel, bgIndex, spritePixel, spriteIndex, spritePriority)
 
-		if spriteUnit == 0 && ppu.OAM.SpriteZeroInBuffer && bgIndex != 0 && spriteIndex != 0 &&
+		if spriteZero && bgIndex != 0 && spriteIndex != 0 &&
 			(ppu.Cycle > 8 || (ppu.mask(ShowBackgroundLeft) && ppu.mask(ShowSpritesLeft))) &&
-			ppu.Cycle < 255 && (ppu.mask(ShowBackground) && ppu.mask(ShowSprites)) {
+			ppu.Cycle < 256 && (ppu.mask(ShowBackground) && ppu.mask(ShowSprites)) {
 			ppu.Registers.Status |= uint8(Sprite0Hit)
 		}
 
