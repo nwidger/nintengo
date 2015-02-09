@@ -963,7 +963,7 @@ func (ppu *RP2C02) renderVisibleScanline() {
 
 		color := ppu.priorityMultiplexer(bgPixel, bgIndex, spritePixel, spriteIndex, spritePriority)
 
-		if spriteZero && bgIndex != 0 && spriteIndex != 0 &&
+		if ppu.Scanline != 0 && spriteZero && bgIndex != 0 && spriteIndex != 0 &&
 			(ppu.Cycle > 8 || (ppu.mask(ShowBackgroundLeft) && ppu.mask(ShowSpritesLeft))) &&
 			ppu.Cycle < 256 && (ppu.mask(ShowBackground) && ppu.mask(ShowSprites)) {
 			ppu.Registers.Status |= uint8(Sprite0Hit)
@@ -998,7 +998,6 @@ func (ppu *RP2C02) Execute() (colors []uint8) {
 				ppu.Cycle++
 			}
 		}
-
 	// post-render scanline (240), vertical blanking scanlines (241-260)
 	default:
 		if ppu.Scanline == 241 && ppu.Cycle == 1 {
