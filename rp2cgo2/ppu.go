@@ -597,8 +597,7 @@ func (ppu *RP2C02) fetchBackground() {
 	// switch ppu.Cycle {
 	// case 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121, 129, 137, 145, 153,
 	// 	161, 169, 177, 185, 193, 201, 209, 217, 225, 233, 241, 249, 257, 329, 337:
-	switch ppu.Cycle & 0x07 {
-	case 0x01:
+	if (ppu.Cycle & 0x07) == 0x01 {
 		ppu.AttributeLatch = ppu.AttributeNext << 2
 		bgAttribute := uint16(ppu.Attributes)
 

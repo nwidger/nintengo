@@ -145,7 +145,7 @@ func (audio *Azul3DAudio) Run() {
 		// we may keep are playhead at the first buffer to keep our double
 		// buffering.
 		if audio.device.GetSourcei(audio.source, al.SOURCE_STATE, &state); state != al.PLAYING {
-			fmt.Println("nes: Failed to feed audio to OpenAL fast enough; resynching...")
+			// fmt.Println("nes: Failed to feed audio to OpenAL fast enough; resynching...")
 			for queued > 0 {
 				audio.device.GetSourcei(audio.source, al.BUFFERS_PROCESSED, &processed)
 
