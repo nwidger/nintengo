@@ -23,7 +23,6 @@ func init() {
 	gob.Register(&SampleEvent{})
 	gob.Register(&ControllerEvent{})
 	gob.Register(&PauseEvent{})
-	gob.Register(&FrameStepEvent{})
 	gob.Register(&ResetEvent{})
 	gob.Register(&RecordEvent{})
 	gob.Register(&StopEvent{})
@@ -142,33 +141,6 @@ func (e *PauseEvent) Process(nes *NES) {
 
 func (e *PauseEvent) Flag() uint {
 	return EvGlobal | EvMaster | EvSlave
-}
-
-type FrameStepEvent struct{}
-
-func (e *FrameStepEvent) String() string {
-	return "FrameStepEvent"
-}
-
-func (e *FrameStepEvent) Process(nes *NES) {
-	switch nes.frameStep {
-	case NoStep:
-		fmt.Println("*** Press pause to step by cycle")
-		nes.frameStep = CycleStep
-	case CycleStep:
-		fmt.Println("*** Press pause to step by scanline")
-		nes.frameStep = ScanlineStep
-	case ScanlineStep:
-		fmt.Println("*** Press pause to step by frame")
-		nes.frameStep = FrameStep
-	case FrameStep:
-		fmt.Println("*** Stepping disabled, press pause to continue")
-		nes.frameStep = NoStep
-	}
-}
-
-func (e *FrameStepEvent) Flag() uint {
-	return EvGlobal | EvMaster
 }
 
 type ResetEvent struct{}

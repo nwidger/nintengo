@@ -203,8 +203,6 @@ func (video *Azul3DVideo) handleInput(ev keyboard.StateEvent, w *window.Window) 
 			setSize(2560, 1440)
 		case keyboard.P:
 			event = &PauseEvent{}
-		case keyboard.N:
-			event = &FrameStepEvent{}
 		case keyboard.Q:
 			running = false
 			event = &QuitEvent{}

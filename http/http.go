@@ -54,16 +54,6 @@ func (neserv *NEServer) Run() (err error) {
 		w.Write([]byte(neserv.NES.RunState().String()))
 	})
 
-	http.HandleFunc("/step-state", func(w http.ResponseWriter, req *http.Request) {
-		w.Write([]byte(neserv.NES.StepState().String()))
-	})
-
-	http.HandleFunc("/toggle-step-state", func(w http.ResponseWriter, req *http.Request) {
-		e := &nes.FrameStepEvent{}
-		e.Process(neserv.NES)
-		w.Write([]byte(neserv.NES.StepState().String()))
-	})
-
 	http.HandleFunc("/load-state", func(w http.ResponseWriter, req *http.Request) {
 		neserv.NES.LoadState()
 	})
@@ -95,8 +85,8 @@ func (neserv *NEServer) Run() (err error) {
 
 		ppuPalette := make([]byte, 32)
 
-		for i := uint32(0); i < 32; i++ {
-			ppuPalette[i] = neserv.NES.PPU.Palette[int(i)]
+		for i := uint16(0); i < 32; i++ {
+			ppuPalette[i] = neserv.NES.PPU.Memory.Fetch(0x3f00 | i)
 		}
 
 		page.PPUPalette = hex.Dump(ppuPalette)

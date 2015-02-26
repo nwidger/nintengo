@@ -453,7 +453,7 @@ func (ppu *RP2C02) Fetch(address uint16) (value uint8) {
 	}
 
 	if (address & 0x3f00) == 0x3f00 {
-		index := address & 0x00ff
+		index := address & 0x001f
 		value = ppu.Palette[index]
 	}
 
@@ -518,7 +518,7 @@ func (ppu *RP2C02) Store(address uint16, value uint8) (oldValue uint8) {
 	}
 
 	if (address & 0x3f00) == 0x3f00 {
-		index := address & 0x00ff
+		index := address & 0x001f
 		oldValue = ppu.Palette[index]
 		ppu.Palette[index] = value
 	}
@@ -622,7 +622,7 @@ func (ppu *RP2C02) fetchBackground() {
 
 			td := &ppu.TileData[i]
 
-			td.Pixel = ppu.Palette[bgAttribute|bgIndex]
+			td.Pixel = ppu.Memory.Fetch(0x3f00 | bgAttribute | bgIndex)
 			td.Index = uint8(bgIndex)
 
 			ppu.TilesLow <<= 1
@@ -689,7 +689,7 @@ func (ppu *RP2C02) fetchSprites() {
 
 			pindex := s.Address | uint16((high>>6)|(low>>7))
 
-			s.TileData[i].Pixel = ppu.Palette[pindex&0x001f]
+			s.TileData[i].Pixel = ppu.Memory.Fetch(0x3f00 | (pindex & 0x001f))
 			s.TileData[i].Index = uint8(pindex & 0x0003)
 
 			tileLow <<= 1

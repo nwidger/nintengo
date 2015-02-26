@@ -22,16 +22,6 @@ import (
 	"github.com/nwidger/nintengo/rp2cgo2"
 )
 
-//go:generate stringer -type=StepState
-type StepState uint8
-
-const (
-	NoStep StepState = iota
-	CycleStep
-	ScanlineStep
-	FrameStep
-)
-
 //go:generate stringer -type=RunState
 type RunState uint8
 
@@ -52,7 +42,6 @@ const (
 type NES struct {
 	GameName      string
 	state         RunState
-	frameStep     StepState
 	Paused        bool
 	events        chan Event
 	CPU           *rp2ago3.RP2A03
@@ -185,7 +174,6 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 
 	nes = &NES{
 		GameName:      gamename,
-		frameStep:     NoStep,
 		events:        events,
 		CPU:           cpu,
 		CpuDivisor:    cpuDivisor,
@@ -218,10 +206,6 @@ func (nes *NES) Reset() {
 
 func (nes *NES) RunState() RunState {
 	return nes.state
-}
-
-func (nes *NES) StepState() StepState {
-	return nes.frameStep
 }
 
 func (nes *NES) Pause() RunState {
@@ -447,27 +431,18 @@ func (nes *NES) runProcessors() (err error) {
 }
 
 func (nes *NES) step() (cycles uint16, err error) {
-	cycles = 0
 	mmc3, _ := nes.ROM.(*MMC3)
-	if nes.PPUQuota < 1.0 {
-		if cycles, err = nes.CPU.Execute(); err != nil {
-			return
-		}
 
-		nes.PPUQuota += float32(cycles) * nes.CpuDivisor
+	if cycles, err = nes.CPU.Execute(); err != nil {
+		return 0, err
 	}
 
-	for nes.PPUQuota >= 1.0 {
-		scanline := nes.PPU.Scanline
+	nes.PPUQuota += float32(cycles) * nes.CpuDivisor
 
+	for nes.PPUQuota >= 1.0 {
 		if colors := nes.PPU.Execute(); colors != nil {
 			nes.frame(colors)
 			nes.fps.Delay()
-
-			if nes.frameStep == FrameStep {
-				nes.Paused = true
-				fmt.Println("*** Paused at frame", nes.PPU.Frame)
-			}
 		}
 
 		if mmc3 != nil && nes.PPU.TriggerScanlineCounter() {
@@ -475,27 +450,15 @@ func (nes *NES) step() (cycles uint16, err error) {
 		}
 
 		nes.PPUQuota--
+	}
 
-		if nes.frameStep == CycleStep ||
-			(nes.frameStep == ScanlineStep && nes.PPU.Scanline != scanline) {
-			nes.Paused = true
-
-			if nes.frameStep == CycleStep {
-				fmt.Println("*** Paused at cycle", nes.PPU.Cycle)
-			} else {
-				fmt.Println("*** Paused at scanline", nes.PPU.Scanline)
-			}
+	for i := uint16(0); i < cycles; i++ {
+		if sample, haveSample := nes.CPU.APU.Execute(); haveSample {
+			nes.sample(sample)
 		}
 	}
 
-	if nes.PPUQuota < 1.0 {
-		for i := uint16(0); i < cycles; i++ {
-			if sample, haveSample := nes.CPU.APU.Execute(); haveSample {
-				nes.sample(sample)
-			}
-		}
-	}
-	return
+	return cycles, nil
 }
 
 func (nes *NES) runAsSlave() (err error) {

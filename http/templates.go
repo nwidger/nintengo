@@ -41,7 +41,6 @@ var index = `
 	      <ul class="nav navbar-nav">
 	  	<li class='active'><a href='#'>{{.NES.GameName}}</a></li>
 	  	<li><a href='#' id='pause-link'>Pause</a></li>
-		<li><a href='#' id='toggle-stepping-link'>Toggle Stepping</a></li>
 		<li><a href='#' id='save-state-link'>Save State</a></li>
 		<li><a href='#' id='load-state-link'>Load State</a></li>
 		<li><a href='#' id='reset-link'>Reset</a></li>
@@ -183,33 +182,10 @@ var index = `
      $('#run-state').load('/run-state');
      $('#run-state').show();
 
-     $('#step-state').show();
-     $('#step-state').load('/step-state', function() {
-       if ($('#step-state').text() == "NoStep") {
-	 $('#pause-link').text('Pause');
-       } else {
-	 $('#pause-link').text('Step');
-       }
-     });
-
-     $('#toggle-stepping-link').click(function(e) {
-       e.preventDefault();
-       $('#step-state').load('/toggle-step-state', function() {
-	 if ($('#step-state').text() == "NoStep") {
-	   $('#pause-link').text('Pause');
-	 } else {
-	   $('#pause-link').text('Step');
-	 }
-       });
-     });
-
      $('#pause-link').click(function(e) {
        e.preventDefault();
        $('#run-state').load('/pause');
-
-       if ($('#step-state').text() != "NoStep") {
-	 location.reload();
-       }
+       location.reload();
      });
 
      $('#save-state-link').click(function(e) {
