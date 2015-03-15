@@ -4,7 +4,10 @@ package nes
 
 import "time"
 
-const DEFAULT_FPS float64 = 60.0988
+const (
+	DefaultFPSNTSC float64 = 60.0988
+	DefaultFPSPAL  float64 = 50.0070
+)
 
 type FPS struct {
 	enabled bool

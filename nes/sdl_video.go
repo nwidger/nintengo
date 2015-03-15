@@ -40,15 +40,17 @@ type SDLVideo struct {
 	events        chan Event
 	overscan      bool
 	caption       string
+	fps           float64
 }
 
-func NewVideo(caption string, events chan Event) (video *SDLVideo, err error) {
+func NewVideo(caption string, events chan Event, fps float64) (video *SDLVideo, err error) {
 	video = &SDLVideo{
 		input:    make(chan []uint8),
 		events:   events,
 		palette:  SDLPalette,
 		overscan: true,
 		caption:  caption,
+		fps:      fps,
 	}
 
 	for i, _ := range video.palette {

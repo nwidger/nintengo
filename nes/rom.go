@@ -34,7 +34,19 @@ type Region uint8
 const (
 	NTSC Region = iota
 	PAL
+	Unknown
 )
+
+func RegionFromString(s string) Region {
+	switch s {
+	case "NTSC":
+		return NTSC
+	case "PAL":
+		return PAL
+	default:
+		return Unknown
+	}
+}
 
 type ROMFile struct {
 	Gamename    string

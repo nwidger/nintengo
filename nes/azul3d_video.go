@@ -87,15 +87,17 @@ type Azul3DVideo struct {
 	events        chan Event
 	overscan      bool
 	caption       string
+	fps           float64
 }
 
-func NewVideo(caption string, events chan Event) (video *Azul3DVideo, err error) {
+func NewVideo(caption string, events chan Event, fps float64) (video *Azul3DVideo, err error) {
 	video = &Azul3DVideo{
 		input:    make(chan []uint8, 128),
 		events:   events,
 		palette:  Azul3DPalette,
 		overscan: true,
 		caption:  caption,
+		fps:      fps,
 	}
 
 	return
@@ -293,7 +295,7 @@ func (video *Azul3DVideo) Run() {
 	running := true
 
 	gfxLoop := func(w window.Window, r gfx.Renderer) {
-		r.Clock().SetMaxFrameRate(DEFAULT_FPS)
+		r.Clock().SetMaxFrameRate(video.fps)
 
 		// Create a simple shader.
 		shader := gfx.NewShader("SimpleShader")

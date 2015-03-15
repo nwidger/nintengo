@@ -4,9 +4,9 @@ package nes
 
 import "fmt"
 
-const _Region_name = "NTSCPAL"
+const _Region_name = "NTSCPALUnknown"
 
-var _Region_index = [...]uint8{0, 4, 7}
+var _Region_index = [...]uint8{0, 4, 7, 14}
 
 func (i Region) String() string {
 	if i+1 >= Region(len(_Region_index)) {

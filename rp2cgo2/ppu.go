@@ -143,9 +143,19 @@ func (reg *Registers) Reset() {
 }
 
 const (
-	CYCLES_PER_SCANLINE uint16 = 341
-	NUM_SCANLINES              = 262
-	POWERUP_SCANLINE           = 241
+	CyclesPerScanline    uint16 = 341
+	PowerupScanline             = 241
+	StartNMIScanline            = 241
+	FirstVisibleScanline        = 0
+	LastVisibleScanline         = 239
+
+	// NTSC
+	NumScanlinesNTSC      = 262
+	PreRenderScanlineNTSC = 261
+
+	// PAL
+	NumScanlinesPAL      = 312
+	PreRenderScanlinePAL = 311
 )
 
 type TileData struct {
@@ -203,11 +213,15 @@ type RP2C02 struct {
 	ShowBackground bool `json:"-"`
 	ShowSprites    bool `json:"-"`
 
-	cycleJumpTable [CYCLES_PER_SCANLINE]func(*RP2C02)
+	cycleJumpTable [CyclesPerScanline]func(*RP2C02)
+
+	PAL               bool
+	NumScanlines      uint16
+	PreRenderScanline uint16
 }
 
-func NewRP2C02(interrupt func(bool)) *RP2C02 {
-	mem := rp2ago3.NewMappedMemory(m65go2.NewBasicMemory(m65go2.DEFAULT_MEMORY_SIZE))
+func NewRP2C02(interrupt func(bool), region string) *RP2C02 {
+	mem := rp2ago3.NewMappedMemory(m65go2.NewBasicMemory(m65go2.DefaultMemorySize))
 	mirrors := make(map[uint32]uint32)
 
 	// Mirrored nametables
@@ -237,6 +251,16 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 		OAM:            NewOAM(),
 		ShowBackground: true,
 		ShowSprites:    true,
+		PAL:            region == "PAL",
+	}
+
+	if !ppu.PAL {
+		ppu.NumScanlines = NumScanlinesNTSC
+		ppu.PreRenderScanline = PreRenderScanlineNTSC
+
+	} else {
+		ppu.NumScanlines = NumScanlinesPAL
+		ppu.PreRenderScanline = PreRenderScanlinePAL
 	}
 
 	ppu.initCycleJumpTable()
@@ -247,7 +271,7 @@ func NewRP2C02(interrupt func(bool)) *RP2C02 {
 }
 
 func (ppu *RP2C02) TriggerScanlineCounter() (trigger bool) {
-	if ppu.Scanline >= 0 && ppu.Scanline <= 239 && ppu.rendering() {
+	if ppu.Scanline >= FirstVisibleScanline && ppu.Scanline <= LastVisibleScanline && ppu.rendering() {
 		spriteAddress := ppu.controller(SpritePatternAddress)
 		bgAddress := ppu.controller(BackgroundPatternAddress)
 
@@ -271,7 +295,7 @@ func (ppu *RP2C02) Reset() {
 
 	ppu.Frame = 0
 	ppu.Cycle = 0
-	ppu.Scanline = POWERUP_SCANLINE
+	ppu.Scanline = PowerupScanline
 }
 
 func (ppu *RP2C02) controller(flag ControllerFlag) (value uint16) {
@@ -581,7 +605,7 @@ func (ppu *RP2C02) incrementY() {
 }
 
 func (ppu *RP2C02) incrementAddress() {
-	if (ppu.Scanline > 239 && ppu.Scanline != 261) || !ppu.rendering() {
+	if (ppu.Scanline > LastVisibleScanline && ppu.Scanline != ppu.PreRenderScanline) || !ppu.rendering() {
 		ppu.Registers.Address =
 			(ppu.Registers.Address + ppu.controller(VRAMAddressIncrement)) & 0x7fff
 	} else { // (ppu.Scanline <= 239 || ppu.Scanline == 261) && ppu.rendering()
@@ -893,7 +917,7 @@ func setVertV(ppu *RP2C02) {
 }
 
 func (ppu *RP2C02) initCycleJumpTable() {
-	for i := 0; i < int(CYCLES_PER_SCANLINE); i++ {
+	for i := 0; i < int(CyclesPerScanline); i++ {
 		switch i {
 		// skipped on BG+odd
 		case 0:
@@ -968,7 +992,7 @@ func (ppu *RP2C02) renderVisibleScanline() {
 			ppu.Registers.Status |= uint8(Sprite0Hit)
 		}
 
-		if ppu.Scanline >= 0 && ppu.Scanline <= 239 {
+		if ppu.Scanline >= FirstVisibleScanline && ppu.Scanline <= LastVisibleScanline {
 			ppu.colors[(ppu.Scanline<<8)+(ppu.Cycle-1)] = color
 		}
 
@@ -984,22 +1008,22 @@ func (ppu *RP2C02) renderVisibleScanline() {
 
 func (ppu *RP2C02) Execute() (colors []uint8) {
 	switch {
-	// visible scanlines (0-239), pre-render scanline (261)
-	case (ppu.Scanline >= 0 && ppu.Scanline <= 239) || ppu.Scanline == 261:
-		if ppu.Cycle == 0 && ppu.Scanline == 261 {
+	// visible scanlines, pre-render scanline
+	case (ppu.Scanline >= FirstVisibleScanline && ppu.Scanline <= LastVisibleScanline) || ppu.Scanline == ppu.PreRenderScanline:
+		if ppu.Cycle == 0 && ppu.Scanline == ppu.PreRenderScanline {
 			ppu.Registers.Status &^= uint8(VBlankStarted | Sprite0Hit | SpriteOverflow)
 		}
 
 		if ppu.rendering() {
 			ppu.renderVisibleScanline()
 
-			if (ppu.Frame&0x01) == 0x01 && ppu.Scanline == 261 && ppu.Cycle == 339 {
+			if !ppu.PAL && (ppu.Frame&0x01) == 0x01 && ppu.Scanline == ppu.PreRenderScanline && ppu.Cycle == 339 {
 				ppu.Cycle++
 			}
 		}
-	// post-render scanline (240), vertical blanking scanlines (241-260)
+	// post-render scanline, vertical blanking scanlines
 	default:
-		if ppu.Scanline == 241 && ppu.Cycle == 1 {
+		if ppu.Scanline == StartNMIScanline && ppu.Cycle == 1 {
 			ppu.Registers.Status |= uint8(VBlankStarted)
 
 			if ppu.status(VBlankStarted) &&
@@ -1010,10 +1034,10 @@ func (ppu *RP2C02) Execute() (colors []uint8) {
 		}
 	}
 
-	if ppu.Cycle++; ppu.Cycle == CYCLES_PER_SCANLINE {
+	if ppu.Cycle++; ppu.Cycle == CyclesPerScanline {
 		ppu.Cycle = 0
 
-		if ppu.Scanline++; ppu.Scanline == NUM_SCANLINES {
+		if ppu.Scanline++; ppu.Scanline == ppu.NumScanlines {
 			if ppu.rendering() {
 				colors = ppu.colors
 			}

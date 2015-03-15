@@ -7,7 +7,7 @@ import (
 )
 
 func TestVerticalMirroring(t *testing.T) {
-	ppu := rp2cgo2.NewRP2C02(nil)
+	ppu := rp2cgo2.NewRP2C02(nil, "NTSC")
 	ppu.Nametable.SetTables(0, 1, 0, 1)
 
 	// Mirror nametable #2 to #0
@@ -120,7 +120,7 @@ func TestVerticalMirroring(t *testing.T) {
 }
 
 func TestHorizontalMirroring(t *testing.T) {
-	ppu := rp2cgo2.NewRP2C02(nil)
+	ppu := rp2cgo2.NewRP2C02(nil, "NTSC")
 	ppu.Nametable.SetTables(0, 0, 1, 1)
 
 	// Mirror nametable #1 to #0

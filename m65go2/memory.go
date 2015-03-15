@@ -1,7 +1,7 @@
 package m65go2
 
 const (
-	DEFAULT_MEMORY_SIZE uint32 = 65536
+	DefaultMemorySize uint32 = 65536
 )
 
 // Represents the RAM memory available to the 6502 CPU.  Stores 8-bit

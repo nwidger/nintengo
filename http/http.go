@@ -67,17 +67,17 @@ func (neserv *NEServer) Run() (err error) {
 			NES: neserv.NES,
 		}
 
-		cpuMemory := make([]byte, m65go2.DEFAULT_MEMORY_SIZE)
+		cpuMemory := make([]byte, m65go2.DefaultMemorySize)
 
-		for i := uint32(0); i < m65go2.DEFAULT_MEMORY_SIZE; i++ {
+		for i := uint32(0); i < m65go2.DefaultMemorySize; i++ {
 			cpuMemory[i] = neserv.NES.CPU.Memory.Memory.Fetch(uint16(i))
 		}
 
 		page.CPUMemory = hex.Dump(cpuMemory)
 
-		ppuMemory := make([]byte, m65go2.DEFAULT_MEMORY_SIZE)
+		ppuMemory := make([]byte, m65go2.DefaultMemorySize)
 
-		for i := uint32(0); i < m65go2.DEFAULT_MEMORY_SIZE; i++ {
+		for i := uint32(0); i < m65go2.DefaultMemorySize; i++ {
 			ppuMemory[i] = neserv.NES.PPU.Memory.Memory.Fetch(uint16(i))
 		}
 

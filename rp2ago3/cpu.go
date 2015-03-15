@@ -2,8 +2,8 @@ package rp2ago3
 
 import "github.com/nwidger/nintengo/m65go2"
 
-const NTSC_CPU_CLOCK_DIVISOR float32 = 3
-const PAL_CPU_CLOCK_DIVISOR float32 = 3.2
+const NTSCCPUClockDivisor float32 = 3
+const PALCPUClockDivisor float32 = 3.2
 
 type RP2A03 struct {
 	*m65go2.M6502
@@ -13,7 +13,7 @@ type RP2A03 struct {
 }
 
 func NewRP2A03(apuFrequency int) *RP2A03 {
-	mem := NewMappedMemory(m65go2.NewBasicMemory(m65go2.DEFAULT_MEMORY_SIZE))
+	mem := NewMappedMemory(m65go2.NewBasicMemory(m65go2.DefaultMemorySize))
 	mirrors := make(map[uint32]uint32)
 
 	// Mirrored 2KB internal RAM

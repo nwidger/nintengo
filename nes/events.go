@@ -349,9 +349,10 @@ func (e *FPSEvent) String() string {
 }
 
 func (e *FPSEvent) Process(nes *NES) {
-	nes.fps.SetRate(DEFAULT_FPS * e.Rate)
+	nes.fps.SetRate(nes.DefaultFPS * e.Rate)
+
 	nes.audio.SetSpeed(float32(e.Rate))
-	fmt.Printf("*** Setting fps to %0.1f", e.Rate)
+	fmt.Printf("*** Setting fps to %0.2f\n", e.Rate)
 }
 
 func (e *FPSEvent) Flag() uint {

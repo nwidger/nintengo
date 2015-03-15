@@ -2,7 +2,7 @@ package rp2ago3
 
 import "github.com/nwidger/nintengo/m65go2"
 
-const NO_PENDING uint32 = 0xffffffff
+const NoPending uint32 = 0xffffffff
 
 type DMA struct {
 	Memory  m65go2.Memory `json:"-"`
@@ -12,12 +12,12 @@ type DMA struct {
 func NewDMA(memory m65go2.Memory) *DMA {
 	return &DMA{
 		Memory:  memory,
-		Pending: NO_PENDING,
+		Pending: NoPending,
 	}
 }
 
 func (dma *DMA) PerformDMA() (cycles uint16) {
-	if dma.Pending == NO_PENDING {
+	if dma.Pending == NoPending {
 		cycles = 0
 	} else {
 		start := dma.Pending
@@ -28,14 +28,14 @@ func (dma *DMA) PerformDMA() (cycles uint16) {
 		}
 
 		cycles = 512
-		dma.Pending = NO_PENDING
+		dma.Pending = NoPending
 	}
 
 	return
 }
 
 func (dma *DMA) Reset() {
-	dma.Pending = NO_PENDING
+	dma.Pending = NoPending
 }
 
 func (dma *DMA) Mappings(which Mapping) (fetch, store []uint16) {

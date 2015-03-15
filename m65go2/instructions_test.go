@@ -5,7 +5,7 @@ import "testing"
 var cpu *M6502
 
 func Setup() {
-	cpu = NewM6502(NewBasicMemory(DEFAULT_MEMORY_SIZE))
+	cpu = NewM6502(NewBasicMemory(DefaultMemorySize))
 	cpu.Reset()
 	cpu.breakError = true
 }

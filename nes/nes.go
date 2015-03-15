@@ -45,13 +45,14 @@ type NES struct {
 	Paused        bool
 	events        chan Event
 	CPU           *rp2ago3.RP2A03
-	CpuDivisor    float32
+	CPUDivisor    float32
 	PPU           *rp2cgo2.RP2C02
 	PPUQuota      float32
 	controllers   *Controllers
 	ROM           ROM
 	audio         Audio
 	video         Video
+	DefaultFPS    float64
 	fps           *FPS
 	recorder      Recorder
 	audioRecorder AudioRecorder
@@ -63,6 +64,7 @@ type NES struct {
 }
 
 type Options struct {
+	Region        string
 	Recorder      string
 	AudioRecorder string
 	CPUDecode     bool
@@ -84,6 +86,14 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 	var rom ROM
 
 	gamename := "NONAME"
+	region := RegionFromString(options.Region)
+
+	switch region {
+	case NTSC, PAL:
+	default:
+		err = fmt.Errorf("Invalid region %v, must be NTSC or PAL", options.Region)
+		return
+	}
 
 	audioFrequency := 44100
 	audioSampleSize := 2048
@@ -94,7 +104,7 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		cpu.EnableDecode()
 	}
 
-	ppu := rp2cgo2.NewRP2C02(cpu.InterruptLine(m65go2.Nmi))
+	ppu := rp2cgo2.NewRP2C02(cpu.InterruptLine(m65go2.Nmi), region.String())
 
 	if len(options.Connect) > 0 {
 		master = false
@@ -109,19 +119,26 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 			return
 		}
 		gamename = rom.GameName()
-		switch rom.Region() {
+		switch region {
 		case NTSC:
-			cpuDivisor = rp2ago3.NTSC_CPU_CLOCK_DIVISOR
+			cpuDivisor = rp2ago3.NTSCCPUClockDivisor
 		case PAL:
-			cpuDivisor = rp2ago3.PAL_CPU_CLOCK_DIVISOR
+			cpuDivisor = rp2ago3.PALCPUClockDivisor
 		}
 
 	}
 
 	ctrls := NewControllers()
 
+	DefaultFPS := DefaultFPSNTSC
+	if region == PAL {
+		DefaultFPS = DefaultFPSPAL
+	}
+
+	fps := NewFPS(DefaultFPS)
+
 	events := make(chan Event)
-	video, err = NewVideo(gamename, events)
+	video, err = NewVideo(gamename, events, DefaultFPS)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error creating video: %v", err))
@@ -176,12 +193,13 @@ func NewNES(filename string, options *Options) (nes *NES, err error) {
 		GameName:      gamename,
 		events:        events,
 		CPU:           cpu,
-		CpuDivisor:    cpuDivisor,
+		CPUDivisor:    cpuDivisor,
 		PPU:           ppu,
 		ROM:           rom,
 		audio:         audio,
 		video:         video,
-		fps:           NewFPS(DEFAULT_FPS),
+		DefaultFPS:    DefaultFPS,
+		fps:           fps,
 		recorder:      recorder,
 		audioRecorder: audioRecorder,
 		controllers:   ctrls,
@@ -437,7 +455,7 @@ func (nes *NES) step() (cycles uint16, err error) {
 		return 0, err
 	}
 
-	nes.PPUQuota += float32(cycles) * nes.CpuDivisor
+	nes.PPUQuota += float32(cycles) * nes.CPUDivisor
 
 	for nes.PPUQuota >= 1.0 {
 		if colors := nes.PPU.Execute(); colors != nil {

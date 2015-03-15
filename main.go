@@ -33,6 +33,7 @@ func main() {
 
 	options := &nes.Options{}
 
+	flag.StringVar(&options.Region, "region", "NTSC", "system region to emulate: NTSC | PAL")
 	flag.BoolVar(&options.CPUDecode, "cpu-decode", false, "decode CPU instructions")
 	flag.StringVar(&options.Recorder, "recorder", "", "recorder to use: none | jpeg | gif")
 	flag.StringVar(&options.AudioRecorder, "audio-recorder", "", "recorder to use: none | wav")
