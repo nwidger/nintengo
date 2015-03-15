@@ -40,6 +40,7 @@ FILE can be a .nes file or a .nes file inside a .zip archive
   -listen="": Listen at address as master (e.g., ':8080')
   -mem-profile="": write memory profile to file
   -recorder="": recorder to use: none | jpeg | gif
+  -region="NTSC": system region to emulate: NTSC | PAL
 ```
 
 ## Controls
