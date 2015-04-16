@@ -62,5 +62,8 @@ func (audio *APUDebugAudio) Run() {
 func (audio *APUDebugAudio) TogglePaused() {
 }
 
+func (audio *APUDebugAudio) SetSpeed(speed float32) {
+}
+
 func (audio *APUDebugAudio) Close() {
 }

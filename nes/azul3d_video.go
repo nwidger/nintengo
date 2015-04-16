@@ -1,4 +1,4 @@
-// +build !sdl
+// +build !sdl,!js
 
 package nes
 

@@ -1,4 +1,4 @@
-// +build !sdl,!apudebug
+// +build !sdl,!apudebug,!js
 
 package nes
 

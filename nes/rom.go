@@ -128,15 +128,16 @@ func getBuf(filename string) (buf []byte, suffix string, err error) {
 }
 
 func NewROM(filename string, irq func(state bool), setTables func(t0, t1, t2, t3 int)) (rom ROM, err error) {
-	var buf []byte
-	var suffix string
-
-	buf, suffix, err = getBuf(filename)
+	buf, suffix, err := getBuf(filename)
 
 	if err != nil {
-		return
+		return nil, err
 	}
 
+	return NewROMFromBuf(buf, filename, suffix, irq, setTables)
+}
+
+func NewROMFromBuf(buf []byte, filename, suffix string, irq func(state bool), setTables func(t0, t1, t2, t3 int)) (rom ROM, err error) {
 	romf, err := NewROMFile(buf)
 
 	if err != nil {

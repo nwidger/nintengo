@@ -193,7 +193,7 @@ func (video *GIFRecorder) Record() {
 	video.gif = &gif.GIF{
 		Image:     []*image.Paletted{},
 		Delay:     []int{},
-		LoopCount: 0xfffffffffffffff,
+		LoopCount: 0xfffffff,
 	}
 }
 

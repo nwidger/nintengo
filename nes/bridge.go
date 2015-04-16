@@ -61,6 +61,10 @@ func newBridge(nes *NES, addr string) (bridge *Bridge) {
 }
 
 func (bridge *Bridge) runAsMaster() error {
+	if len(bridge.addr) == 0 {
+		return nil
+	}
+
 	ln, err := net.Listen("tcp", bridge.addr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Listen error: %s\n", err)
@@ -92,6 +96,10 @@ func (bridge *Bridge) runAsMaster() error {
 }
 
 func (bridge *Bridge) runAsSlave() error {
+	if len(bridge.addr) == 0 {
+		return nil
+	}
+
 	conn, err := net.Dial("tcp", bridge.addr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Connecting error: %s\n", err)
