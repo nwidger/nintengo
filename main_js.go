@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gopherjs/gopherjs/js"
 	"github.com/nwidger/nintengo/nes"
 )
 
@@ -15,19 +16,36 @@ func main() {
 		Region: "NTSC",
 	}
 
-	buf, err := Asset(`Super Mario Bros. (W) [!].nes`)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return
-	}
+	document := js.Global.Get("document")
+	inputElem := document.Call("createElement", "input")
+	inputElem.Call("setAttribute", "type", "file")
+	document.Get("body").Call("appendChild", inputElem)
 
+	filec := make(chan *js.Object, 1)
+	inputElem.Set("onchange", func(event *js.Object) {
+		filec <- inputElem.Get("files").Index(0)
+	})
+
+	file := <-filec
+	reader := js.Global.Get("FileReader").New()
+
+	bufc := make(chan []byte, 1)
+	reader.Set("onloadend", func(event *js.Object) {
+		fmt.Println("in onloadend")
+		bufc <- js.Global.Get("Uint8Array").New(reader.Get("result")).Interface().([]byte)
+	})
+	reader.Call("readAsArrayBuffer", file)
+
+	buf := <-bufc
 	br := bytes.NewReader(buf)
+
 	nes, err := nes.NewNESFromReader(br, options)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
 	}
 
-	_ = nes
-	// go nes.Run()
+	inputElem.Call("remove")
+
+	go nes.Run()
 }
