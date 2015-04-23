@@ -19,10 +19,14 @@ type JSVideo struct {
 }
 
 func NewVideo(caption string, events chan Event, fps float64) (video *JSVideo, err error) {
-	return &JSVideo{
+	video = &JSVideo{
 		input:  make(chan []uint8),
 		events: events,
-	}, nil
+	}
+
+	video.SetCaption(caption)
+
+	return video, nil
 }
 
 func (video *JSVideo) Input() chan []uint8 {
@@ -34,7 +38,9 @@ func (video *JSVideo) Events() chan Event {
 }
 
 func (video *JSVideo) SetCaption(caption string) {
-
+	if ts := js.Global.Get("document").Call("getElementsByTagName", "title"); ts.Length() > 0 {
+		ts.Index(0).Set("innerHTML", "nintengo - "+caption)
+	}
 }
 
 const vertShaderSrcDef = `
@@ -76,9 +82,56 @@ var JSPalette []uint32 = []uint32{
 	0xB5EBF2, 0xB8B8B8, 0x000000, 0x000000,
 }
 
+func button(keyCode int) Button {
+	switch keyCode {
+	case 37:
+		return Left
+	case 38:
+		return Up
+	case 39:
+		return Right
+	case 40:
+		return Down
+	case 90:
+		return A
+	case 88:
+		return B
+	case 13:
+		return Start
+	case 16:
+		return Select
+	default:
+		return One
+	}
+}
+
 // file:///Users/niels/go/src/github.com/nwidger/nintengo/index.html
 func (video *JSVideo) Run() {
 	document := js.Global.Get("document")
+
+	handleKey := func(e *js.Object, down bool) {
+		var event Event
+
+		if button := button(e.Get("keyCode").Int()); button != One {
+			event = &ControllerEvent{
+				Button: button,
+				Down:   down,
+			}
+		}
+
+		if event != nil {
+			go func() { video.events <- event }()
+		}
+	}
+
+	document.Set("onkeydown", func(e *js.Object) {
+		handleKey(e, true)
+	})
+
+	document.Set("onkeyup", func(e *js.Object) {
+		handleKey(e, false)
+	})
+
 	canvas := document.Call("createElement", "canvas")
 	canvas.Call("setAttribute", "width", "256")
 	canvas.Call("setAttribute", "height", "240")
@@ -157,7 +210,6 @@ func (video *JSVideo) Run() {
 	loaded := make(chan int, 1)
 
 	handleTextureLoaded := func() {
-		fmt.Println("in handleTextureLoaded")
 		gl.BindTexture(gl.TEXTURE_2D, texture)
 		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)

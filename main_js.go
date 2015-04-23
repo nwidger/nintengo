@@ -27,11 +27,11 @@ func main() {
 	})
 
 	file := <-filec
+	gamename := file.Get("name").String()
 	reader := js.Global.Get("FileReader").New()
 
 	bufc := make(chan []byte, 1)
 	reader.Set("onloadend", func(event *js.Object) {
-		fmt.Println("in onloadend")
 		bufc <- js.Global.Get("Uint8Array").New(reader.Get("result")).Interface().([]byte)
 	})
 	reader.Call("readAsArrayBuffer", file)
@@ -39,13 +39,21 @@ func main() {
 	buf := <-bufc
 	br := bytes.NewReader(buf)
 
-	nes, err := nes.NewNESFromReader(br, options)
+	nes, err := nes.NewNESFromReader(gamename, br, options)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
 	}
 
 	inputElem.Call("remove")
+
+	codeElem := document.Call("createElement", "code")
+	codeElem.Set("innerHTML", nes.ROM.String())
+
+	preElem := document.Call("createElement", "pre")
+	preElem.Call("appendChild", codeElem)
+
+	document.Get("body").Call("appendChild", preElem)
 
 	go nes.Run()
 }

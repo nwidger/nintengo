@@ -77,146 +77,16 @@ type Options struct {
 }
 
 func NewNES(filename string, options *Options) (nes *NES, err error) {
-	var audio Audio
-	var video Video
-	var recorder Recorder
-	var audioRecorder AudioRecorder
-	var cpuDivisor float32
-	var master bool
-	var bridge *Bridge
-	var rom ROM
-
-	gamename := "NONAME"
-	region := RegionFromString(options.Region)
-
-	switch region {
-	case NTSC, PAL:
-	default:
-		err = fmt.Errorf("Invalid region %v, must be NTSC or PAL", options.Region)
-		return
-	}
-
-	audioFrequency := 44100
-	audioSampleSize := 2048
-
-	cpu := rp2ago3.NewRP2A03(audioFrequency)
-
-	if options.CPUDecode {
-		cpu.EnableDecode()
-	}
-
-	ppu := rp2cgo2.NewRP2C02(cpu.InterruptLine(m65go2.Nmi), region.String())
-
-	if len(options.Connect) > 0 {
-		master = false
-		bridge = newBridge(nil, options.Connect)
-	} else {
-		master = true
-		bridge = newBridge(nil, options.Listen)
-
-		rom, err = NewROM(filename, cpu.InterruptLine(m65go2.Irq), ppu.Nametable.SetTables)
-		if err != nil {
-			err = errors.New(fmt.Sprintf("Error loading ROM: %v", err))
-			return
-		}
-		gamename = rom.GameName()
-		switch region {
-		case NTSC:
-			cpuDivisor = rp2ago3.NTSCCPUClockDivisor
-		case PAL:
-			cpuDivisor = rp2ago3.PALCPUClockDivisor
-		}
-
-	}
-
-	ctrls := NewControllers()
-
-	DefaultFPS := DefaultFPSNTSC
-	if region == PAL {
-		DefaultFPS = DefaultFPSPAL
-	}
-
-	fps := NewFPS(DefaultFPS)
-
-	events := make(chan Event)
-	video, err = NewVideo(gamename, events, DefaultFPS)
-
+	f, err := os.Open(filename)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Error creating video: %v", err))
+		err = errors.New(fmt.Sprintf("Error loading ROM: %v", err))
 		return
 	}
 
-	audio, err = NewAudio(audioFrequency, audioSampleSize)
-
-	if err != nil {
-		err = errors.New(fmt.Sprintf("Error creating audio: %v", err))
-		return
-	}
-
-	switch options.Recorder {
-	case "none":
-		// none
-	case "jpeg":
-		recorder, err = NewJPEGRecorder()
-	case "gif":
-		recorder, err = NewGIFRecorder()
-	}
-
-	if err != nil {
-		err = errors.New(fmt.Sprintf("Error creating recorder: %v", err))
-		return
-	}
-
-	switch options.AudioRecorder {
-	case "none":
-		// none
-	case "wav":
-		audioRecorder, err = NewWAVRecorder()
-	}
-
-	if err != nil {
-		err = errors.New(fmt.Sprintf("Error creating audio recorder: %v", err))
-		return
-	}
-
-	cpu.Memory.AddMappings(ppu, rp2ago3.CPU)
-	cpu.Memory.AddMappings(ctrls, rp2ago3.CPU)
-
-	if master {
-		cpu.Memory.AddMappings(rom, rp2ago3.CPU)
-		ppu.Memory.AddMappings(rom, rp2ago3.PPU)
-	}
-
-	lock := make(chan uint64, 1)
-	lock <- 0
-
-	nes = &NES{
-		GameName:      gamename,
-		events:        events,
-		CPU:           cpu,
-		CPUDivisor:    cpuDivisor,
-		PPU:           ppu,
-		ROM:           rom,
-		audio:         audio,
-		video:         video,
-		DefaultFPS:    DefaultFPS,
-		fps:           fps,
-		recorder:      recorder,
-		audioRecorder: audioRecorder,
-		controllers:   ctrls,
-		options:       options,
-		lock:          lock,
-		Tick:          0,
-		master:        master,
-		bridge:        bridge,
-	}
-
-	bridge.nes = nes
-
-	return
+	return NewNESFromReader(filename, f, options)
 }
 
-func NewNESFromReader(reader io.Reader, options *Options) (nes *NES, err error) {
+func NewNESFromReader(gamename string, reader io.Reader, options *Options) (nes *NES, err error) {
 	var audio Audio
 	var video Video
 	var recorder Recorder
@@ -226,7 +96,6 @@ func NewNESFromReader(reader io.Reader, options *Options) (nes *NES, err error) 
 	var bridge *Bridge
 	var rom ROM
 
-	gamename := "NONAME"
 	region := RegionFromString(options.Region)
 
 	switch region {
@@ -260,7 +129,7 @@ func NewNESFromReader(reader io.Reader, options *Options) (nes *NES, err error) 
 			return nil, err
 		}
 
-		rom, err = NewROMFromBuf(buf, "NONAME", ".nes", cpu.InterruptLine(m65go2.Irq), ppu.Nametable.SetTables)
+		rom, err = NewROMFromBuf(buf, gamename, ".nes", cpu.InterruptLine(m65go2.Irq), ppu.Nametable.SetTables)
 		if err != nil {
 			err = errors.New(fmt.Sprintf("Error loading ROM: %v", err))
 			return nil, err
