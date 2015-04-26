@@ -44,43 +44,44 @@ func (video *JSVideo) SetCaption(caption string) {
 }
 
 const vertShaderSrcDef = `
-attribute vec4 vPosition;
-attribute vec2 vTexCoord;
-varying vec2 texCoord;
+attribute vec2 a_position;
+attribute vec2 a_texCoord;
+
+uniform vec2 u_resolution;
+
+varying vec2 v_texCoord;
 
 void main() {
-texCoord = vec2(vTexCoord.x, -vTexCoord.y);
-gl_Position = vec4((vPosition.xy * 2.0) - 1.0, vPosition.zw);
+   // convert the rectangle from pixels to 0.0 to 1.0
+   vec2 zeroToOne = a_position / u_resolution;
+
+   // convert from 0->1 to 0->2
+   vec2 zeroToTwo = zeroToOne * 2.0;
+
+   // convert from 0->2 to -1->+1 (clipspace)
+   vec2 clipSpace = zeroToTwo - 1.0;
+
+   gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+
+   // pass the texCoord to the fragment shader
+   // The GPU will interpolate this value between points.
+   v_texCoord = a_texCoord;
 }
 `
 
 const fragShaderSrcDef = `
 precision mediump float;
 
-varying vec2 texCoord;
-uniform sampler2D texture;
+// our texture
+uniform sampler2D u_image;
+
+// the texCoords passed in from the vertex shader.
+varying vec2 v_texCoord;
 
 void main() {
-vec4 c = texture2D(texture, texCoord);
-gl_FragColor = vec4(c.r, c.g, c.b, c.a);
+   gl_FragColor = texture2D(u_image, v_texCoord);
 }
 `
-
-var JSPalette []uint32 = []uint32{
-	0x666666, 0x002A88, 0x1412A7, 0x3B00A4, 0x5C007E,
-	0x6E0040, 0x6C0600, 0x561D00, 0x333500, 0x0B4800,
-	0x005200, 0x004F08, 0x00404D, 0x000000, 0x000000,
-	0x000000, 0xADADAD, 0x155FD9, 0x4240FF, 0x7527FE,
-	0xA01ACC, 0xB71E7B, 0xB53120, 0x994E00, 0x6B6D00,
-	0x388700, 0x0C9300, 0x008F32, 0x007C8D, 0x000000,
-	0x000000, 0x000000, 0xFFFEFF, 0x64B0FF, 0x9290FF,
-	0xC676FF, 0xF36AFF, 0xFE6ECC, 0xFE8170, 0xEA9E22,
-	0xBCBE00, 0x88D800, 0x5CE430, 0x45E082, 0x48CDDE,
-	0x4F4F4F, 0x000000, 0x000000, 0xFFFEFF, 0xC0DFFF,
-	0xD3D2FF, 0xE8C8FF, 0xFBC2FF, 0xFEC4EA, 0xFECCC5,
-	0xF7D8A5, 0xE4E594, 0xCFEF96, 0xBDF4AB, 0xB3F3CC,
-	0xB5EBF2, 0xB8B8B8, 0x000000, 0x000000,
-}
 
 func button(keyCode int) Button {
 	switch keyCode {
@@ -103,6 +104,19 @@ func button(keyCode int) Button {
 	default:
 		return One
 	}
+}
+
+func setRectangle(gl *webgl.Context, x, y int, width, height float32) {
+	x1 := float32(x)
+	x2 := float32(x) + width
+	y1 := float32(y)
+	y2 := float32(y) + height
+
+	verts := []float32{x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2}
+	gl.BufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW)
+}
+
+func render(img *js.Object, canvas *js.Object, gl *webgl.Context) {
 }
 
 // file:///Users/niels/go/src/github.com/nwidger/nintengo/index.html
@@ -135,13 +149,22 @@ func (video *JSVideo) Run() {
 	canvas := document.Call("createElement", "canvas")
 	canvas.Call("setAttribute", "width", "256")
 	canvas.Call("setAttribute", "height", "240")
-	// document.Get("body").Call("appendChild", canvas)
+	document.Get("body").Call("appendChild", canvas)
 
 	img := document.Call("createElement", "img")
 	img.Call("setAttribute", "width", "256")
 	img.Call("setAttribute", "height", "240")
 
-	document.Get("body").Call("appendChild", img)
+	canvas.Call("appendChild", img)
+
+	loaded := make(chan int, 1)
+
+	handleTextureLoaded := func() {
+		loaded <- 1
+	}
+
+	// img.Set("onload", handleTextureLoaded)
+	// <-loaded
 
 	attrs := webgl.DefaultAttributes()
 	attrs.Alpha = false
@@ -150,12 +173,6 @@ func (video *JSVideo) Run() {
 	if err != nil {
 		js.Global.Call("alert", "Error: "+err.Error())
 	}
-
-	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
-
-	gl.Enable(gl.CULL_FACE)
-	gl.Enable(gl.DEPTH_TEST)
-
 	vertShader := gl.CreateShader(gl.VERTEX_SHADER)
 	gl.ShaderSource(vertShader, vertShaderSrcDef)
 	gl.CompileShader(vertShader)
@@ -187,58 +204,40 @@ func (video *JSVideo) Run() {
 
 	gl.UseProgram(prog)
 
-	posAttrib := gl.GetAttribLocation(prog, "vPosition")
-	gl.EnableVertexAttribArray(posAttrib)
-
-	texCoordAttr := gl.GetAttribLocation(prog, "vPosition")
-	gl.EnableVertexAttribArray(texCoordAttr)
-
-	// textureUni := gl.GetAttribLocation(prog, "vPosition")
-
-	vertVBO := gl.CreateBuffer()
-	gl.BindBuffer(gl.ARRAY_BUFFER, vertVBO)
-	verts := []float32{-1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0}
-	gl.BufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW)
+	posAttrib := gl.GetAttribLocation(prog, "a_position")
+	texCoordAttr := gl.GetAttribLocation(prog, "a_texCoord")
 
 	textCoorBuf := gl.CreateBuffer()
 	gl.BindBuffer(gl.ARRAY_BUFFER, textCoorBuf)
-	texVerts := []float32{0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0}
+	texVerts := []float32{0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0}
 	gl.BufferData(gl.ARRAY_BUFFER, texVerts, gl.STATIC_DRAW)
-
-	texture := gl.CreateTexture()
-	gl.ActiveTexture(gl.TEXTURE0)
-
-	loaded := make(chan int, 60)
-
-	// handleTextureLoaded := func() {
-	// 	gl.BindTexture(gl.TEXTURE_2D, texture)
-	// 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
-	// 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-	// 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-	// 	loaded <- 1
-	// }
-
-	// img.Set("onload", handleTextureLoaded)
-
-	// fmt.Println("loading")
-	// <-loaded
-	// fmt.Println("loaded")
-
-	gl.VertexAttribPointer(posAttrib, 2, gl.FLOAT, false, 0, 0)
+	gl.EnableVertexAttribArray(texCoordAttr)
 	gl.VertexAttribPointer(texCoordAttr, 2, gl.FLOAT, false, 0, 0)
 
-	handleTextureLoaded := func() {
-		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+	texture := gl.CreateTexture()
+	gl.BindTexture(gl.TEXTURE_2D, texture)
 
-		gl.UseProgram(prog)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
 
-		gl.ActiveTexture(gl.TEXTURE0)
-		gl.BindTexture(gl.TEXTURE_2D, texture)
+	resolutionLocation := gl.GetUniformLocation(prog, "u_resolution")
 
-		// gl.UNSIGNED_INT_8_8_8_8
+	gl.Uniform2f(resolutionLocation, float32(canvas.Get("width").Float()), float32(canvas.Get("height").Float()))
+
+	vertVBO := gl.CreateBuffer()
+	gl.BindBuffer(gl.ARRAY_BUFFER, vertVBO)
+	gl.EnableVertexAttribArray(posAttrib)
+	gl.VertexAttribPointer(posAttrib, 2, gl.FLOAT, false, 0, 0)
+
+	setRectangle(gl, 0, 0, float32(img.Get("width").Float()), float32(img.Get("height").Float()))
+
+	gl.DrawArrays(gl.TRIANGLES, 0, 6)
+
+	handleTextureLoaded = func() {
 		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
-
-		loaded <- 1
+		gl.DrawArrays(gl.TRIANGLES, 0, 6)
 	}
 
 	img.Set("onload", handleTextureLoaded)
@@ -266,14 +265,6 @@ func (video *JSVideo) Run() {
 		png.Encode(buf, frame)
 		img.Call("setAttribute", "src", "data:image/png;base64,"+base64.StdEncoding.EncodeToString(buf.Bytes()))
 
-		// fmt.Println("loading")
-		// <-loaded
-		// fmt.Println("loaded")
-
-		// go func() { gl.DrawArrays(gl.TRIANGLES, 0, 6) }()
-
-		// if video.screen != nil {
-		// 	sdl.GL_SwapBuffers()
-		// }
+		fmt.Println("frame!")
 	}
 }
