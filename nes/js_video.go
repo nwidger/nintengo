@@ -135,12 +135,13 @@ func (video *JSVideo) Run() {
 	canvas := document.Call("createElement", "canvas")
 	canvas.Call("setAttribute", "width", "256")
 	canvas.Call("setAttribute", "height", "240")
-	document.Get("body").Call("appendChild", canvas)
+	// document.Get("body").Call("appendChild", canvas)
 
 	img := document.Call("createElement", "img")
 	img.Call("setAttribute", "width", "256")
 	img.Call("setAttribute", "height", "240")
-	canvas.Call("appendChild", img)
+
+	document.Get("body").Call("appendChild", img)
 
 	attrs := webgl.DefaultAttributes()
 	attrs.Alpha = false
@@ -207,22 +208,40 @@ func (video *JSVideo) Run() {
 	texture := gl.CreateTexture()
 	gl.ActiveTexture(gl.TEXTURE0)
 
-	loaded := make(chan int, 1)
+	loaded := make(chan int, 60)
+
+	// handleTextureLoaded := func() {
+	// 	gl.BindTexture(gl.TEXTURE_2D, texture)
+	// 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
+	// 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	// 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+	// 	loaded <- 1
+	// }
+
+	// img.Set("onload", handleTextureLoaded)
+
+	// fmt.Println("loading")
+	// <-loaded
+	// fmt.Println("loaded")
+
+	gl.VertexAttribPointer(posAttrib, 2, gl.FLOAT, false, 0, 0)
+	gl.VertexAttribPointer(texCoordAttr, 2, gl.FLOAT, false, 0, 0)
 
 	handleTextureLoaded := func() {
+		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+		gl.UseProgram(prog)
+
+		gl.ActiveTexture(gl.TEXTURE0)
 		gl.BindTexture(gl.TEXTURE_2D, texture)
+
+		// gl.UNSIGNED_INT_8_8_8_8
 		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+
 		loaded <- 1
 	}
 
 	img.Set("onload", handleTextureLoaded)
-
-	<-loaded
-
-	gl.VertexAttribPointer(posAttrib, 2, gl.FLOAT, false, 0, 0)
-	gl.VertexAttribPointer(texCoordAttr, 2, gl.FLOAT, false, 0, 0)
 
 	frame := image.NewPaletted(image.Rect(0, 0, 256, 240), RGBAPalette)
 	buf := new(bytes.Buffer)
@@ -243,21 +262,15 @@ func (video *JSVideo) Run() {
 			}
 		}
 
-		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
-		gl.UseProgram(prog)
-
-		gl.ActiveTexture(gl.TEXTURE0)
-		gl.BindTexture(gl.TEXTURE_2D, texture)
-
 		buf.Reset()
 		png.Encode(buf, frame)
 		img.Call("setAttribute", "src", "data:image/png;base64,"+base64.StdEncoding.EncodeToString(buf.Bytes()))
 
-		// gl.UNSIGNED_INT_8_8_8_8
-		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
+		// fmt.Println("loading")
+		// <-loaded
+		// fmt.Println("loaded")
 
-		gl.DrawArrays(gl.TRIANGLES, 0, 6)
+		// go func() { gl.DrawArrays(gl.TRIANGLES, 0, 6) }()
 
 		// if video.screen != nil {
 		// 	sdl.GL_SwapBuffers()

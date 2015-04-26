@@ -432,26 +432,32 @@ func (nes *NES) processEvents() {
 	for nes.state != Quitting {
 		e := <-nes.events
 		flag := e.Flag()
-		if nes.master || flag&EvSlave != 0 {
-			if flag&EvGlobal != 0 {
-				// Tick is not important here. Just a Reference
-				if e.String() == "ControllerEvent" && !nes.master {
-					// hardcode to fix controller id.
-					ce, _ := e.(*ControllerEvent)
-					ce.Controller = 1
-				}
-				pkt := Packet{
-					Tick: nes.Tick,
-					Ev:   e,
-				}
-				if nes.master {
-					nes.bridge.incoming <- pkt
-				} else {
-					nes.bridge.outgoing <- pkt
-				}
-			} else {
-				e.Process(nes)
-			}
+
+		if !nes.master && flag&EvSlave == 0 {
+			continue
+		}
+
+		if !nes.bridge.active || flag&EvGlobal == 0 {
+			e.Process(nes)
+			continue
+		}
+
+		// Tick is not important here. Just a Reference
+		if e.String() == "ControllerEvent" && !nes.master {
+			// hardcode to fix controller id.
+			ce, _ := e.(*ControllerEvent)
+			ce.Controller = 1
+		}
+
+		pkt := Packet{
+			Tick: nes.Tick,
+			Ev:   e,
+		}
+
+		if nes.master {
+			nes.bridge.incoming <- pkt
+		} else {
+			nes.bridge.outgoing <- pkt
 		}
 	}
 }
@@ -538,7 +544,7 @@ func (nes *NES) runAsMaster() (err error) {
 
 	for nes.state != Quitting {
 	ProcessingEventLoop:
-		for {
+		for nes.bridge.active {
 			if nes.Paused {
 				// If Paused, use blocking chan receiving
 				pkt := <-nes.bridge.incoming
@@ -558,6 +564,10 @@ func (nes *NES) runAsMaster() (err error) {
 		if !nes.Paused {
 			lock := <-nes.lock
 			cycles, err = nes.step()
+			if err != nil {
+				return
+			}
+
 			nes.Tick += uint64(cycles)
 
 			nes.lock <- lock
