@@ -92,7 +92,7 @@ func wavHeader(sampleSize int) (*bytes.Buffer, error) {
 	return buf, nil
 }
 
-func (audio *JSAudio) Run() {
+func (audio *JSAudio) stream(schan chan []byte) {
 	hdr, err := wavHeader(audio.sampleSize)
 	if err != nil {
 		fmt.Println(err)
@@ -100,25 +100,35 @@ func (audio *JSAudio) Run() {
 	}
 
 	header := hdr.Bytes()
+	buf := bytes.NewBuffer(header)
 
+	for {
+		for i := 0; i < audio.sampleSize; i++ {
+			err := binary.Write(buf, binary.LittleEndian, int32(<-audio.input))
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
+
+		schan <- buf.Bytes()
+		buf = bytes.NewBuffer(header)
+	}
+}
+
+func (audio *JSAudio) Run() {
 	context := js.Global.Get("AudioContext").New()
 
 	bufChan := make(chan *js.Object, 1)
 	endedChan := make(chan bool, 1)
 	playing := false
 
+	schan := make(chan []byte, 2)
+
+	go audio.stream(schan)
+
 	for {
-		buf := bytes.NewBuffer(header)
-
-		for i := 0; i < audio.sampleSize; i++ {
-			err := binary.Write(buf, binary.LittleEndian, int32(<-audio.input))
-			if err != nil {
-				fmt.Println(err)
-				break
-			}
-		}
-
-		data := js.NewArrayBuffer(buf.Bytes())
+		data := js.NewArrayBuffer(<-schan)
 
 		if data == js.Undefined {
 			fmt.Println("data is undefined")
