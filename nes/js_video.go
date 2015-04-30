@@ -184,9 +184,6 @@ func setRectangle(gl *webgl.Context, x, y int, width, height float32) {
 	gl.BufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW)
 }
 
-func render(img *js.Object, canvas *js.Object, gl *webgl.Context) {
-}
-
 // file:///Users/niels/go/src/github.com/nwidger/nintengo/index.html
 func (video *JSVideo) Run() {
 	document := js.Global.Get("document")
@@ -313,18 +310,14 @@ func (video *JSVideo) Run() {
 
 	for {
 		colors := <-video.input
-		x, y := 0, 0
 
-		for _, c := range colors {
-			frame.SetRGBA(x, y, JSPalette[c])
-
-			switch x {
-			case 255:
-				x = 0
-				y++
-			default:
-				x++
-			}
+		for i, c := range colors {
+			p := JSPalette[c]
+			j := i << 2
+			frame.Pix[j+0] = p.R
+			frame.Pix[j+1] = p.G
+			frame.Pix[j+2] = p.B
+			frame.Pix[j+3] = p.A
 		}
 
 		buf.Reset()
