@@ -3,12 +3,9 @@
 package nes
 
 import (
-	"bytes"
-	"encoding/base64"
 	"fmt"
-	"image"
 	"image/color"
-	"image/png"
+	"strconv"
 
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/gopherjs/webgl"
@@ -211,28 +208,12 @@ func (video *JSVideo) Run() {
 		handleKey(e, false)
 	})
 
+	width, height := 256, 240
+
 	canvas := document.Call("createElement", "canvas")
-	canvas.Call("setAttribute", "width", "256")
-	canvas.Call("setAttribute", "height", "240")
+	canvas.Call("setAttribute", "width", strconv.Itoa(width))
+	canvas.Call("setAttribute", "height", strconv.Itoa(height))
 	document.Get("body").Call("appendChild", canvas)
-
-	img := document.Call("createElement", "img")
-	img.Call("setAttribute", "width", "256")
-	img.Call("setAttribute", "height", "240")
-
-	// canvas.Call("appendChild", img)
-
-	loaded := make(chan int, 1)
-
-	handleTextureLoaded := func() {
-		loaded <- 1
-	}
-
-	img.Set("onload", handleTextureLoaded)
-	// http://garethrees.org/2007/11/14/pngcrush/
-	img.Call("setAttribute", "src", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==")
-
-	<-loaded
 
 	attrs := webgl.DefaultAttributes()
 	attrs.Alpha = false
@@ -301,12 +282,11 @@ func (video *JSVideo) Run() {
 	gl.EnableVertexAttribArray(posAttrib)
 	gl.VertexAttribPointer(posAttrib, 2, gl.FLOAT, false, 0, 0)
 
-	setRectangle(gl, 0, 0, float32(img.Get("width").Float()), float32(img.Get("height").Float()))
+	setRectangle(gl, 0, 0, float32(width), float32(height))
 
 	gl.DrawArrays(gl.TRIANGLES, 0, 6)
 
-	frame := image.NewRGBA(image.Rect(0, 0, 256, 240))
-	buf := new(bytes.Buffer)
+	buf := make([]byte, width*height*4)
 
 	for {
 		colors := <-video.input
@@ -314,24 +294,12 @@ func (video *JSVideo) Run() {
 		for i, c := range colors {
 			p := JSPalette[c]
 			j := i << 2
-			frame.Pix[j+0] = p.R
-			frame.Pix[j+1] = p.G
-			frame.Pix[j+2] = p.B
-			frame.Pix[j+3] = p.A
+			buf[j+0], buf[j+1], buf[j+2], buf[j+3] = p.R, p.G, p.B, p.A
 		}
 
-		buf.Reset()
-		png.Encode(buf, frame)
+		gl.Call("texImage2D", gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+			js.Global.Get("Uint8Array").New(js.NewArrayBuffer(buf)))
 
-		img = document.Call("createElement", "img")
-		img.Call("setAttribute", "width", "256")
-		img.Call("setAttribute", "height", "240")
-		img.Set("onload", handleTextureLoaded)
-
-		img.Call("setAttribute", "src", "data:image/png;base64,"+base64.StdEncoding.EncodeToString(buf.Bytes()))
-		<-loaded
-
-		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
 		gl.DrawArrays(gl.TRIANGLES, 0, 6)
 	}
 }
