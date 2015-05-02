@@ -18,7 +18,7 @@ type JSAudio struct {
 func NewAudio(frequency int, sampleSize int) (audio *JSAudio, err error) {
 	audio = &JSAudio{
 		input:      make(chan int16),
-		sampleSize: sampleSize * 4,
+		sampleSize: sampleSize,
 	}
 	return
 }
