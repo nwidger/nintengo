@@ -3,12 +3,10 @@
 package nes
 
 import (
-	"fmt"
 	"image/color"
 	"strconv"
 
 	"github.com/gopherjs/gopherjs/js"
-	"github.com/gopherjs/webgl"
 )
 
 var JSPalette []color.RGBA = []color.RGBA{
@@ -108,46 +106,6 @@ func (video *JSVideo) SetCaption(caption string) {
 	}
 }
 
-const vertShaderSrcDef = `
-attribute vec2 a_position;
-attribute vec2 a_texCoord;
-
-uniform vec2 u_resolution;
-
-varying vec2 v_texCoord;
-
-void main() {
-   // convert the rectangle from pixels to 0.0 to 1.0
-   vec2 zeroToOne = a_position / u_resolution;
-
-   // convert from 0->1 to 0->2
-   vec2 zeroToTwo = zeroToOne * 2.0;
-
-   // convert from 0->2 to -1->+1 (clipspace)
-   vec2 clipSpace = zeroToTwo - 1.0;
-
-   gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
-
-   // pass the texCoord to the fragment shader
-   // The GPU will interpolate this value between points.
-   v_texCoord = a_texCoord;
-}
-`
-
-const fragShaderSrcDef = `
-precision mediump float;
-
-// our texture
-uniform sampler2D u_image;
-
-// the texCoords passed in from the vertex shader.
-varying vec2 v_texCoord;
-
-void main() {
-   gl_FragColor = texture2D(u_image, v_texCoord);
-}
-`
-
 func button(keyCode int) Button {
 	switch keyCode {
 	case 37:
@@ -171,18 +129,8 @@ func button(keyCode int) Button {
 	}
 }
 
-func setRectangle(gl *webgl.Context, x, y int, width, height float32) {
-	x1 := float32(x)
-	x2 := float32(x) + width
-	y1 := float32(y)
-	y2 := float32(y) + height
-
-	verts := []float32{x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2}
-	gl.BufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW)
-}
-
-// file:///Users/niels/go/src/github.com/nwidger/nintengo/index.html
 func (video *JSVideo) Run() {
+	width, height := 256, 240
 	document := js.Global.Get("document")
 
 	handleKey := func(e *js.Object, down bool) {
@@ -208,98 +156,39 @@ func (video *JSVideo) Run() {
 		handleKey(e, false)
 	})
 
-	width, height := 256, 240
-
 	canvas := document.Call("createElement", "canvas")
 	canvas.Call("setAttribute", "width", strconv.Itoa(width))
 	canvas.Call("setAttribute", "height", strconv.Itoa(height))
 	document.Get("body").Call("appendChild", canvas)
 
-	attrs := webgl.DefaultAttributes()
-	attrs.Alpha = false
-	attrs.Antialias = false
+	ctx := canvas.Call("getContext", "2d")
+	img := ctx.Call("getImageData", 0, 0, width, height)
 
-	gl, err := webgl.NewContext(canvas, attrs)
-	if err != nil {
-		js.Global.Call("alert", "Error: "+err.Error())
+	ctx.Set("fillStyle", "black")
+	ctx.Call("fillRect", 0, 0, width, height)
+
+	for i := 3; i < img.Get("data").Length()-3; i += 4 {
+		img.Get("data").SetIndex(i, 0xff)
 	}
 
-	vertShader := gl.CreateShader(gl.VERTEX_SHADER)
-	gl.ShaderSource(vertShader, vertShaderSrcDef)
-	gl.CompileShader(vertShader)
-
-	if !gl.GetShaderParameterb(vertShader, gl.COMPILE_STATUS) {
-		fmt.Println("Vertex shader compilation failed:", gl.GetShaderInfoLog(vertShader))
-		return
-	}
-
-	fragShader := gl.CreateShader(gl.FRAGMENT_SHADER)
-	gl.ShaderSource(fragShader, fragShaderSrcDef)
-	gl.CompileShader(fragShader)
-
-	if !gl.GetShaderParameterb(fragShader, gl.COMPILE_STATUS) {
-		fmt.Println("Fragment shader compilation failed:", gl.GetShaderInfoLog(fragShader))
-		return
-	}
-
-	prog := gl.CreateProgram()
-
-	gl.AttachShader(prog, vertShader)
-	gl.AttachShader(prog, fragShader)
-	gl.LinkProgram(prog)
-
-	if !gl.GetProgramParameterb(prog, gl.LINK_STATUS) {
-		fmt.Println("Linking failed:", gl.GetProgramInfoLog(prog))
-		return
-	}
-
-	gl.UseProgram(prog)
-
-	posAttrib := gl.GetAttribLocation(prog, "a_position")
-	texCoordAttr := gl.GetAttribLocation(prog, "a_texCoord")
-
-	textCoorBuf := gl.CreateBuffer()
-	gl.BindBuffer(gl.ARRAY_BUFFER, textCoorBuf)
-	texVerts := []float32{0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0}
-	gl.BufferData(gl.ARRAY_BUFFER, texVerts, gl.STATIC_DRAW)
-	gl.EnableVertexAttribArray(texCoordAttr)
-	gl.VertexAttribPointer(texCoordAttr, 2, gl.FLOAT, false, 0, 0)
-
-	texture := gl.CreateTexture()
-	gl.BindTexture(gl.TEXTURE_2D, texture)
-
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-
-	resolutionLocation := gl.GetUniformLocation(prog, "u_resolution")
-
-	gl.Uniform2f(resolutionLocation, float32(canvas.Get("width").Float()), float32(canvas.Get("height").Float()))
-
-	vertVBO := gl.CreateBuffer()
-	gl.BindBuffer(gl.ARRAY_BUFFER, vertVBO)
-	gl.EnableVertexAttribArray(posAttrib)
-	gl.VertexAttribPointer(posAttrib, 2, gl.FLOAT, false, 0, 0)
-
-	setRectangle(gl, 0, 0, float32(width), float32(height))
-
-	gl.DrawArrays(gl.TRIANGLES, 0, 6)
-
-	buf := make([]byte, width*height*4)
+	prev := make([]uint8, width*height)
 
 	for {
 		colors := <-video.input
 
+		data := img.Get("data")
+
 		for i, c := range colors {
-			p := JSPalette[c]
-			j := i << 2
-			buf[j+0], buf[j+1], buf[j+2], buf[j+3] = p.R, p.G, p.B, p.A
+			if c != prev[i] {
+				p := JSPalette[c]
+				j := i << 2
+				data.SetIndex(j+0, p.R)
+				data.SetIndex(j+1, p.G)
+				data.SetIndex(j+2, p.B)
+				prev[i] = c
+			}
 		}
 
-		gl.Call("texImage2D", gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE,
-			js.Global.Get("Uint8Array").New(js.NewArrayBuffer(buf)))
-
-		gl.DrawArrays(gl.TRIANGLES, 0, 6)
+		ctx.Call("putImageData", img, 0, 0)
 	}
 }
