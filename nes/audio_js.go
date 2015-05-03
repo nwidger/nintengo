@@ -2,13 +2,7 @@
 
 package nes
 
-import (
-	"bytes"
-	"encoding/binary"
-	"fmt"
-
-	"github.com/gopherjs/gopherjs/js"
-)
+import "github.com/gopherjs/gopherjs/js"
 
 type JSAudio struct {
 	input      chan int16
@@ -27,131 +21,24 @@ func (audio *JSAudio) Input() chan int16 {
 	return audio.input
 }
 
-func wavHeader(sampleSize int) (*bytes.Buffer, error) {
-	n := sampleSize * 4
-	buf := &bytes.Buffer{}
-
-	// write 'RIFF' chunkSize 'WAVE'
-	header := struct {
-		Ftype       [4]byte
-		ChunkSize   uint32
-		ChunkFormat [4]byte
-	}{
-		Ftype:       [4]byte{'R', 'I', 'F', 'F'},
-		ChunkSize:   uint32(n + 36),
-		ChunkFormat: [4]byte{'W', 'A', 'V', 'E'},
-	}
-
-	err := binary.Write(buf, binary.LittleEndian, header)
-	if err != nil {
-		return nil, err
-	}
-
-	// write 'fmt '
-	_, err = buf.Write([]byte{'f', 'm', 't', ' '})
-	if err != nil {
-		return nil, err
-	}
-
-	// write RIFF chunk format
-	chunkFmt := struct {
-		LengthOfHeader uint32
-		AudioFormat    uint16 // 1 = PCM not compressed
-		NumChannels    uint16
-		SampleRate     uint32
-		BytesPerSec    uint32
-		BytesPerBloc   uint16
-		BitsPerSample  uint16
-	}{
-		LengthOfHeader: 16,
-		AudioFormat:    1,
-		NumChannels:    1,
-		SampleRate:     44100 * 2,
-		BytesPerSec:    44100 * 4,
-		BytesPerBloc:   2,
-		BitsPerSample:  16,
-	}
-
-	err = binary.Write(buf, binary.LittleEndian, chunkFmt)
-	if err != nil {
-		return nil, err
-	}
-
-	// write 'data'
-	_, err = buf.Write([]byte{'d', 'a', 't', 'a'})
-	if err != nil {
-		return nil, err
-	}
-
-	// write dataSize
-	err = binary.Write(buf, binary.LittleEndian, int32(n))
-	if err != nil {
-		return nil, err
-	}
-
-	return buf, nil
-}
-
-func (audio *JSAudio) stream(schan chan []byte) {
-	hdr, err := wavHeader(audio.sampleSize)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	header := hdr.Bytes()
-	buf := bytes.NewBuffer(header)
-
-	for {
-		for i := 0; i < audio.sampleSize; i++ {
-			err := binary.Write(buf, binary.LittleEndian, int32(<-audio.input))
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-		}
-
-		schan <- buf.Bytes()
-		buf = bytes.NewBuffer(header)
-	}
-}
-
 func (audio *JSAudio) Run() {
-	context := js.Global.Get("AudioContext").New()
+	ctx := js.Global.Get("AudioContext").New()
 
-	bufChan := make(chan *js.Object, 1)
 	endedChan := make(chan bool, 1)
 	playing := false
 
-	schan := make(chan []byte, 2)
-
-	go audio.stream(schan)
+	buffer := ctx.Call("createBuffer", 1, audio.sampleSize, 44100)
+	data := buffer.Call("getChannelData", 0)
+	buf := data.Interface().([]float32)
 
 	for {
-		data := js.NewArrayBuffer(<-schan)
-
-		if data == js.Undefined {
-			fmt.Println("data is undefined")
-			break
+		for i := 0; i < audio.sampleSize; i++ {
+			buf[i] = float32(<-audio.input) / float32(0x7fff)
 		}
 
-		context.Call("decodeAudioData", data, func(buffer *js.Object) {
-			bufChan <- buffer
-		}, func() {
-			fmt.Println("error decoding audio")
-			bufChan <- js.Undefined
-		})
-
-		buffer := <-bufChan
-
-		if buffer == js.Undefined {
-			fmt.Println("buffer is undefined")
-			break
-		}
-
-		source := context.Call("createBufferSource")
+		source := ctx.Call("createBufferSource")
 		source.Set("buffer", buffer)
-		source.Call("connect", context.Get("destination"))
+		source.Call("connect", ctx.Get("destination"))
 
 		source.Set("onended", func(event *js.Object) {
 			endedChan <- true
