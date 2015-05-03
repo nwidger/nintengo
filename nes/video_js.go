@@ -25,9 +25,11 @@ var JSPalette []uint32 = []uint32{
 }
 
 type JSVideo struct {
-	input    chan []uint8
-	events   chan Event
-	overscan bool
+	input         chan []uint8
+	events        chan Event
+	canvas        *js.Object
+	width, height int
+	overscan      bool
 }
 
 func NewVideo(caption string, events chan Event, fps float64) (video *JSVideo, err error) {
@@ -35,6 +37,8 @@ func NewVideo(caption string, events chan Event, fps float64) (video *JSVideo, e
 		input:    make(chan []uint8),
 		events:   events,
 		overscan: true,
+		width:    256,
+		height:   240,
 	}
 
 	video.SetCaption(caption)
@@ -79,73 +83,91 @@ func button(keyCode int) Button {
 	}
 }
 
-func (video *JSVideo) Run() {
-	width, height := 256, 240
-	document := js.Global.Get("document")
+func (video *JSVideo) handleKey(code int, down bool) {
+	var event Event
 
-	handleKey := func(e *js.Object, down bool) {
-		var event Event
+	setSize := func(width, height int) {
+		video.canvas.Get("style").Set("width", strconv.Itoa(width)+"px")
+		video.canvas.Get("style").Set("height", strconv.Itoa(height)+"px")
+	}
 
-		code := e.Get("keyCode").Int()
-
-		if down {
-			switch code {
-			case 192: // backtick `
-				video.overscan = !video.overscan
-			case 82: // r
-				event = &ResetEvent{}
-			case 80: // p
-				event = &PauseEvent{}
-			case 57: // 9
-				event = &ShowBackgroundEvent{}
-			case 48: // 0
-				event = &ShowSpritesEvent{}
-			case 96: // NP-0
-				event = &MuteEvent{}
-			case 97: // NP-1
-				event = &MutePulse1Event{}
-			case 98: // NP-2
-				event = &MutePulse2Event{}
-			case 99: // NP-3
-				event = &MuteTriangleEvent{}
-			case 100: // NP-4
-				event = &MuteNoiseEvent{}
-			}
-		}
-
-		if event == nil {
-			button := button(code)
-			if button != One {
-				event = &ControllerEvent{
-					Button: button,
-					Down:   down,
-				}
-			}
-		}
-
-		if event != nil {
-			go func() { video.events <- event }()
+	if down {
+		switch code {
+		case 192: // backtick `
+			video.overscan = !video.overscan
+		case 82: // r
+			event = &ResetEvent{}
+		case 80: // p
+			event = &PauseEvent{}
+		case 49: // 1
+			setSize(256, 240)
+		case 50: // 2
+			setSize(512, 480)
+		case 51: // 3
+			setSize(768, 720)
+		case 52: // 4
+			setSize(1024, 960)
+		case 53: // 5
+			setSize(2560, 1440)
+		case 57: // 9
+			event = &ShowBackgroundEvent{}
+		case 48: // 0
+			event = &ShowSpritesEvent{}
+		case 96: // NP-0
+			event = &MuteEvent{}
+		case 97: // NP-1
+			event = &MutePulse1Event{}
+		case 98: // NP-2
+			event = &MutePulse2Event{}
+		case 99: // NP-3
+			event = &MuteTriangleEvent{}
+		case 100: // NP-4
+			event = &MuteNoiseEvent{}
 		}
 	}
 
+	if event == nil {
+		button := button(code)
+		if button != One {
+			event = &ControllerEvent{
+				Button: button,
+				Down:   down,
+			}
+		}
+	}
+
+	if event != nil {
+		go func() { video.events <- event }()
+	}
+}
+
+func (video *JSVideo) Run() {
+	imgWidth, imgHeight := 256, 240
+
+	document := js.Global.Get("document")
+
 	document.Set("onkeydown", func(e *js.Object) {
-		handleKey(e, true)
+		video.handleKey(e.Get("keyCode").Int(), true)
 	})
 
 	document.Set("onkeyup", func(e *js.Object) {
-		handleKey(e, false)
+		video.handleKey(e.Get("keyCode").Int(), false)
 	})
 
 	canvas := document.Call("createElement", "canvas")
-	canvas.Call("setAttribute", "width", strconv.Itoa(width))
-	canvas.Call("setAttribute", "height", strconv.Itoa(height))
+	canvas.Call("setAttribute", "width", strconv.Itoa(imgWidth))
+	canvas.Call("setAttribute", "height", strconv.Itoa(imgHeight))
+	canvas.Get("style").Set("width", strconv.Itoa(video.width*2)+"px")
+	canvas.Get("style").Set("height", strconv.Itoa(video.height*2)+"px")
 	document.Get("body").Call("appendChild", canvas)
 
+	video.canvas = canvas
+
 	ctx := canvas.Call("getContext", "2d")
-	img := ctx.Call("getImageData", 0, 0, width, height)
+	img := ctx.Call("getImageData", 0, 0, imgWidth, imgHeight)
 
 	ctx.Set("fillStyle", "black")
-	ctx.Call("fillRect", 0, 0, width, height)
+	ctx.Call("fillRect", 0, 0, imgWidth, imgHeight)
 	ctx.Set("lineWidth", 16)
 	ctx.Set("strokeStyle", "white")
 
@@ -153,7 +175,7 @@ func (video *JSVideo) Run() {
 		img.Get("data").SetIndex(i, 0xff)
 	}
 
-	prev := make([]uint8, width*height)
+	prev := make([]uint8, imgWidth*imgHeight)
 	data := img.Get("data")
 
 	buf := js.Global.Get("ArrayBuffer").New(data.Length())
@@ -174,7 +196,7 @@ func (video *JSVideo) Run() {
 		ctx.Call("putImageData", img, 0, 0)
 
 		if video.overscan {
-			ctx.Call("strokeRect", 0, 0, width, height)
+			ctx.Call("strokeRect", 0, 0, imgWidth, imgHeight)
 		}
 	}
 }
