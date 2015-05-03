@@ -47,13 +47,5 @@ func main() {
 
 	inputElem.Call("remove")
 
-	codeElem := document.Call("createElement", "code")
-	codeElem.Set("innerHTML", nes.ROM.String())
-
-	preElem := document.Call("createElement", "pre")
-	preElem.Call("appendChild", codeElem)
-
-	document.Get("body").Call("appendChild", preElem)
-
 	go nes.Run()
 }
