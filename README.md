@@ -33,16 +33,16 @@ An NES emulator written in Go
 
 1. Install GopherJS
 
-```
-go get -u github.com/gopherjs/gopherjs
-```
+   ```
+   go get -u github.com/gopherjs/gopherjs
+   ```
 
 2. Build `nintengo.js`
 
-```
-cd $GOPATH/src/github.com/nwidger/nintengo
-gopherjs build -m
-```
+   ```
+   cd $GOPATH/src/github.com/nwidger/nintengo
+   gopherjs build -m
+   ```
 
 3. Open `index.html` in your browser.  Press the `Choose File` button
    and select a `.nes` file to run.
