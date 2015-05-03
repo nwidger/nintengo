@@ -21,11 +21,31 @@ An NES emulator written in Go
 
 ## Build
 
+### Mac OSX/Linux/Windows
+
 1. Install Azul3D by following the official
    [installation instructions](http://azul3d.org/doc/install) for your
    platform.
 
 2. `go get github.com/nwidger/nintengo`
+
+### Javascript
+
+1. Install GopherJS
+
+```
+go get -u github.com/gopherjs/gopherjs
+```
+
+2. Build `nintengo.js`
+
+```
+cd $GOPATH/src/github.com/nwidger/nintengo
+gopherjs build -m
+```
+
+3. Open `index.html` in your browser.  Press the `Choose File` button
+   and select a `.nes` file to run.
 
 ## Usage
 
