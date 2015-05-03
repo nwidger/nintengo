@@ -21,7 +21,7 @@ An NES emulator written in Go
 
 ## Build
 
-### Mac OSX/Linux/Windows
+### Mac OS X/Linux/Windows
 
 1. Install Azul3D by following the official
    [installation instructions](http://azul3d.org/doc/install) for your
