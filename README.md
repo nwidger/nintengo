@@ -40,7 +40,7 @@ An NES emulator written in Go
 2. Download nintengo
 
    ```
-   go get -du github.com/nwidger/nintengo
+   go get -d -u github.com/nwidger/nintengo
    ```
 
 3. Build `nintengo.js`
