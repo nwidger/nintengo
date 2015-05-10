@@ -122,6 +122,7 @@ type APU struct {
 
 	Cycles       uint64
 	TargetCycles uint64
+	StallCycles  uint16
 
 	HipassStrong int64
 	HipassWeak   int64
@@ -216,6 +217,9 @@ func (apu *APU) Reset() {
 	apu.DMC.Reset()
 
 	apu.FrameCounter.Reset()
+
+	apu.Cycles = 0
+	apu.StallCycles = 0
 
 	apu.HipassStrong = 0.0
 	apu.HipassWeak = 0.0
@@ -452,7 +456,7 @@ func (apu *APU) Execute() (sample int16, haveSample bool) {
 		apu.Noise.ClockDivider()
 	}
 
-	apu.DMC.ClockDivider()
+	apu.StallCycles += apu.DMC.ClockDivider()
 
 	apu.ExecuteFrameCounter()
 
@@ -961,8 +965,8 @@ func (dmc *DMC) Reset() {
 	dmc.LengthCounter = 0
 	dmc.Buffer = 0
 	dmc.BufferEmpty = true
-	dmc.Divider.Period = 1
 	dmc.Divider.Reset()
+	dmc.Divider.Period = 1
 	dmc.Silence = true
 	dmc.BitsRemaining = 8
 	dmc.Shift = 0
@@ -970,8 +974,6 @@ func (dmc *DMC) Reset() {
 }
 
 func (dmc *DMC) SetEnabled(enabled bool) {
-	dmc.registers(IRQEnable, 0)
-
 	if dmc.Enabled = enabled; enabled {
 		if dmc.LengthCounter == 0 {
 			dmc.Restart()
@@ -979,11 +981,13 @@ func (dmc *DMC) SetEnabled(enabled bool) {
 	} else {
 		dmc.LengthCounter = 0
 	}
+
+	dmc.registers(IRQEnable, 0)
 }
 
 func (dmc *DMC) Restart() {
-	dmc.Address = dmc.SampleAddress()
-	dmc.LengthCounter = dmc.SampleLength()
+	dmc.Address = 0xc000 | (uint16(dmc.registers(SampleAddress)) << 6)
+	dmc.LengthCounter = 0x0001 | (uint16(dmc.registers(SampleLength)) << 4)
 }
 
 func (dmc *DMC) Store(index uint16, value uint8) (oldValue uint8) {
@@ -1044,14 +1048,6 @@ func (dmc *DMC) registers(flag DMCFlag, state ...uint8) (value uint8) {
 	return
 }
 
-func (dmc *DMC) SampleAddress() uint16 {
-	return 0xc000 | (uint16(dmc.registers(SampleAddress)) << 6)
-}
-
-func (dmc *DMC) SampleLength() uint16 {
-	return 0x0001 | (uint16(dmc.registers(SampleLength)) << 4)
-}
-
 func (dmc *DMC) ClockDivider() (stallCycles uint16) {
 	if dmc.Divider.Clock() {
 		if !dmc.Silence {
@@ -1068,10 +1064,9 @@ func (dmc *DMC) ClockDivider() (stallCycles uint16) {
 			dmc.Shift >>= 1
 		}
 
-		dmc.BitsRemaining--
-		if dmc.BitsRemaining == 0 {
+		if dmc.BitsRemaining--; dmc.BitsRemaining == 0 {
 			dmc.BitsRemaining = 8
-			if !dmc.BufferEmpty {
+			if dmc.BufferEmpty {
 				dmc.Silence = true
 			} else {
 				dmc.Shift = dmc.Buffer
@@ -1082,16 +1077,14 @@ func (dmc *DMC) ClockDivider() (stallCycles uint16) {
 		}
 	}
 
-	if dmc.BufferEmpty && dmc.LengthCounter == 0 {
-		stallCycles += 4
+	if dmc.BufferEmpty && dmc.LengthCounter != 0 {
+		stallCycles = 4
 		dmc.Buffer = dmc.Memory.Fetch(dmc.Address)
 		dmc.BufferEmpty = false
-		dmc.Address++
-		if dmc.Address == 0x0000 {
+		if dmc.Address++; dmc.Address == 0x0000 {
 			dmc.Address = 0x8000
 		}
-		dmc.LengthCounter--
-		if dmc.LengthCounter == 0 {
+		if dmc.LengthCounter--; dmc.LengthCounter == 0 {
 			if dmc.registers(Loop) != 0 {
 				dmc.Restart()
 			} else if dmc.registers(IRQEnable) != 0 {
@@ -1104,7 +1097,11 @@ func (dmc *DMC) ClockDivider() (stallCycles uint16) {
 }
 
 func (dmc *DMC) Sample() (sample int16) {
-	return int16(dmc.Output)
+	if !dmc.Muted {
+		sample = int16(dmc.Output)
+	}
+
+	return sample
 }
 
 type FrameCounter struct {

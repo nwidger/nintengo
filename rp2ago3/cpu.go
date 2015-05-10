@@ -56,6 +56,12 @@ func (cpu *RP2A03) Reset() {
 }
 
 func (cpu *RP2A03) Execute() (cycles uint16, err error) {
+	if cpu.APU.StallCycles != 0 {
+		stallCycles := cpu.APU.StallCycles
+		cpu.APU.StallCycles = 0
+		return stallCycles, nil
+	}
+
 	if cycles, err = cpu.M6502.Execute(); err != nil {
 		return
 	}
