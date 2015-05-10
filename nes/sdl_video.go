@@ -374,6 +374,10 @@ func (video *SDLVideo) Run() {
 					if e.Type == sdl.KEYDOWN {
 						event = &MuteNoiseEvent{}
 					}
+				case sdl.K_KP5:
+					if e.Type == sdl.KEYDOWN {
+						event = &MuteDMCEvent{}
+					}
 				}
 
 				if event == nil && running {

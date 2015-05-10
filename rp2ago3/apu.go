@@ -1,5 +1,7 @@
 package rp2ago3
 
+import "github.com/nwidger/nintengo/m65go2"
+
 type Control uint8
 type Status uint8
 
@@ -129,7 +131,7 @@ type APU struct {
 	Interrupt func(state bool) `json:"-"`
 }
 
-func NewAPU(targetCycles uint64, interrupt func(bool)) *APU {
+func NewAPU(mem m65go2.Memory, targetCycles uint64, interrupt func(bool)) *APU {
 	apu := &APU{
 		TargetCycles: targetCycles,
 		Interrupt:    interrupt,
@@ -178,6 +180,16 @@ func NewAPU(targetCycles uint64, interrupt func(bool)) *APU {
 			},
 			LengthCounterLUT: LengthCounterLUT,
 		},
+		DMC: DMC{
+			Interrupt: interrupt,
+			Memory:    mem,
+			Divider: Divider{
+				TimesTwo: true,
+			},
+			PeriodLUT: [16]int16{
+				214, 190, 170, 160, 143, 127, 113, 107, 95, 80, 71, 64, 53, 42, 36, 27,
+			},
+		},
 	}
 
 	for i := 0; i < len(apu.pulseLUT); i++ {
@@ -201,6 +213,7 @@ func (apu *APU) Reset() {
 	apu.Pulse2.Reset()
 	apu.Noise.Reset()
 	apu.Triangle.Reset()
+	apu.DMC.Reset()
 
 	apu.FrameCounter.Reset()
 
@@ -280,6 +293,7 @@ func (apu *APU) Store(address uint16, value uint8) (oldValue uint8) {
 		apu.Pulse2.SetEnabled(apu.control(EnablePulseChannel2))
 		apu.Noise.SetEnabled(apu.control(EnableNoise))
 		apu.Triangle.SetEnabled(apu.control(EnableTriangle))
+		apu.DMC.SetEnabled(apu.control(EnableDMC))
 	// Frame counter
 	case address == 0x4017:
 		var executeFrameCounter bool
@@ -299,6 +313,7 @@ func (apu *APU) FetchUpdatedStatus() (value uint8) {
 	apu.status(Pulse2LengthCounterNotZero, apu.Pulse2.LengthCounter > 0)
 	apu.status(NoiseLengthCounterNotZero, apu.Noise.LengthCounter > 0)
 	apu.status(TriangleLengthCounterNotZero, apu.Triangle.LengthCounter > 0)
+	apu.status(DMCActive, apu.DMC.LengthCounter > 0)
 
 	value = uint8(apu.Registers.Status)
 
@@ -437,9 +452,7 @@ func (apu *APU) Execute() (sample int16, haveSample bool) {
 		apu.Noise.ClockDivider()
 	}
 
-	if apu.control(EnableDMC) {
-
-	}
+	apu.DMC.ClockDivider()
 
 	apu.ExecuteFrameCounter()
 
@@ -916,12 +929,79 @@ func (noise *Noise) Sample() (sample int16) {
 }
 
 type DMC struct {
+	Muted     bool `json:"-"`
+	Enabled   bool
 	Registers [4]uint8
+
+	Interrupt func(state bool) `json:"-"`
+
+	Memory        m65go2.Memory `json:"-"`
+	Address       uint16
+	LengthCounter uint16
+	Buffer        uint8
+	BufferEmpty   bool
+
+	Silence       bool
+	Divider       Divider
+	BitsRemaining uint8
+	Shift         uint8
+
+	Output    uint8
+	PeriodLUT [16]int16 `json:"-"`
+}
+
+func (dmc *DMC) Reset() {
+	dmc.Enabled = false
+
+	for i := range dmc.Registers {
+		dmc.Registers[i] = 0x00
+	}
+
+	dmc.Address = 0
+	dmc.LengthCounter = 0
+	dmc.Buffer = 0
+	dmc.BufferEmpty = true
+	dmc.Divider.Period = 1
+	dmc.Divider.Reset()
+	dmc.Silence = true
+	dmc.BitsRemaining = 8
+	dmc.Shift = 0
+	dmc.Output = 0
+}
+
+func (dmc *DMC) SetEnabled(enabled bool) {
+	dmc.registers(IRQEnable, 0)
+
+	if dmc.Enabled = enabled; enabled {
+		if dmc.LengthCounter == 0 {
+			dmc.Restart()
+		}
+	} else {
+		dmc.LengthCounter = 0
+	}
+}
+
+func (dmc *DMC) Restart() {
+	dmc.Address = dmc.SampleAddress()
+	dmc.LengthCounter = dmc.SampleLength()
 }
 
 func (dmc *DMC) Store(index uint16, value uint8) (oldValue uint8) {
 	oldValue = dmc.Registers[index]
 	dmc.Registers[index] = value
+
+	switch index {
+	// $4010
+	case 0:
+		if dmc.registers(IRQEnable) == 0 {
+			dmc.Interrupt(false)
+		}
+
+		dmc.Divider.Period = dmc.PeriodLUT[dmc.registers(Frequency)]
+	// $4011
+	case 1:
+		dmc.Output = dmc.registers(LoadCounter)
+	}
 
 	return
 }
@@ -964,8 +1044,67 @@ func (dmc *DMC) registers(flag DMCFlag, state ...uint8) (value uint8) {
 	return
 }
 
-func (dmc *DMC) Sample() (sample int16) {
+func (dmc *DMC) SampleAddress() uint16 {
+	return 0xc000 | (uint16(dmc.registers(SampleAddress)) << 6)
+}
+
+func (dmc *DMC) SampleLength() uint16 {
+	return 0x0001 | (uint16(dmc.registers(SampleLength)) << 4)
+}
+
+func (dmc *DMC) ClockDivider() (stallCycles uint16) {
+	if dmc.Divider.Clock() {
+		if !dmc.Silence {
+			if (dmc.Shift & 0x01) == 1 {
+				if dmc.Output <= 0x7d {
+					dmc.Output += 2
+				}
+			} else {
+				if dmc.Output >= 0x02 {
+					dmc.Output -= 2
+				}
+			}
+
+			dmc.Shift >>= 1
+		}
+
+		dmc.BitsRemaining--
+		if dmc.BitsRemaining == 0 {
+			dmc.BitsRemaining = 8
+			if !dmc.BufferEmpty {
+				dmc.Silence = true
+			} else {
+				dmc.Shift = dmc.Buffer
+				dmc.Silence = false
+				dmc.Buffer = 0
+				dmc.BufferEmpty = true
+			}
+		}
+	}
+
+	if dmc.BufferEmpty && dmc.LengthCounter == 0 {
+		stallCycles += 4
+		dmc.Buffer = dmc.Memory.Fetch(dmc.Address)
+		dmc.BufferEmpty = false
+		dmc.Address++
+		if dmc.Address == 0x0000 {
+			dmc.Address = 0x8000
+		}
+		dmc.LengthCounter--
+		if dmc.LengthCounter == 0 {
+			if dmc.registers(Loop) != 0 {
+				dmc.Restart()
+			} else if dmc.registers(IRQEnable) != 0 {
+				dmc.Interrupt(true)
+			}
+		}
+	}
+
 	return
+}
+
+func (dmc *DMC) Sample() (sample int16) {
+	return int16(dmc.Output)
 }
 
 type FrameCounter struct {

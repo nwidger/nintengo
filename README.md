@@ -107,6 +107,7 @@ keypad 1 - toggle mute pulse 1 channel
 keypad 2 - toggle mute pulse 2 channel
 keypad 3 - toggle mute triangle channel
 keypad 4 - toggle mute noise channel
+keypad 5 - toggle mute DMC channel
 
 l - Save pattern tables to left/right.jpg
 
@@ -127,8 +128,8 @@ keypad + (plus) - Stop audio recording
 
 ## Support
 
-Audio support is currently a work in progress.  All audio channels
-except the DMC channel are working in some capacity.
+Audio support is currently a work in progress.  All audio channels are
+working in some capacity.
 
 Battery backed saves is implemented and are saved to disk with a
 `.sav` file extension.

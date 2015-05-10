@@ -8,7 +8,7 @@ import (
 	"github.com/gopherjs/gopherjs/js"
 )
 
-var JSPalette []uint32 = []uint32{
+var JSPalette []uint = []uint{
 	0xff666666, 0xff882a00, 0xffa71214, 0xffa4003b, 0xff7e005c,
 	0xff40006e, 0xff00066c, 0xff001d56, 0xff003533, 0xff00480b,
 	0xff005200, 0xff084f00, 0xff4d4000, 0xff000000, 0xff000000,
@@ -123,6 +123,8 @@ func (video *JSVideo) handleKey(code int, down bool) {
 			event = &MuteTriangleEvent{}
 		case 100: // NP-4
 			event = &MuteNoiseEvent{}
+		case 101: // NP-5
+			event = &MuteDMCEvent{}
 		}
 	}
 
@@ -175,21 +177,19 @@ func (video *JSVideo) Run() {
 		img.Get("data").SetIndex(i, 0xff)
 	}
 
-	prev := make([]uint8, imgWidth*imgHeight)
 	data := img.Get("data")
 
-	buf := js.Global.Get("ArrayBuffer").New(data.Length())
-	buf8 := js.Global.Get("Uint8ClampedArray").New(buf)
-	buf32 := js.Global.Get("Uint32Array").New(buf)
+	arrBuf := js.Global.Get("ArrayBuffer").New(data.Length())
+	buf8 := js.Global.Get("Uint8ClampedArray").New(arrBuf)
+	buf32 := js.Global.Get("Uint32Array").New(arrBuf)
+
+	buf := buf32.Interface().([]uint)
 
 	for {
 		colors := <-video.input
 
 		for i, c := range colors {
-			if c != prev[i] {
-				buf32.SetIndex(i, JSPalette[c])
-				prev[i] = c
-			}
+			buf[i] = JSPalette[c]
 		}
 
 		data.Call("set", buf8)

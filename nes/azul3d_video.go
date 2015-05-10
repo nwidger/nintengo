@@ -252,6 +252,9 @@ func (video *Azul3DVideo) handleInput(ev keyboard.StateEvent, w *window.Window) 
 			event = &MuteTriangleEvent{}
 		case keyboard.NumFour:
 			event = &MuteNoiseEvent{}
+		case keyboard.NumFive:
+			event = &MuteDMCEvent{}
+
 		}
 	}
 

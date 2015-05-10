@@ -389,6 +389,21 @@ func (e *MuteEvent) Flag() uint {
 	return EvMaster | EvSlave
 }
 
+type MuteDMCEvent struct{}
+
+func (e *MuteDMCEvent) String() string {
+	return "MuteDMCEvent"
+}
+
+func (e *MuteDMCEvent) Process(nes *NES) {
+	nes.CPU.APU.DMC.Muted = !nes.CPU.APU.DMC.Muted
+	fmt.Println("*** Toggling mute DMC =", nes.CPU.APU.DMC.Muted)
+}
+
+func (e *MuteDMCEvent) Flag() uint {
+	return EvMaster | EvSlave
+}
+
 type MuteNoiseEvent struct{}
 
 func (e *MuteNoiseEvent) String() string {

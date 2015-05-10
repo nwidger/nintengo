@@ -30,7 +30,7 @@ func NewRP2A03(apuFrequency int) *RP2A03 {
 
 	cpu := m65go2.NewM6502(mem)
 	cpu.DisableDecimalMode()
-	apu := NewAPU(uint64(1789773/apuFrequency), cpu.InterruptLine(m65go2.Irq))
+	apu := NewAPU(mem, uint64(1789773/apuFrequency), cpu.InterruptLine(m65go2.Irq))
 
 	// APU memory maps
 	mem.AddMappings(apu, CPU)

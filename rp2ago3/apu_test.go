@@ -5,7 +5,7 @@ import "testing"
 var apu *APU
 
 func Setup() {
-	apu = NewAPU(0, nil)
+	apu = NewAPU(&MappedMemory{}, 0, nil)
 	apu.Reset()
 }
 
@@ -327,10 +327,10 @@ func TestControl(t *testing.T) {
 	address := uint16(0x4015)
 
 	apu.Registers.Control = 0x00
-	apu.Store(address, 0xff)
+	apu.Store(address, 0xef)
 
-	if apu.Registers.Control != 0xff {
-		t.Error("Register is not 0xff")
+	if apu.Registers.Control != 0xef {
+		t.Error("Register is not 0xef")
 	}
 
 	apu.Registers.Control = 0x00
@@ -339,7 +339,7 @@ func TestControl(t *testing.T) {
 	value := apu.Fetch(address)
 
 	if value != 0x00 {
-		t.Error("Value is not 0x00")
+		t.Errorf("Value is %02x not 0x00", value)
 	}
 
 	pts := []ControlTest{}
