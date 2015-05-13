@@ -170,8 +170,7 @@ func NewAPU(mem m65go2.Memory, targetCycles uint64, interrupt func(bool)) *APU {
 		},
 		Triangle: Triangle{
 			Divider: Divider{
-				PlusOne:  true,
-				TimesTwo: true,
+				PlusOne: true,
 			},
 			Sequencer: Sequencer{
 				Values: []uint8{
@@ -431,7 +430,7 @@ func (apu *APU) ExecuteFrameCounter() {
 		if step == apu.FrameCounter.register(Mode) {
 			// set frame interrupt flag if interrupt inhibit is clear
 			if step == 4 && apu.FrameCounter.register(IRQInhibit) == 0 {
-				apu.status(FrameInterrupt, true)
+				apu.Interrupt(true)
 			}
 
 			apu.FrameCounter.Reset()
@@ -773,10 +772,7 @@ func (triangle *Triangle) ClockDivider() {
 }
 
 func (triangle *Triangle) ClockLinearCounter() {
-	if triangle.Enabled && triangle.registers(LengthCounterHaltLinearCounterControl) != 0 {
-		triangle.LinearCounter.Clock()
-	}
-
+	triangle.LinearCounter.Clock()
 	return
 }
 
