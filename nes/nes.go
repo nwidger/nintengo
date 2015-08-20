@@ -600,6 +600,10 @@ func (nes *NES) sample(sample int16) {
 	e.Process(nes)
 }
 
+func init() {
+	runtime.LockOSThread()
+}
+
 func (nes *NES) Run() (err error) {
 	fmt.Println(nes.ROM)
 
@@ -634,7 +638,6 @@ func (nes *NES) Run() (err error) {
 		go nes.bridge.runAsSlave()
 	}
 
-	runtime.LockOSThread()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	if nes.options.CPUProfile != "" {
