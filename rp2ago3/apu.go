@@ -773,16 +773,13 @@ func (triangle *Triangle) ClockDivider() {
 
 func (triangle *Triangle) ClockLinearCounter() {
 	triangle.LinearCounter.Clock()
-	return
 }
 
 func (triangle *Triangle) ClockLengthCounter() {
-	if triangle.Enabled && triangle.registers(LengthCounterHaltLinearCounterControl) != 0 &&
+	if triangle.registers(LengthCounterHaltLinearCounterControl) != 0 &&
 		triangle.LengthCounter > 0 {
 		triangle.LengthCounter--
 	}
-
-	return
 }
 
 func (triangle *Triangle) ClockSequencer() {

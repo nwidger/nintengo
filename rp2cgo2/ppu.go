@@ -646,7 +646,7 @@ func (ppu *RP2C02) fetchBackground() {
 
 			td := &ppu.TileData[i]
 
-			td.Pixel = ppu.Memory.Fetch(0x3f00 | bgAttribute | bgIndex)
+			td.Pixel = ppu.Palette[0x3f1f&(bgAttribute|bgIndex)]
 			td.Index = uint8(bgIndex)
 
 			ppu.TilesLow <<= 1

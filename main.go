@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/signal"
 
 	"flag"
 
@@ -41,6 +42,7 @@ func main() {
 	flag.StringVar(&options.AudioRecorder, "audio-recorder", "", "recorder to use: none | wav")
 	flag.StringVar(&options.CPUProfile, "cpu-profile", "", "write CPU profile to file")
 	flag.StringVar(&options.MemProfile, "mem-profile", "", "write memory profile to file")
+	flag.StringVar(&options.TraceProfile, "trace-profile", "", "write trace profile to file")
 	flag.StringVar(&options.HTTPAddress, "http", "", "HTTP service address (e.g., ':6060')")
 	flag.StringVar(&options.Listen, "listen", "", "Listen at address as master (e.g., ':8080')")
 	flag.StringVar(&options.Connect, "connect", "", "Connect to address as slave, <rom-file> will be ignored (e.g., 'localhost:8080')")
@@ -80,8 +82,26 @@ func main() {
 		go neserv.Run()
 	}
 
-	err = nes.Run()
+	done := make(chan error, 1)
 
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	go func() {
+		<-c
+		done <- nil
+	}()
+
+	go func() {
+		err = nes.Run()
+		if err != nil {
+			done <- err
+		}
+
+		done <- nil
+	}()
+
+	err = <-done
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 	}
