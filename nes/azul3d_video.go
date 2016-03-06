@@ -298,7 +298,7 @@ func (video *Azul3DVideo) Run() {
 	running := true
 
 	gfxLoop := func(w window.Window, d gfx.Device) {
-		d.Clock().SetMaxFameRate(video.fps)
+		d.Clock().SetMaxFrameRate(video.fps)
 
 		// Create a simple shader.
 		shader := gfx.NewShader("SimpleShader")
