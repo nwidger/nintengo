@@ -9,7 +9,7 @@ import (
 	"time"
 	"unsafe"
 
-	"azul3d.org/native/al.v1-unstable"
+	"azul3d.org/engine/native/al"
 )
 
 type Azul3DAudio struct {
