@@ -404,9 +404,7 @@ func (video *Azul3DVideo) Run() {
 			<-onLoad
 
 			// Swap the texture with the old one on the card.
-			card.Lock()
 			card.Textures[0] = tex
-			card.Unlock()
 		}
 
 		updateTex()
