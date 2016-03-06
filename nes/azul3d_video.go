@@ -297,8 +297,8 @@ func (video *Azul3DVideo) Run() {
 	colors := []uint8{}
 	running := true
 
-	gfxLoop := func(w window.Window, r gfx.Renderer) {
-		r.Clock().SetMaxFrameRate(video.fps)
+	gfxLoop := func(w window.Window, d gfx.Device) {
+		d.Clock().SetMaxFameRate(video.fps)
 
 		// Create a simple shader.
 		shader := gfx.NewShader("SimpleShader")
@@ -310,7 +310,7 @@ func (video *Azul3DVideo) Run() {
 		camera := gfx.NewCamera()
 		camNear := 0.01
 		camFar := 1000.0
-		camera.SetOrtho(r.Bounds(), camNear, camFar)
+		camera.SetOrtho(d.Bounds(), camNear, camFar)
 
 		// Move the camera back two units away from the card.
 		camera.SetPos(lmath.Vec3{0, -2, 0})
@@ -401,7 +401,7 @@ func (video *Azul3DVideo) Run() {
 			tex.MagFilter = gfx.Nearest
 
 			onLoad := make(chan *gfx.Texture, 1)
-			r.LoadTexture(tex, onLoad)
+			d.LoadTexture(tex, onLoad)
 			<-onLoad
 
 			// Swap the texture with the old one on the card.
@@ -451,7 +451,7 @@ func (video *Azul3DVideo) Run() {
 
 		for running {
 			// Center the card in the window.
-			b := r.Bounds()
+			b := d.Bounds()
 			camera.SetOrtho(b, camNear, camFar)
 			card.SetPos(lmath.Vec3{float64(b.Dx()) / 2.0, 0, float64(b.Dy()) / 2.0})
 
@@ -466,14 +466,14 @@ func (video *Azul3DVideo) Run() {
 			card.SetScale(lmath.Vec3{s, s, s})
 
 			// clear the entire area (empty rectangle means "the whole area").
-			r.Clear(image.Rect(0, 0, 0, 0), gfx.Color{0, 0, 0, 1})
-			r.ClearDepth(image.Rect(0, 0, 0, 0), 1.0)
+			d.Clear(image.Rect(0, 0, 0, 0), gfx.Color{0, 0, 0, 1})
+			d.ClearDepth(image.Rect(0, 0, 0, 0), 1.0)
 
 			// Draw the card to the screen.
-			r.Draw(image.Rect(0, 0, 0, 0), card, camera)
+			d.Draw(image.Rect(0, 0, 0, 0), card, camera)
 
 			// Render the whole frame.
-			r.Render()
+			d.Render()
 		}
 
 		w.Close()
