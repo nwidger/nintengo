@@ -585,8 +585,16 @@ func (nes *NES) frame(colors []uint8) {
 		}
 	}
 
+	// Once the event has been sent, the caller may reuse colors slice so we must
+	// make a copy of it to avoid a data race with whoever handles the FrameEvent.
+	//
+	// TODO: optimize this by using some sort of reclaiming system (sync.Pool
+	// maybe).
+	colorsCpy := make([]uint8, len(colors))
+	copy(colorsCpy, colors)
+
 	e := &FrameEvent{
-		Colors: colors,
+		Colors: colorsCpy,
 	}
 
 	e.Process(nes)
