@@ -7,10 +7,10 @@ import (
 	"image/color"
 	"math"
 
-	"azul3d.org/gfx.v1"
-	"azul3d.org/gfx/window.v2"
-	"azul3d.org/keyboard.v1"
-	"azul3d.org/lmath.v1"
+	"azul3d.org/engine/gfx"
+	"azul3d.org/engine/gfx/window"
+	"azul3d.org/engine/keyboard"
+	"azul3d.org/engine/lmath"
 )
 
 var Azul3DPalette []color.RGBA = []color.RGBA{
