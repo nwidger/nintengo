@@ -356,6 +356,7 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 	// Create a card object.
 	card := gfx.NewObject()
 
+	card.State = gfx.NewState()
 	card.Shader = shader
 	card.Textures = []*gfx.Texture{nil, palette}
 	card.Meshes = []*gfx.Mesh{cardMesh}
@@ -463,11 +464,11 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 		card.SetScale(lmath.Vec3{s, s, s})
 
 		// clear the entire area (empty rectangle means "the whole area").
-		d.Clear(image.Rect(0, 0, 0, 0), gfx.Color{0, 0, 0, 1})
-		d.ClearDepth(image.Rect(0, 0, 0, 0), 1.0)
+		d.Clear(d.Bounds(), gfx.Color{0, 0, 0, 1})
+		d.ClearDepth(d.Bounds(), 1.0)
 
 		// Draw the card to the screen.
-		d.Draw(image.Rect(0, 0, 0, 0), card, cam)
+		d.Draw(d.Bounds(), card, cam)
 
 		// Render the whole frame.
 		d.Render()
