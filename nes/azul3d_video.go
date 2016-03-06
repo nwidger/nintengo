@@ -408,16 +408,16 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 
 	updateTex()
 
+	// Create an event mask for the events we are interested in.
+	evMask := window.KeyboardButtonEvents
+
+	// Create a channel of events.
+	events := make(chan window.Event, 256)
+
+	// Have the window notify our channel whenever events occur.
+	w.Notify(events, evMask)
+
 	go func() {
-		// Create an event mask for the events we are interested in.
-		evMask := window.KeyboardButtonEvents
-
-		// Create a channel of events.
-		events := make(chan window.Event, 256)
-
-		// Have the window notify our channel whenever events occur.
-		w.Notify(events, evMask)
-
 		for running {
 			select {
 			case colors = <-video.input:
@@ -435,17 +435,18 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 
 				// Update the texture using the most recent frame.
 				updateTex()
-
-			case e := <-events:
-				switch ev := e.(type) {
-				case keyboard.ButtonEvent:
-					running = video.handleInput(ev, &w)
-				}
 			}
 		}
 	}()
 
 	for running {
+		window.Poll(events, func(e window.Event) {
+			switch ev := e.(type) {
+			case keyboard.ButtonEvent:
+				running = video.handleInput(ev, &w)
+			}
+		})
+
 		// Center the card in the window.
 		b := d.Bounds()
 		cam.Update(b)
