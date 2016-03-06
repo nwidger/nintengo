@@ -413,7 +413,7 @@ func (video *Azul3DVideo) Run() {
 
 		go func() {
 			// Create an event mask for the events we are interested in.
-			evMask := window.KeyboardStateEvents
+			evMask := window.KeyboardButtonEvents
 
 			// Create a channel of events.
 			events := make(chan window.Event, 256)
