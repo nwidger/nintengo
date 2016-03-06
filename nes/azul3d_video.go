@@ -178,7 +178,7 @@ void main() {
 }
 `)
 
-func (video *Azul3DVideo) handleInput(ev keyboard.StateEvent, w *window.Window) (running bool) {
+func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window) (running bool) {
 	var event Event
 
 	setSize := func(width, height int) {
@@ -442,7 +442,7 @@ func (video *Azul3DVideo) Run() {
 
 				case e := <-events:
 					switch ev := e.(type) {
-					case keyboard.StateEvent:
+					case keyboard.ButtonEvent:
 						running = video.handleInput(ev, &w)
 					}
 				}
