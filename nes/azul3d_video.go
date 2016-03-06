@@ -302,9 +302,10 @@ func (video *Azul3DVideo) Run() {
 
 		// Create a simple shader.
 		shader := gfx.NewShader("SimpleShader")
-
-		shader.GLSLVert = glslVert
-		shader.GLSLFrag = glslFrag
+		shader.GLSL = &gfx.GLSLSources{
+			Vertex:   glslVert,
+			Fragment: glslFrag,
+		}
 
 		// Setup a camera using an orthographic projection.
 		camera := gfx.NewCamera()
