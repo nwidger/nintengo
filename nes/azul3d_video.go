@@ -308,13 +308,13 @@ func (video *Azul3DVideo) Run() {
 		}
 
 		// Setup a camera using an orthographic projection.
-		camera := gfx.NewCamera()
+		cam := gfx.NewCamera()
 		camNear := 0.01
 		camFar := 1000.0
-		camera.SetOrtho(d.Bounds(), camNear, camFar)
+		cam.SetOrtho(d.Bounds(), camNear, camFar)
 
 		// Move the camera back two units away from the card.
-		camera.SetPos(lmath.Vec3{0, -2, 0})
+		cam.SetPos(lmath.Vec3{0, -2, 0})
 
 		// Create a card mesh.
 		cardMesh := gfx.NewMesh()
@@ -453,7 +453,7 @@ func (video *Azul3DVideo) Run() {
 		for running {
 			// Center the card in the window.
 			b := d.Bounds()
-			camera.SetOrtho(b, camNear, camFar)
+			cam.SetOrtho(b, camNear, camFar)
 			card.SetPos(lmath.Vec3{float64(b.Dx()) / 2.0, 0, float64(b.Dy()) / 2.0})
 
 			// Scale the card to fit the window, we divide by two because the
@@ -471,7 +471,7 @@ func (video *Azul3DVideo) Run() {
 			d.ClearDepth(image.Rect(0, 0, 0, 0), 1.0)
 
 			// Draw the card to the screen.
-			d.Draw(image.Rect(0, 0, 0, 0), card, camera)
+			d.Draw(image.Rect(0, 0, 0, 0), card, cam)
 
 			// Render the whole frame.
 			d.Render()
