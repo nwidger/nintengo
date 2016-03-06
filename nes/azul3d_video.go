@@ -8,6 +8,7 @@ import (
 	"math"
 
 	"azul3d.org/engine/gfx"
+	"azul3d.org/engine/gfx/camera"
 	"azul3d.org/engine/gfx/window"
 	"azul3d.org/engine/keyboard"
 	"azul3d.org/engine/lmath"
@@ -308,10 +309,7 @@ func (video *Azul3DVideo) Run() {
 		}
 
 		// Setup a camera using an orthographic projection.
-		cam := gfx.NewCamera()
-		camNear := 0.01
-		camFar := 1000.0
-		cam.SetOrtho(d.Bounds(), camNear, camFar)
+		cam := camera.NewOrtho(d.Bounds())
 
 		// Move the camera back two units away from the card.
 		cam.SetPos(lmath.Vec3{0, -2, 0})
@@ -453,7 +451,7 @@ func (video *Azul3DVideo) Run() {
 		for running {
 			// Center the card in the window.
 			b := d.Bounds()
-			cam.SetOrtho(b, camNear, camFar)
+			cam.Update(b)
 			card.SetPos(lmath.Vec3{float64(b.Dx()) / 2.0, 0, float64(b.Dy()) / 2.0})
 
 			// Scale the card to fit the window, we divide by two because the
