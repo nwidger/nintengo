@@ -6,11 +6,13 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"sync"
 
-	"azul3d.org/gfx.v1"
-	"azul3d.org/gfx/window.v2"
-	"azul3d.org/keyboard.v1"
-	"azul3d.org/lmath.v1"
+	"azul3d.org/engine/gfx"
+	"azul3d.org/engine/gfx/camera"
+	"azul3d.org/engine/gfx/window"
+	"azul3d.org/engine/keyboard"
+	"azul3d.org/engine/lmath"
 )
 
 var Azul3DPalette []color.RGBA = []color.RGBA{
@@ -178,7 +180,7 @@ void main() {
 }
 `)
 
-func (video *Azul3DVideo) handleInput(ev keyboard.StateEvent, w *window.Window) (running bool) {
+func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window) (running bool) {
 	var event Event
 
 	setSize := func(width, height int) {
@@ -293,198 +295,198 @@ func (video *Azul3DVideo) handleInput(ev keyboard.StateEvent, w *window.Window) 
 	return
 }
 
-func (video *Azul3DVideo) Run() {
+func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 	colors := []uint8{}
 	running := true
 
-	gfxLoop := func(w window.Window, r gfx.Renderer) {
-		r.Clock().SetMaxFrameRate(video.fps)
+	d.Clock().SetMaxFrameRate(video.fps)
 
-		// Create a simple shader.
-		shader := gfx.NewShader("SimpleShader")
-
-		shader.GLSLVert = glslVert
-		shader.GLSLFrag = glslFrag
-
-		// Setup a camera using an orthographic projection.
-		camera := gfx.NewCamera()
-		camNear := 0.01
-		camFar := 1000.0
-		camera.SetOrtho(r.Bounds(), camNear, camFar)
-
-		// Move the camera back two units away from the card.
-		camera.SetPos(lmath.Vec3{0, -2, 0})
-
-		// Create a card mesh.
-		cardMesh := gfx.NewMesh()
-
-		cardMesh.Vertices = []gfx.Vec3{
-			// Left triangle.
-			{-1, 0, 1},  // Left-Top
-			{-1, 0, -1}, // Left-Bottom
-			{1, 0, -1},  // Right-Bottom
-
-			// Right triangle.
-			{-1, 0, 1}, // Left-Top
-			{1, 0, -1}, // Right-Bottom
-			{1, 0, 1},  // Right-Top
-		}
-
-		cardMesh.TexCoords = []gfx.TexCoordSet{
-			{
-				Slice: []gfx.TexCoord{
-					// Left triangle.
-					{0, 0},
-					{0, 1},
-					{1, 1},
-
-					// Right triangle.
-					{0, 0},
-					{1, 1},
-					{1, 0},
-				},
-			},
-		}
-
-		palette := gfx.NewTexture()
-		palette.MinFilter = gfx.Nearest
-		palette.MagFilter = gfx.Nearest
-		paletteSrc := image.NewRGBA(image.Rect(0, 0, 64, 2))
-		for x, c := range Azul3DPalette {
-			paletteSrc.SetRGBA(x, 0, c)
-		}
-		palette.Source = paletteSrc
-
-		// Create a card object.
-		card := gfx.NewObject()
-
-		card.Shader = shader
-		card.Textures = []*gfx.Texture{nil, palette}
-		card.Meshes = []*gfx.Mesh{cardMesh}
-
-		img := image.NewRGBA(image.Rect(0, 0, 256, 256))
-
-		updateTex := func() {
-			for i, c := range colors {
-				img.Pix[i<<2] = c
-			}
-
-			var cropPx float32 = 0.0
-
-			if video.overscan {
-				cropPx = 8.0
-			}
-
-			var btmPx float32 = (16.0 - cropPx) / 256.0
-
-			nx := 1.0 / float32(img.Bounds().Dx())
-			ny := 1.0 / float32(img.Bounds().Dy())
-
-			scale := gfx.Vec3{
-				X: 1.0 - (nx * cropPx * 2),
-				Y: 1.0 - (ny * cropPx * 2) - btmPx,
-			}
-			shift := gfx.Vec3{
-				X: nx * cropPx,
-				Y: ny * cropPx,
-			}
-
-			shader.Inputs["scale"] = scale
-			shader.Inputs["shift"] = shift
-
-			// Create new texture and ask the renderer to load it. We don't use DXT
-			// compression because those textures cannot be downloaded.
-			tex := gfx.NewTexture()
-
-			tex.Source = img
-			tex.MinFilter = gfx.Nearest
-			tex.MagFilter = gfx.Nearest
-
-			onLoad := make(chan *gfx.Texture, 1)
-			r.LoadTexture(tex, onLoad)
-			<-onLoad
-
-			// Swap the texture with the old one on the card.
-			card.Lock()
-			card.Textures[0] = tex
-			card.Unlock()
-		}
-
-		updateTex()
-
-		go func() {
-			// Create an event mask for the events we are interested in.
-			evMask := window.KeyboardStateEvents
-
-			// Create a channel of events.
-			events := make(chan window.Event, 256)
-
-			// Have the window notify our channel whenever events occur.
-			w.Notify(events, evMask)
-
-			for running {
-				select {
-				case colors = <-video.input:
-					// We drop any pending frames and grab the most recent one. This is
-					// because frame display is tied to the runProcessors loop and can
-					// cause audio stuttering.
-				frameDrop:
-					for {
-						select {
-						case colors = <-video.input:
-						default:
-							break frameDrop
-						}
-					}
-
-					// Update the texture using the most recent frame.
-					updateTex()
-
-				case e := <-events:
-					switch ev := e.(type) {
-					case keyboard.StateEvent:
-						running = video.handleInput(ev, &w)
-					}
-				}
-			}
-		}()
-
-		for running {
-			// Center the card in the window.
-			b := r.Bounds()
-			camera.SetOrtho(b, camNear, camFar)
-			card.SetPos(lmath.Vec3{float64(b.Dx()) / 2.0, 0, float64(b.Dy()) / 2.0})
-
-			// Scale the card to fit the window, we divide by two because the
-			// card is two units wide.
-			var s float64
-			if b.Dy() > b.Dx() {
-				s = float64(b.Dx()) / 2.0
-			} else {
-				s = float64(b.Dy()) / 2.0
-			}
-			card.SetScale(lmath.Vec3{s, s, s})
-
-			// clear the entire area (empty rectangle means "the whole area").
-			r.Clear(image.Rect(0, 0, 0, 0), gfx.Color{0, 0, 0, 1})
-			r.ClearDepth(image.Rect(0, 0, 0, 0), 1.0)
-
-			// Draw the card to the screen.
-			r.Draw(image.Rect(0, 0, 0, 0), card, camera)
-
-			// Render the whole frame.
-			r.Render()
-		}
-
-		w.Close()
+	// Create a simple shader.
+	shader := gfx.NewShader("SimpleShader")
+	shader.GLSL = &gfx.GLSLSources{
+		Vertex:   glslVert,
+		Fragment: glslFrag,
 	}
 
+	// Setup a camera using an orthographic projection.
+	cam := camera.NewOrtho(d.Bounds())
+
+	// Move the camera back two units away from the card.
+	cam.SetPos(lmath.Vec3{0, -2, 0})
+
+	// Create a card mesh.
+	cardMesh := gfx.NewMesh()
+
+	cardMesh.Vertices = []gfx.Vec3{
+		// Left triangle.
+		{-1, 0, 1},  // Left-Top
+		{-1, 0, -1}, // Left-Bottom
+		{1, 0, -1},  // Right-Bottom
+
+		// Right triangle.
+		{-1, 0, 1}, // Left-Top
+		{1, 0, -1}, // Right-Bottom
+		{1, 0, 1},  // Right-Top
+	}
+
+	cardMesh.TexCoords = []gfx.TexCoordSet{
+		{
+			Slice: []gfx.TexCoord{
+				// Left triangle.
+				{0, 0},
+				{0, 1},
+				{1, 1},
+
+				// Right triangle.
+				{0, 0},
+				{1, 1},
+				{1, 0},
+			},
+		},
+	}
+
+	palette := gfx.NewTexture()
+	palette.MinFilter = gfx.Nearest
+	palette.MagFilter = gfx.Nearest
+	paletteSrc := image.NewRGBA(image.Rect(0, 0, 64, 2))
+	for x, c := range Azul3DPalette {
+		paletteSrc.SetRGBA(x, 0, c)
+	}
+	palette.Source = paletteSrc
+
+	// Create a card object.
+	card := gfx.NewObject()
+	card.State = gfx.NewState()
+	card.Shader = shader
+	card.Textures = []*gfx.Texture{nil, palette}
+	card.Meshes = []*gfx.Mesh{cardMesh}
+	cardLock := &sync.Mutex{}
+
+	img := image.NewRGBA(image.Rect(0, 0, 256, 256))
+
+	updateTex := func() {
+		for i, c := range colors {
+			img.Pix[i<<2] = c
+		}
+
+		var cropPx float32 = 0.0
+
+		if video.overscan {
+			cropPx = 8.0
+		}
+
+		var btmPx float32 = (16.0 - cropPx) / 256.0
+
+		nx := 1.0 / float32(img.Bounds().Dx())
+		ny := 1.0 / float32(img.Bounds().Dy())
+
+		scale := gfx.Vec3{
+			X: 1.0 - (nx * cropPx * 2),
+			Y: 1.0 - (ny * cropPx * 2) - btmPx,
+		}
+		shift := gfx.Vec3{
+			X: nx * cropPx,
+			Y: ny * cropPx,
+		}
+
+		// Create new texture and ask the renderer to load it. We don't use DXT
+		// compression because those textures cannot be downloaded.
+		tex := gfx.NewTexture()
+		tex.Source = img
+		tex.MinFilter = gfx.Nearest
+		tex.MagFilter = gfx.Nearest
+
+		onLoad := make(chan *gfx.Texture, 1)
+		d.LoadTexture(tex, onLoad)
+		<-onLoad
+
+		// Swap the texture with the old one on the card.
+		cardLock.Lock()
+		card.Textures[0] = tex
+		shader.Inputs["scale"] = scale
+		shader.Inputs["shift"] = shift
+		cardLock.Unlock()
+	}
+
+	updateTex()
+
+	// Create an event mask for the events we are interested in.
+	evMask := window.KeyboardButtonEvents
+
+	// Create a channel of events.
+	events := make(chan window.Event, 256)
+
+	// Have the window notify our channel whenever events occur.
+	w.Notify(events, evMask)
+
+	go func() {
+		for running {
+			select {
+			case colors = <-video.input:
+				// We drop any pending frames and grab the most recent one. This is
+				// because frame display is tied to the runProcessors loop and can
+				// cause audio stuttering.
+			frameDrop:
+				for {
+					select {
+					case colors = <-video.input:
+					default:
+						break frameDrop
+					}
+				}
+
+				// Update the texture using the most recent frame.
+				updateTex()
+			}
+		}
+	}()
+
+	for running {
+		window.Poll(events, func(e window.Event) {
+			switch ev := e.(type) {
+			case keyboard.ButtonEvent:
+				running = video.handleInput(ev, &w)
+			}
+		})
+
+		// Center the card in the window.
+		b := d.Bounds()
+		cam.Update(b)
+		cardLock.Lock()
+		card.SetPos(lmath.Vec3{float64(b.Dx()) / 2.0, 0, float64(b.Dy()) / 2.0})
+
+		// Scale the card to fit the window, we divide by two because the
+		// card is two units wide.
+		var s float64
+		if b.Dy() > b.Dx() {
+			s = float64(b.Dx()) / 2.0
+		} else {
+			s = float64(b.Dy()) / 2.0
+		}
+		card.SetScale(lmath.Vec3{s, s, s})
+
+		// clear the entire area (empty rectangle means "the whole area").
+		d.Clear(d.Bounds(), gfx.Color{0, 0, 0, 1})
+		d.ClearDepth(d.Bounds(), 1.0)
+
+		// Draw the card to the screen.
+		d.Draw(d.Bounds(), card, cam)
+		cardLock.Unlock()
+
+		// Render the whole frame.
+		d.Render()
+	}
+
+	w.Close()
+}
+
+func (video *Azul3DVideo) Run() {
 	props := window.NewProps()
 
 	props.SetSize(512, 480)
 	props.SetTitle("nintengo - " + video.caption + " - {FPS}")
 
-	window.Run(gfxLoop, props)
+	window.Run(video.gfxLoop, props)
 }
 
 func (video *Azul3DVideo) SetCaption(caption string) {
