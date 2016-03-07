@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"sync"
 
 	"azul3d.org/engine/gfx"
 	"azul3d.org/engine/gfx/camera"
@@ -355,11 +356,11 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 
 	// Create a card object.
 	card := gfx.NewObject()
-
 	card.State = gfx.NewState()
 	card.Shader = shader
 	card.Textures = []*gfx.Texture{nil, palette}
 	card.Meshes = []*gfx.Mesh{cardMesh}
+	cardLock := &sync.Mutex{}
 
 	img := image.NewRGBA(image.Rect(0, 0, 256, 256))
 
@@ -388,13 +389,9 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 			Y: ny * cropPx,
 		}
 
-		shader.Inputs["scale"] = scale
-		shader.Inputs["shift"] = shift
-
 		// Create new texture and ask the renderer to load it. We don't use DXT
 		// compression because those textures cannot be downloaded.
 		tex := gfx.NewTexture()
-
 		tex.Source = img
 		tex.MinFilter = gfx.Nearest
 		tex.MagFilter = gfx.Nearest
@@ -404,7 +401,11 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 		<-onLoad
 
 		// Swap the texture with the old one on the card.
+		cardLock.Lock()
 		card.Textures[0] = tex
+		shader.Inputs["scale"] = scale
+		shader.Inputs["shift"] = shift
+		cardLock.Unlock()
 	}
 
 	updateTex()
@@ -451,6 +452,7 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 		// Center the card in the window.
 		b := d.Bounds()
 		cam.Update(b)
+		cardLock.Lock()
 		card.SetPos(lmath.Vec3{float64(b.Dx()) / 2.0, 0, float64(b.Dy()) / 2.0})
 
 		// Scale the card to fit the window, we divide by two because the
@@ -469,6 +471,7 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 
 		// Draw the card to the screen.
 		d.Draw(d.Bounds(), card, cam)
+		cardLock.Unlock()
 
 		// Render the whole frame.
 		d.Render()
