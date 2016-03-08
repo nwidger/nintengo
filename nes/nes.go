@@ -13,7 +13,6 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
-	"runtime/trace"
 
 	"encoding/json"
 
@@ -72,7 +71,6 @@ type Options struct {
 	CPUDecode     bool
 	CPUProfile    string
 	MemProfile    string
-	TraceProfile  string
 	HTTPAddress   string
 	Listen        string
 	Connect       string
@@ -660,21 +658,6 @@ func (nes *NES) Run() (err error) {
 
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
-	}
-
-	if nes.options.TraceProfile != "" {
-		f, err := os.Create(nes.options.TraceProfile)
-
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer f.Close()
-
-		err = trace.Start(f)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer trace.Stop()
 	}
 
 	nes.video.Run()
