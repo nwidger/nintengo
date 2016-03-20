@@ -123,26 +123,6 @@ func (video *Azul3DVideo) Input() chan []uint8 {
 	return video.input
 }
 
-func (video *Azul3DVideo) frameWidth() int {
-	width := 256
-
-	if video.overscan {
-		width -= 16
-	}
-
-	return width
-}
-
-func (video *Azul3DVideo) frameHeight() int {
-	height := 240
-
-	if video.overscan {
-		height -= 16
-	}
-
-	return height
-}
-
 var glslVert = []byte(`
 #version 120
 
