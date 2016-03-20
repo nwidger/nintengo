@@ -471,10 +471,10 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 
 		// Draw the card to the screen.
 		d.Draw(d.Bounds(), card, cam)
-		cardLock.Unlock()
 
 		// Render the whole frame.
 		d.Render()
+		cardLock.Unlock()
 	}
 
 	w.Close()
