@@ -6,7 +6,6 @@ import (
 	"image"
 	"image/color"
 	"math"
-	"sync"
 
 	"azul3d.org/engine/gfx"
 	"azul3d.org/engine/gfx/camera"
@@ -360,7 +359,12 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 	card.Shader = shader
 	card.Textures = []*gfx.Texture{nil, palette}
 	card.Meshes = []*gfx.Mesh{cardMesh}
-	cardLock := &sync.Mutex{}
+
+	type textureUpdate struct {
+		t            *gfx.Texture
+		scale, shift gfx.Vec3
+	}
+	texUpdate := make(chan textureUpdate)
 
 	img := image.NewRGBA(image.Rect(0, 0, 256, 256))
 
@@ -401,14 +405,12 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 		<-onLoad
 
 		// Swap the texture with the old one on the card.
-		cardLock.Lock()
-		card.Textures[0] = tex
-		shader.Inputs["scale"] = scale
-		shader.Inputs["shift"] = shift
-		cardLock.Unlock()
+		texUpdate <- textureUpdate{
+			t:     tex,
+			scale: scale,
+			shift: shift,
+		}
 	}
-
-	updateTex()
 
 	// Create an event mask for the events we are interested in.
 	evMask := window.KeyboardButtonEvents
@@ -452,7 +454,14 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 		// Center the card in the window.
 		b := d.Bounds()
 		cam.Update(b)
-		cardLock.Lock()
+
+		select {
+		case u := <-texUpdate:
+			card.Textures[0] = u.t
+			shader.Inputs["scale"] = u.scale
+			shader.Inputs["shift"] = u.shift
+		}
+
 		card.SetPos(lmath.Vec3{float64(b.Dx()) / 2.0, 0, float64(b.Dy()) / 2.0})
 
 		// Scale the card to fit the window, we divide by two because the
@@ -474,7 +483,6 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 
 		// Render the whole frame.
 		d.Render()
-		cardLock.Unlock()
 	}
 
 	w.Close()
