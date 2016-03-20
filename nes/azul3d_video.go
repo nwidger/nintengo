@@ -275,7 +275,6 @@ func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window)
 }
 
 func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
-	colors := []uint8{}
 	running := true
 
 	d.Clock().SetMaxFrameRate(video.fps)
@@ -348,7 +347,7 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 
 	img := image.NewRGBA(image.Rect(0, 0, 256, 256))
 
-	updateTex := func() {
+	updateTex := func(colors []uint8) {
 		for i, c := range colors {
 			img.Pix[i<<2] = c
 		}
@@ -404,7 +403,7 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 	go func() {
 		for running {
 			select {
-			case colors = <-video.input:
+			case colors := <-video.input:
 				// We drop any pending frames and grab the most recent one. This is
 				// because frame display is tied to the runProcessors loop and can
 				// cause audio stuttering.
@@ -418,7 +417,7 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 				}
 
 				// Update the texture using the most recent frame.
-				updateTex()
+				updateTex(colors)
 			}
 		}
 	}()
