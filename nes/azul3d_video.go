@@ -277,8 +277,6 @@ func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window)
 func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 	running := true
 
-	d.Clock().SetMaxFrameRate(video.fps)
-
 	// Create a simple shader.
 	shader := gfx.NewShader("SimpleShader")
 	shader.GLSL = &gfx.GLSLSources{
