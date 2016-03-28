@@ -6,7 +6,6 @@ import (
 	"image"
 	"image/color"
 	"math"
-	"sync"
 
 	"azul3d.org/engine/gfx"
 	"azul3d.org/engine/gfx/camera"
@@ -124,26 +123,6 @@ func (video *Azul3DVideo) Input() chan []uint8 {
 	return video.input
 }
 
-func (video *Azul3DVideo) frameWidth() int {
-	width := 256
-
-	if video.overscan {
-		width -= 16
-	}
-
-	return width
-}
-
-func (video *Azul3DVideo) frameHeight() int {
-	height := 240
-
-	if video.overscan {
-		height -= 16
-	}
-
-	return height
-}
-
 var glslVert = []byte(`
 #version 120
 
@@ -180,7 +159,7 @@ void main() {
 }
 `)
 
-func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window) (running bool) {
+func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window, done chan bool) (running bool) {
 	var event Event
 
 	setSize := func(width, height int) {
@@ -188,8 +167,6 @@ func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window)
 		props.SetSize(width, height)
 		(*w).Request(props)
 	}
-
-	running = true
 
 	if ev.State == keyboard.Down {
 		switch ev.Key {
@@ -208,7 +185,7 @@ func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window)
 		case keyboard.P:
 			event = &PauseEvent{}
 		case keyboard.Q:
-			running = false
+			close(done)
 			event = &QuitEvent{}
 		case keyboard.L:
 			event = &SavePatternTablesEvent{}
@@ -296,10 +273,7 @@ func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window)
 }
 
 func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
-	colors := []uint8{}
-	running := true
-
-	d.Clock().SetMaxFrameRate(video.fps)
+	done := make(chan bool)
 
 	// Create a simple shader.
 	shader := gfx.NewShader("SimpleShader")
@@ -360,11 +334,16 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 	card.Shader = shader
 	card.Textures = []*gfx.Texture{nil, palette}
 	card.Meshes = []*gfx.Mesh{cardMesh}
-	cardLock := &sync.Mutex{}
+
+	type textureUpdate struct {
+		t            *gfx.Texture
+		scale, shift gfx.Vec3
+	}
+	texUpdate := make(chan textureUpdate)
 
 	img := image.NewRGBA(image.Rect(0, 0, 256, 256))
 
-	updateTex := func() {
+	updateTex := func(colors []uint8) {
 		for i, c := range colors {
 			img.Pix[i<<2] = c
 		}
@@ -398,17 +377,18 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 
 		onLoad := make(chan *gfx.Texture, 1)
 		d.LoadTexture(tex, onLoad)
-		<-onLoad
 
-		// Swap the texture with the old one on the card.
-		cardLock.Lock()
-		card.Textures[0] = tex
-		shader.Inputs["scale"] = scale
-		shader.Inputs["shift"] = shift
-		cardLock.Unlock()
+		select {
+		case <-done:
+		case <-onLoad:
+			// Swap the texture with the old one on the card.
+			texUpdate <- textureUpdate{
+				t:     tex,
+				scale: scale,
+				shift: shift,
+			}
+		}
 	}
-
-	updateTex()
 
 	// Create an event mask for the events we are interested in.
 	evMask := window.KeyboardButtonEvents
@@ -420,9 +400,11 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 	w.Notify(events, evMask)
 
 	go func() {
-		for running {
+		for {
 			select {
-			case colors = <-video.input:
+			case <-done:
+				return
+			case colors := <-video.input:
 				// We drop any pending frames and grab the most recent one. This is
 				// because frame display is tied to the runProcessors loop and can
 				// cause audio stuttering.
@@ -436,23 +418,36 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 				}
 
 				// Update the texture using the most recent frame.
-				updateTex()
+				updateTex(colors)
 			}
 		}
 	}()
 
-	for running {
-		window.Poll(events, func(e window.Event) {
-			switch ev := e.(type) {
-			case keyboard.ButtonEvent:
-				running = video.handleInput(ev, &w)
+	go func() {
+		for {
+			ev := <-events
+			if buttonEvent, ok := ev.(keyboard.ButtonEvent); ok {
+				video.handleInput(buttonEvent, &w, done)
 			}
-		})
+		}
+	}()
 
+	defer w.Close()
+
+	for {
 		// Center the card in the window.
 		b := d.Bounds()
 		cam.Update(b)
-		cardLock.Lock()
+
+		select {
+		case <-done:
+			return
+		case u := <-texUpdate:
+			card.Textures[0] = u.t
+			shader.Inputs["scale"] = u.scale
+			shader.Inputs["shift"] = u.shift
+		}
+
 		card.SetPos(lmath.Vec3{float64(b.Dx()) / 2.0, 0, float64(b.Dy()) / 2.0})
 
 		// Scale the card to fit the window, we divide by two because the
@@ -471,13 +466,10 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 
 		// Draw the card to the screen.
 		d.Draw(d.Bounds(), card, cam)
-		cardLock.Unlock()
 
 		// Render the whole frame.
 		d.Render()
 	}
-
-	w.Close()
 }
 
 func (video *Azul3DVideo) Run() {
