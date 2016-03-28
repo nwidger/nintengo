@@ -159,7 +159,7 @@ void main() {
 }
 `)
 
-func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window) (running bool) {
+func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window, done chan bool) (running bool) {
 	var event Event
 
 	setSize := func(width, height int) {
@@ -167,8 +167,6 @@ func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window)
 		props.SetSize(width, height)
 		(*w).Request(props)
 	}
-
-	running = true
 
 	if ev.State == keyboard.Down {
 		switch ev.Key {
@@ -187,7 +185,7 @@ func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window)
 		case keyboard.P:
 			event = &PauseEvent{}
 		case keyboard.Q:
-			running = false
+			close(done)
 			event = &QuitEvent{}
 		case keyboard.L:
 			event = &SavePatternTablesEvent{}
@@ -275,7 +273,7 @@ func (video *Azul3DVideo) handleInput(ev keyboard.ButtonEvent, w *window.Window)
 }
 
 func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
-	running := true
+	done := make(chan bool)
 
 	// Create a simple shader.
 	shader := gfx.NewShader("SimpleShader")
@@ -379,13 +377,16 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 
 		onLoad := make(chan *gfx.Texture, 1)
 		d.LoadTexture(tex, onLoad)
-		<-onLoad
 
-		// Swap the texture with the old one on the card.
-		texUpdate <- textureUpdate{
-			t:     tex,
-			scale: scale,
-			shift: shift,
+		select {
+		case <-done:
+		case <-onLoad:
+			// Swap the texture with the old one on the card.
+			texUpdate <- textureUpdate{
+				t:     tex,
+				scale: scale,
+				shift: shift,
+			}
 		}
 	}
 
@@ -399,8 +400,10 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 	w.Notify(events, evMask)
 
 	go func() {
-		for running {
+		for {
 			select {
+			case <-done:
+				return
 			case colors := <-video.input:
 				// We drop any pending frames and grab the most recent one. This is
 				// because frame display is tied to the runProcessors loop and can
@@ -420,11 +423,13 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 		}
 	}()
 
-	for running {
+	defer w.Close()
+
+	for {
 		window.Poll(events, func(e window.Event) {
 			switch ev := e.(type) {
 			case keyboard.ButtonEvent:
-				running = video.handleInput(ev, &w)
+				video.handleInput(ev, &w, done)
 			}
 		})
 
@@ -433,6 +438,8 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 		cam.Update(b)
 
 		select {
+		case <-done:
+			return
 		case u := <-texUpdate:
 			card.Textures[0] = u.t
 			shader.Inputs["scale"] = u.scale
@@ -461,8 +468,6 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 		// Render the whole frame.
 		d.Render()
 	}
-
-	w.Close()
 }
 
 func (video *Azul3DVideo) Run() {
