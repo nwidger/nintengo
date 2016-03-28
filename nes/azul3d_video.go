@@ -423,16 +423,18 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 		}
 	}()
 
+	go func() {
+		for {
+			ev := <-events
+			if buttonEvent, ok := ev.(keyboard.ButtonEvent); ok {
+				video.handleInput(buttonEvent, &w, done)
+			}
+		}
+	}()
+
 	defer w.Close()
 
 	for {
-		window.Poll(events, func(e window.Event) {
-			switch ev := e.(type) {
-			case keyboard.ButtonEvent:
-				video.handleInput(ev, &w, done)
-			}
-		})
-
 		// Center the card in the window.
 		b := d.Bounds()
 		cam.Update(b)
