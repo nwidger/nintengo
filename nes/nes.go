@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"sync"
 
 	"os"
 	"runtime"
@@ -62,6 +63,7 @@ type NES struct {
 	Tick          uint64
 	master        bool
 	bridge        *Bridge
+	framePool     *sync.Pool
 }
 
 type Options struct {
@@ -154,7 +156,9 @@ func NewNESFromReader(gamename string, reader io.Reader, options *Options) (nes 
 	fps := NewFPS(DefaultFPS)
 
 	events := make(chan Event)
-	video, err = NewVideo(gamename, events, DefaultFPS)
+	framePool := &sync.Pool{New: func() interface{} { return make([]uint8, rp2cgo2.FrameSize) }}
+
+	video, err = NewVideo(gamename, events, framePool, DefaultFPS)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error creating video: %v", err))
@@ -224,6 +228,7 @@ func NewNESFromReader(gamename string, reader io.Reader, options *Options) (nes 
 		Tick:          0,
 		master:        master,
 		bridge:        bridge,
+		framePool:     framePool,
 	}
 
 	bridge.nes = nes
@@ -587,10 +592,7 @@ func (nes *NES) frame(colors []uint8) {
 
 	// Once the event has been sent, the caller may reuse colors slice so we must
 	// make a copy of it to avoid a data race with whoever handles the FrameEvent.
-	//
-	// TODO: optimize this by using some sort of reclaiming system (sync.Pool
-	// maybe).
-	colorsCpy := make([]uint8, len(colors))
+	colorsCpy := nes.framePool.Get().([]uint8)
 	copy(colorsCpy, colors)
 
 	e := &FrameEvent{

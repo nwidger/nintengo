@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"sync"
 
 	"azul3d.org/engine/gfx"
 	"azul3d.org/engine/gfx/camera"
@@ -86,19 +87,21 @@ type Azul3DVideo struct {
 	width, height int
 	palette       []color.RGBA
 	events        chan Event
+	framePool     *sync.Pool
 	overscan      bool
 	caption       string
 	fps           float64
 }
 
-func NewVideo(caption string, events chan Event, fps float64) (video *Azul3DVideo, err error) {
+func NewVideo(caption string, events chan Event, framePool *sync.Pool, fps float64) (video *Azul3DVideo, err error) {
 	video = &Azul3DVideo{
-		input:    make(chan []uint8, 128),
-		events:   events,
-		palette:  Azul3DPalette,
-		overscan: true,
-		caption:  caption,
-		fps:      fps,
+		input:     make(chan []uint8, 128),
+		events:    events,
+		framePool: framePool,
+		palette:   Azul3DPalette,
+		overscan:  true,
+		caption:   caption,
+		fps:       fps,
 	}
 
 	return
@@ -347,6 +350,7 @@ func (video *Azul3DVideo) gfxLoop(w window.Window, d gfx.Device) {
 		for i, c := range colors {
 			img.Pix[i<<2] = c
 		}
+		video.framePool.Put(colors)
 
 		var cropPx float32 = 0.0
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sync"
 	"unsafe"
 
 	"github.com/go-gl/gl"
@@ -38,19 +39,21 @@ type SDLVideo struct {
 	textureUni    gl.AttribLocation
 	palette       []uint32
 	events        chan Event
+	framePool     *sync.Pool
 	overscan      bool
 	caption       string
 	fps           float64
 }
 
-func NewVideo(caption string, events chan Event, fps float64) (video *SDLVideo, err error) {
+func NewVideo(caption string, events chan Event, framePool *sync.Pool, fps float64) (video *SDLVideo, err error) {
 	video = &SDLVideo{
-		input:    make(chan []uint8),
-		events:   events,
-		palette:  SDLPalette,
-		overscan: true,
-		caption:  caption,
-		fps:      fps,
+		input:     make(chan []uint8),
+		events:    events,
+		framePool: framePool,
+		palette:   SDLPalette,
+		overscan:  true,
+		caption:   caption,
+		fps:       fps,
 	}
 
 	for i, _ := range video.palette {
@@ -409,6 +412,7 @@ func (video *SDLVideo) Run() {
 					x++
 				}
 			}
+			video.framePool.Put(colors)
 
 			gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 

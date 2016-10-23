@@ -156,6 +156,8 @@ const (
 	// PAL
 	NumScanlinesPAL      = 312
 	PreRenderScanlinePAL = 311
+
+	FrameSize = 0xf000
 )
 
 type TileData struct {
@@ -244,7 +246,7 @@ func NewRP2C02(interrupt func(bool), region string) *RP2C02 {
 	mem.AddMirrors(mirrors)
 
 	ppu := &RP2C02{
-		colors:         make([]uint8, 0xf000),
+		colors:         make([]uint8, FrameSize),
 		Memory:         mem,
 		Nametable:      nametable,
 		Interrupt:      interrupt,

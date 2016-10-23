@@ -4,6 +4,7 @@ package nes
 
 import (
 	"strconv"
+	"sync"
 
 	"github.com/gopherjs/gopherjs/js"
 )
@@ -27,18 +28,20 @@ var JSPalette []uint = []uint{
 type JSVideo struct {
 	input         chan []uint8
 	events        chan Event
+	framePool     *sync.Pool
 	canvas        *js.Object
 	width, height int
 	overscan      bool
 }
 
-func NewVideo(caption string, events chan Event, fps float64) (video *JSVideo, err error) {
+func NewVideo(caption string, events chan Event, framePool *sync.Pool, fps float64) (video *JSVideo, err error) {
 	video = &JSVideo{
-		input:    make(chan []uint8),
-		events:   events,
-		overscan: true,
-		width:    256,
-		height:   240,
+		input:     make(chan []uint8),
+		events:    events,
+		framePool: framePool,
+		overscan:  true,
+		width:     256,
+		height:    240,
 	}
 
 	video.SetCaption(caption)
@@ -191,6 +194,7 @@ func (video *JSVideo) Run() {
 		for i, c := range colors {
 			buf[i] = JSPalette[c]
 		}
+		video.framePool.Put(colors)
 
 		data.Call("set", buf8)
 		ctx.Call("putImageData", img, 0, 0)
