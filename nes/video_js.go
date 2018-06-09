@@ -3,10 +3,11 @@
 package nes
 
 import (
+	"reflect"
 	"strconv"
 	"sync"
-
-	"github.com/gopherjs/gopherjs/js"
+	"syscall/js"
+	"unsafe"
 )
 
 var JSPalette []uint = []uint{
@@ -29,7 +30,7 @@ type JSVideo struct {
 	input         chan []uint8
 	events        chan Event
 	framePool     *sync.Pool
-	canvas        *js.Object
+	canvas        js.Value
 	width, height int
 	overscan      bool
 }
@@ -58,7 +59,7 @@ func (video *JSVideo) Events() chan Event {
 }
 
 func (video *JSVideo) SetCaption(caption string) {
-	if ts := js.Global.Get("document").Call("getElementsByTagName", "title"); ts.Length() > 0 {
+	if ts := js.Global().Get("document").Call("getElementsByTagName", "title"); ts.Length() > 0 {
 		ts.Index(0).Set("innerHTML", "nintengo - "+caption)
 	}
 }
@@ -149,15 +150,25 @@ func (video *JSVideo) handleKey(code int, down bool) {
 func (video *JSVideo) Run() {
 	imgWidth, imgHeight := 256, 240
 
-	document := js.Global.Get("document")
+	document := js.Global().Get("document")
 
-	document.Set("onkeydown", func(e *js.Object) {
-		video.handleKey(e.Get("keyCode").Int(), true)
+	onkeydownCallback := js.NewCallback(func(args []js.Value) {
+		go func() {
+			e := args[0]
+			video.handleKey(e.Get("keyCode").Int(), true)
+		}()
 	})
+	defer onkeydownCallback.Release()
+	document.Set("onkeydown", onkeydownCallback)
 
-	document.Set("onkeyup", func(e *js.Object) {
-		video.handleKey(e.Get("keyCode").Int(), false)
+	onkeyupCallback := js.NewCallback(func(args []js.Value) {
+		go func() {
+			e := args[0]
+			video.handleKey(e.Get("keyCode").Int(), false)
+		}()
 	})
+	defer onkeyupCallback.Release()
+	document.Set("onkeyup", onkeyupCallback)
 
 	canvas := document.Call("createElement", "canvas")
 	canvas.Call("setAttribute", "width", strconv.Itoa(imgWidth))
@@ -182,17 +193,23 @@ func (video *JSVideo) Run() {
 
 	data := img.Get("data")
 
-	arrBuf := js.Global.Get("ArrayBuffer").New(data.Length())
-	buf8 := js.Global.Get("Uint8ClampedArray").New(arrBuf)
-	buf32 := js.Global.Get("Uint32Array").New(arrBuf)
+	buf := make([]uint8, data.Length())
 
-	buf := buf32.Interface().([]uint)
+	var buf32 []uint32
+	xh := *(*reflect.SliceHeader)(unsafe.Pointer(&buf))
+	size := int(unsafe.Sizeof(buf32[0]))
+	xh.Len /= size
+	xh.Cap /= size
+	buf32 = *(*[]uint32)(unsafe.Pointer(&xh))
+
+	buf8 := js.TypedArrayOf(buf)
+	defer buf8.Release()
 
 	for {
 		colors := <-video.input
 
 		for i, c := range colors {
-			buf[i] = JSPalette[c]
+			buf32[i] = uint32(JSPalette[c])
 		}
 		video.framePool.Put(colors)
 

@@ -24,3 +24,15 @@ _testmain.go
 # emacs temp files
 *~
 .\#*
+
+TAGS
+
+*.wasm
+
+*.out
+*.prof
+
+*.nes
+*.nst
+*.NES
+*.sav

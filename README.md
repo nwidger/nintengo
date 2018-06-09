@@ -29,29 +29,32 @@ An NES emulator written in Go
 
 2. `go get -u github.com/nwidger/nintengo`
 
-### Javascript
+### WebAssembly
 
-1. Install [GopherJS](https://github.com/gopherjs/gopherjs)
+WebAssembly support requires Go 1.11 or higher.
 
-   ```
-   go get -u github.com/gopherjs/gopherjs
-   ```
-
-2. Download nintengo
+1. Download nintengo
 
    ```
    go get -d -u github.com/nwidger/nintengo
    ```
 
-3. Build `nintengo.js`
+2. Build `wasm/nintengo.wasm`
 
    ```
    cd $GOPATH/src/github.com/nwidger/nintengo
-   gopherjs build -m
+   GOOS=js GOARCH=wasm go build -o wasm/nintengo.wasm .
    ```
 
-4. Open `index.html` in your browser.  Press the `Choose File` button
-   and select a `.nes` file to run.
+3. Start web server running on port 8000
+
+   ```
+   cd $GOPATH/src/github.com/nwidger/nintengo/wasm
+   go run serve.go -http :8000
+   ```
+
+3. Open `http://localhost:8000` in your browser.  Press the `Choose
+   File` button and select a `.nes` file to run.
 
 ## Usage
 

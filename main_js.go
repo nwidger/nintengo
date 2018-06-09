@@ -6,8 +6,8 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"syscall/js"
 
-	"github.com/gopherjs/gopherjs/js"
 	"github.com/nwidger/nintengo/nes"
 )
 
@@ -16,24 +16,37 @@ func main() {
 		Region: "NTSC",
 	}
 
-	document := js.Global.Get("document")
+	document := js.Global().Get("document")
 	inputElem := document.Call("createElement", "input")
 	inputElem.Call("setAttribute", "type", "file")
 	document.Get("body").Call("appendChild", inputElem)
 
-	filec := make(chan *js.Object, 1)
-	inputElem.Set("onchange", func(event *js.Object) {
-		filec <- inputElem.Get("files").Index(0)
+	filec := make(chan js.Value, 1)
+	onchangeCallback := js.NewCallback(func(args []js.Value) {
+		go func() {
+			filec <- inputElem.Get("files").Index(0)
+		}()
 	})
+	defer onchangeCallback.Release()
+	inputElem.Set("onchange", onchangeCallback)
 
 	file := <-filec
 	gamename := file.Get("name").String()
-	reader := js.Global.Get("FileReader").New()
+	reader := js.Global().Get("FileReader").New()
 
 	bufc := make(chan []byte, 1)
-	reader.Set("onloadend", func(event *js.Object) {
-		bufc <- js.Global.Get("Uint8Array").New(reader.Get("result")).Interface().([]byte)
+	onloadendCallback := js.NewCallback(func(args []js.Value) {
+		go func() {
+			result := js.Global().Get("Uint8Array").New(reader.Get("result"))
+			buf := make([]byte, result.Length())
+			for i := 0; i < result.Length(); i++ {
+				buf[i] = byte(result.Index(i).Int())
+			}
+			bufc <- buf
+		}()
 	})
+	defer onloadendCallback.Release()
+	reader.Set("onloadend", onloadendCallback)
 	reader.Call("readAsArrayBuffer", file)
 
 	buf := <-bufc
@@ -47,5 +60,5 @@ func main() {
 
 	inputElem.Call("remove")
 
-	go nes.Run()
+	nes.Run()
 }
