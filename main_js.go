@@ -22,10 +22,11 @@ func main() {
 	document.Get("body").Call("appendChild", inputElem)
 
 	filec := make(chan js.Value, 1)
-	onchangeCallback := js.NewCallback(func(args []js.Value) {
+	onchangeCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go func() {
 			filec <- inputElem.Get("files").Index(0)
 		}()
+		return nil
 	})
 	defer onchangeCallback.Release()
 	inputElem.Set("onchange", onchangeCallback)
@@ -35,7 +36,7 @@ func main() {
 	reader := js.Global().Get("FileReader").New()
 
 	bufc := make(chan []byte, 1)
-	onloadendCallback := js.NewCallback(func(args []js.Value) {
+	onloadendCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go func() {
 			result := js.Global().Get("Uint8Array").New(reader.Get("result"))
 			buf := make([]byte, result.Length())
@@ -44,6 +45,7 @@ func main() {
 			}
 			bufc <- buf
 		}()
+		return nil
 	})
 	defer onloadendCallback.Release()
 	reader.Set("onloadend", onloadendCallback)
