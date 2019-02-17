@@ -20,6 +20,8 @@
 	     inst = result.instance;
 	     go.run(inst)
 	     inst = WebAssembly.instantiate(mod, go.importObject); // reset instance
+	 }).catch((err) => {
+	     console.error(err);
 	 });
 	</script>
 

@@ -152,20 +152,22 @@ func (video *JSVideo) Run() {
 
 	document := js.Global().Get("document")
 
-	onkeydownCallback := js.NewCallback(func(args []js.Value) {
+	onkeydownCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go func() {
 			e := args[0]
 			video.handleKey(e.Get("keyCode").Int(), true)
 		}()
+		return nil
 	})
 	defer onkeydownCallback.Release()
 	document.Set("onkeydown", onkeydownCallback)
 
-	onkeyupCallback := js.NewCallback(func(args []js.Value) {
+	onkeyupCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go func() {
 			e := args[0]
 			video.handleKey(e.Get("keyCode").Int(), false)
 		}()
+		return nil
 	})
 	defer onkeyupCallback.Release()
 	document.Set("onkeyup", onkeyupCallback)

@@ -34,10 +34,11 @@ func (audio *JSAudio) Run() {
 	buf := js.TypedArrayOf(slice)
 	defer buf.Release()
 
-	onendedCallback := js.NewCallback(func(args []js.Value) {
+	onendedCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go func() {
 			endedChan <- true
 		}()
+		return nil
 	})
 	defer onendedCallback.Release()
 
