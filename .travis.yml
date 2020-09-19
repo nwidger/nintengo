@@ -1,16 +1,14 @@
 language: go
 
 go:
- - 1.7
+ - 1.15
+
+services:
+  - xvfb
 
 before_install:
- - sudo add-apt-repository ppa:xorg-edgers/ppa -y
  - sudo apt-get update -qq
- - sudo apt-get install -qq -y libsdl1.2-dev libsdl-image1.2-dev libsdl-gfx1.2-dev libglew1.6-dev libxrandr-dev
- - sudo apt-get install -qq -y build-essential git mesa-common-dev libx11-dev libx11-xcb-dev libxcb-icccm4-dev libxcb-image0-dev libxcb-randr0-dev libxcb-render-util0-dev libfreetype6-dev libbz2-dev libxxf86vm-dev
- - curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
- - sudo apt-get install -qq -y git-lfs=1.1.1
- - git lfs install
+ - sudo apt-get install -qq -y gcc libc6-dev libglu1-mesa-dev libgl1-mesa-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev libxxf86vm-dev libasound2-dev pkg-config
 
 install: go get -d -v ./... && go build -v ./...
 

@@ -17,9 +17,17 @@ func main() {
 	}
 
 	document := js.Global().Get("document")
+
+	canvas := document.Call("querySelector", "canvas")
+	canvas.Get("style").Set("height", "50%")
+
+	inputDiv := document.Call("createElement", "div")
+	inputDiv.Get("style").Set("text-align", "center")
+	document.Get("body").Call("appendChild", inputDiv)
+
 	inputElem := document.Call("createElement", "input")
 	inputElem.Call("setAttribute", "type", "file")
-	document.Get("body").Call("appendChild", inputElem)
+	inputDiv.Call("appendChild", inputElem)
 
 	filec := make(chan js.Value, 1)
 	onchangeCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -60,7 +68,8 @@ func main() {
 		return
 	}
 
-	inputElem.Call("remove")
+	inputDiv.Call("remove")
+	canvas.Get("style").Set("height", "100%")
 
 	nes.Run()
 }

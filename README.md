@@ -23,8 +23,8 @@ An NES emulator written in Go
 
 ### Mac OS X/Linux/Windows
 
-1. Install Azul3D by following the official
-   [installation instructions](http://azul3d.org/doc/install) for your
+1. Install Ebiten by following the official
+   [installation instructions](https://ebiten.org/documents/install) for your
    platform.
 
 2. `go get -u github.com/nwidger/nintengo`

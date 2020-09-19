@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+    <body>
+	<script src="wasm_exec.js"></script>
+	<script>
+	 if (!WebAssembly.instantiateStreaming) { // polyfill
+	     WebAssembly.instantiateStreaming = async (resp, importObject) => {
+		 const source = await (await resp).arrayBuffer();
+		 return await WebAssembly.instantiate(source, importObject);
+	     };
+	 }
+
+	 const go = new Go();
+	 let mod, inst;
+	 WebAssembly.instantiateStreaming(fetch("nintengo.wasm"), go.importObject).then((result) => {
+	     mod = result.module;
+	     inst = result.instance;
+	     go.run(inst)
+	     inst = WebAssembly.instantiate(mod, go.importObject); // reset instance
+	 }).catch((err) => {
+	     console.error(err);
+	 });
+	</script>
+    </body>
+</html>

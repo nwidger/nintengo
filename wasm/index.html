@@ -4,31 +4,10 @@
 	<title>nintengo</title>
     </head>
     <body>
-	<script src="wasm_exec.js"></script>
-	<script>
-	 if (!WebAssembly.instantiateStreaming) { // polyfill
-	     WebAssembly.instantiateStreaming = async (resp, importObject) => {
-		 const source = await (await resp).arrayBuffer();
-		 return await WebAssembly.instantiate(source, importObject);
-	     };
-	 }
-
-	 const go = new Go();
-	 let mod, inst;
-	 WebAssembly.instantiateStreaming(fetch("nintengo.wasm"), go.importObject).then((result) => {
-	     mod = result.module;
-	     inst = result.instance;
-	     go.run(inst)
-	     inst = WebAssembly.instantiate(mod, go.importObject); // reset instance
-	 }).catch((err) => {
-	     console.error(err);
-	 });
-	</script>
-
+        <iframe src="wasm.html" allow="autoplay" width="640" height="480"></iframe>
 	<pre><code style="font-size:10px;">z: A, x: B, Enter: Start, Shift: Select, Arrow keys: Up/Down/Left/Right
 	p: Pause, r: Reset, `: toggle overscan
 	9: Toggle background, 0: Toggle sprites
-	KP 0/1/2/3/4/5: toggle mute all/pulse 1/pulse 2/triangle/noise/DMC channel
-	1/2/3/4/5: 256x240/512x480/768x720/1024x960/2560x1440 screen size</code></pre>
+	KP 0/1/2/3/4/5: toggle mute all/pulse 1/pulse 2/triangle/noise/DMC channel</code></pre>
     </body>
 </html>
